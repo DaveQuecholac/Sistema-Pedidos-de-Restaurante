@@ -8,5 +8,6 @@ coverage
 .env.local
 .env.*.local
 *.log
+logs/
 .DS_Store
 apps/api/drizzle/meta
