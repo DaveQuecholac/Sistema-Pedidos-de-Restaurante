@@ -1,0 +1,25 @@
+---
+description: Stack y convenciones al tocar API Nest / dominio TypeScript
+globs: apps/api/**/*.{ts,tsx},**/domain/**/*.ts,**/application/**/*.ts,**/infrastructure/**/*.ts
+alwaysApply: false
+---
+
+# API NestJS + dominio
+
+- Stack: TypeScript, NestJS, Drizzle, Zod, PostgreSQL.
+- Zod valida en el **borde** (DTOs); no calcula totales ni aplica reglas de cocina.
+- Repositorios implementan interfaces de `application/`; el dominio no conoce Drizzle.
+- Pagos: `PaymentPort` + strategies simuladas (efectivo, tarjeta, pasarela fake).
+- Preferir tests de dominio/casos de uso sin UI ni BD real cuando sea posible (repo en memoria).
+- REST en controllers Nest; no añadir tRPC/GraphQL sin acuerdo.
+
+```typescript
+// ❌ Dominio acoplado a Nest
+@Injectable()
+class Orden { constructor(private db: DrizzleService) {} }
+
+// ✅ Caso de uso depende del puerto
+class CerrarOrden {
+  constructor(private ordenes: OrdenRepository, private pagos: PaymentPort) {}
+}
+```

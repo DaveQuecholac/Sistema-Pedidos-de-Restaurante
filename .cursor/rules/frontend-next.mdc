@@ -1,0 +1,21 @@
+---
+description: Frontend Next/React como adaptador — sin lógica de negocio
+globs: apps/web/**/*.{ts,tsx,js,jsx},**/app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend Next.js + React
+
+- La UI es un **adaptador de entrada**: muestra estado y llama a la API.
+- No calcular totales, impuestos, descuentos ni validar reglas de cocina en el cliente como fuente de verdad.
+- No persistir reglas de venta en componentes; el servidor/dominio decide.
+- Pantallas MVP esperadas: menú, comanda/orden, cobro.
+- Mantener UI simple; no meter design systems pesados sin acuerdo.
+
+```tsx
+// ❌ Calcular total de negocio en el cliente como verdad
+const total = lineas.reduce((a, l) => a + l.precio * 1.16, 0);
+
+// ✅ Mostrar total que devolvió la API / caso de uso
+const total = orden.totales.total;
+```

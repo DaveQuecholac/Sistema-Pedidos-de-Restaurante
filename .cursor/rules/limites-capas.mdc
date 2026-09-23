@@ -1,0 +1,27 @@
+---
+description: Límites de capa Hexagonal y vocabulario de producto en la API
+alwaysApply: true
+---
+
+# Límites de capa y API de producto
+
+## Dependencias (stop-the-line)
+
+| Desde → Hacia | ¿Permitido? |
+|---------------|-------------|
+| `domain` → Nest / Next / Drizzle / HTTP | **No** |
+| `application` → `domain` + puertos (interfaces) | **Sí** |
+| `infrastructure` → `application` / `domain` | **Sí** (implementa puertos) |
+| `interface` (HTTP) → casos de uso | **Sí** |
+| UI (Next) → dominio o Drizzle directo | **No** |
+| `infrastructure` / persistencia → React o DTOs de UI | **Nunca** |
+
+Antes de marcar un cambio hecho: no debe haber imports de UI dentro de dominio, aplicación o adaptadores de BD.
+
+## Vocabulario de producto
+
+- En REST, Zod públicos y frontend: nombres de **negocio** (`Order`, `MenuItem`, `LineItem`, `Payment`, `tableId`, `externalOrderId`).
+- No exponer nombres de tablas/columnas internas, ni jerga de ORM, en el contrato que consume la UI.
+- Mapear fila ↔ modelo de producto **solo** en `infrastructure` / mappers del servidor.
+
+Si no puedes nombrar el tipo de producto en el puerto o DTO antes de codear, **parar** y definir el contrato primero.

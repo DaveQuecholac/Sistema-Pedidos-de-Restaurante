@@ -1,0 +1,32 @@
+---
+description: Disciplina de implementación — slice mínimo, mock→real, sync docs
+alwaysApply: true
+---
+
+# Disciplina de implementación
+
+## Un slice, diff mínimo
+
+- Implementar solo lo que Hector pidió en este turno.
+- Una preocupación por cambio (dominio **o** API **o** UI), salvo que pida el flujo completo.
+- Antes de editar muchos archivos: listarlos en el chat y pedir OK si el alcance no estaba claro.
+- No “arreglar de paso” reglas, docs ajenas o refactors no pedidos.
+
+## Docs y código
+
+- Al implementar: leer primero `docs/` relevante (`propuesta-inicial`, RF, stack).
+- Si el área ya está documentada, actualizar docs **con** el código, o avisar el drift.
+- Si doc y código se contradicen: **parar**, reportar mismatch, acordar cuál manda.
+
+## Mock → real (sin arrastre)
+
+Cuando se sustituya repo en memoria, cobro fake o UI demo por ruta real:
+
+- Implementar **solo** el contrato real acordado.
+- No copiar defaults/`||` del mock “para que no se rompa”.
+- El mock puede quedar en demos paralelas; el path real no debe importarlo ni imitar sus fallbacks.
+- Campos nulos: exponer `null`; no inventar literales de relleno en el mapper real.
+
+## Evidencia antes de borrar
+
+No eliminar proxies, scripts o configs “porque sobran” sin mostrar archivo + símbolo que existen y el síntoma a corregir.

@@ -1,0 +1,13 @@
+---
+description: Convenciones al editar documentación en docs/
+globs: docs/**/*.md
+alwaysApply: false
+---
+
+# Documentación (`docs/`)
+
+- Español claro y directo.
+- Alinear cambios con `propuesta-inicial.md`, `arquitectura-hexagonal.md` y decisiones ya cerradas.
+- No referenciar proyectos externos ajenos al restaurante.
+- Si una decisión cambia, actualizar el doc de análisis correspondiente y la propuesta si aplica.
+- No duplicar párrafos largos entre archivos; enlazar por nombre de archivo.

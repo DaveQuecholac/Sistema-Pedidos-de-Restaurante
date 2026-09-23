@@ -1,0 +1,23 @@
+---
+description: Patrones de diseño permitidos y cuándo usarlos
+alwaysApply: true
+---
+
+# Patrones — set mínimo
+
+Usar solo si resuelven un RF o un puerto. No catálogo GoF por costumbre.
+
+| Patrón | Uso en este proyecto |
+|--------|----------------------|
+| Aggregate / Domain Model | `Orden` + líneas + reglas |
+| State | Ciclo de vida orden/cocina |
+| Strategy | Cobro (RF5); descuento/impuesto (RF4) |
+| Money / Value Object | Precios y totales deterministas |
+| Repository | Puertos de persistencia |
+| Adapter | HTTP, UI, BD, pagos |
+| Use Case + DI | Orquestación Nest |
+| Factory | Solo si la creación (canal/pago) lo pide |
+
+## Evitar por ahora
+
+Observer/event-bus como base, CQRS, Singleton de dominio, Abstract Factory sin necesidad.

@@ -1,0 +1,42 @@
+---
+description: HEXAGONAL OBLIGATORIO — cómo construir siempre Ports & Adapters en este repo
+alwaysApply: true
+---
+
+# Arquitectura Hexagonal — siempre
+
+Este proyecto **es** Hexagonal (Ports & Adapters). No negociable sin acuerdo explícito de Hector.
+
+**Guía canónica (leer al implementar):** `docs/arquitectura-hexagonal.md`
+
+## Leyes (stop-the-line)
+
+1. El **núcleo** (domain + application) funciona **sin** UI y **sin** BD.
+2. El núcleo **no conoce** Nest, Next, Drizzle, HTTP, SQL ni SDKs de pago.
+3. Toda dependencia externa entra por un **puerto** (interfaz en lenguaje de dominio).
+4. **Driving** (Next, REST, tests) **llaman** casos de uso. **Driven** (Drizzle, cobros) **implementan** puertos.
+5. Cableado concreto solo en **composition root** (módulos Nest / DI).
+6. Dependencias: `adapters → application → domain` (nunca al revés).
+
+## Dónde va cada cosa
+
+| Qué | Dónde |
+|-----|--------|
+| Entidades, State, Money, reglas RF3/RF4 | `domain/` |
+| Use cases + interfaces de puertos | `application/` |
+| Drizzle, pagos fake/reales | `infrastructure/` (driven) |
+| Controllers + Zod | `interface/http/` (driving) |
+| Pantallas | `apps/web` (driving; sin lógica de venta) |
+
+## Al implementar (obligatorio en chat si tocas capas)
+
+Indicar en 3–6 líneas: dominio / application (puertos+use case) / adapter touched.  
+Si no hay puerto para una tech nueva → **crear puerto primero**, luego adaptador.
+
+## Checklist rápido
+
+- [ ] ¿Testeable con fake sin Postgres/browser?  
+- [ ] ¿Sin imports de framework en domain?  
+- [ ] ¿API en vocabulario de producto?  
+
+Fallar checklist = **no mergear / no dar por hecho**. Detalle completo en `docs/arquitectura-hexagonal.md`.

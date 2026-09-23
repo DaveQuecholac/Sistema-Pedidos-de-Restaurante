@@ -1,0 +1,27 @@
+---
+description: Layout por módulo y migraciones Drizzle solo por CLI
+alwaysApply: true
+---
+
+# Layout por módulo y Drizzle
+
+## Organización (model-oriented)
+
+- Agrupar por **módulo/feature** (Menú, Órdenes, Cálculo, Pagos), no por tipo técnico global.
+- **Prohibido** como raíz transversal: `utils/`, `hooks/`, `zod/`, `helpers/` que mezclen features distintos.
+- Un archivo ≈ una preocupación dentro del dueño (un caso de uso, un mapper, un schema de entidad).
+- Si la ruta no deja claro **quién es el dueño**, rechazar el layout y colocalizar con el módulo.
+
+## Drizzle (cuando exista schema)
+
+Tras cambiar definiciones de tablas:
+
+1. Generar migración con **Drizzle Kit** (`db:generate` / equivalente del package).
+2. Aplicar con **`db:migrate`** (o el script del repo).
+3. Verificar que la columna/tabla quedó en la BD.
+
+**Prohibido:** escribir a mano `drizzle/*.sql` nuevos, editar `_journal.json` / snapshots a mano, o aplicar `ALTER` ad-hoc como sustituto de migrate.
+
+- Migraciones = **schema**, no seeds de demo/producto.
+- `NOT NULL` / FK en tablas con datos: default o backfill seguro; no romper datos existentes.
+- Scripts `ensure-*` / ops de una sola vez: fuera del código de producto (README o `scripts/dev`), no junto a casos de uso.

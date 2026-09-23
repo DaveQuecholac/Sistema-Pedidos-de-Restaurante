@@ -1,0 +1,26 @@
+---
+description: Marco del proyecto Restaurante y forma de trabajo con Hector
+alwaysApply: true
+---
+
+# Proyecto Restaurante — cómo trabajamos
+
+- Usuario: **Hector**. Preferir flujo: analizar → acordar → documentar/implementar.
+- Fuente de verdad: `docs/` (`propuesta-inicial.md`, `arquitectura-hexagonal.md`, análisis, `stack-tecnologico.md`).
+- Al escribir código: Hexagonal siempre — regla `arquitectura-hexagonal.mdc` + guía `docs/arquitectura-hexagonal.md`.
+- No inventar requisitos fuera de RF1–RF5 ni ampliar alcance sin preguntar.
+- Documentación en **español**. Código (nombres) en **inglés**; comentarios solo si aportan.
+- No contaminar docs con proyectos externos ni ejemplos ajenos al restaurante.
+- No crear markdown de docs extra salvo que Hector lo pida.
+- Commits solo si Hector lo pide explícitamente.
+- Antes de implementar grandes cambios: proponer breve plan y alinear con la propuesta.
+- Ver también: `limites-capas.mdc`, `disciplina-implementacion.mdc`, `drizzle-y-layout.mdc`.
+
+## Decisiones cerradas (no reabrir sin acuerdo)
+
+| Nivel | Decisión |
+|-------|----------|
+| Diseño | Hexagonal (núcleo estilo Clean) |
+| Sistema | Monolito modular, despliegue único |
+| Stack | TS, NestJS, PG+Drizzle, Zod, pnpm, Next/React |
+| Cobros MVP | Adaptadores **simulados** detrás de un puerto |

@@ -1,0 +1,16 @@
+{
+  "name": "restaurante",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @restaurante/api --filter @restaurante/web run dev",
+    "dev:api": "pnpm --filter @restaurante/api dev",
+    "dev:web": "pnpm --filter @restaurante/web dev",
+    "build": "pnpm -r --filter @restaurante/api --filter @restaurante/web run build",
+    "typecheck": "pnpm -r --filter @restaurante/api --filter @restaurante/web run typecheck",
+    "lint": "pnpm -r --filter @restaurante/api --filter @restaurante/web run lint"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
