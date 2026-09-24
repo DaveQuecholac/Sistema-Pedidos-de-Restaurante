@@ -1,0 +1,45 @@
+---
+description: Spec canónica Gen 1 del repo — cita docs/desarrollo/dev-spec-gen1.md; Hexagonal manda
+alwaysApply: true
+---
+
+# Dev Spec Gen 1 (Cursor)
+
+**Fuente normativa:** `docs/desarrollo/dev-spec-gen1.md`
+
+Ante ambigüedad, conflicto con hábitos de otros proyectos, o duda de layout/scripts/capas: **leer ese markdown**. No inventar otra arquitectura.
+
+## Precedencia (siempre)
+
+1. Hexagonal + reglas de **este** repo  
+2. `docs/desarrollo/dev-spec-gen1.md`  
+3. `docs/documentacion-inicial/arquitectura-hexagonal.md`  
+4. Cualquier otra rule o ejemplo externo  
+
+Si chocan → **gana lo de este repo**.
+
+## Resumen operativo
+
+- Monolito modular: `apps/api` (Nest hexagonal) + `apps/web` (Next adaptador).  
+- Capas API: `domain` → `application` (puertos) ← `infrastructure` / `interface/http`.  
+- UI no calcula totales ni reglas de cocina como verdad.  
+- API/UI: vocabulario de producto, no tablas/ORM.  
+- Drizzle: solo `generate` + `migrate`; sin SQL/journal a mano; migraciones ≠ seeds.  
+- Slice mínimo; mock→real sin arrastre; docs en subcarpetas de `docs/`.
+
+## PM2 (raíz del repo)
+
+| Humano / agente | Comando |
+|-----------------|---------|
+| Arrancar | `pnpm dev` |
+| Parar | `pnpm dev:stop` |
+| Reiniciar | `pnpm dev:restart` |
+| Estado / logs | `pnpm dev:status` / `pnpm dev:logs` |
+| Sin PM2 | `pnpm dev:plain` |
+
+- Procesos: `restaurante-api` (:3001), `restaurante-web` (:3000).  
+- Logs: `logs/pm2/`.  
+- Tras cambios en `apps/web` que el usuario deba ver: **`pnpm dev:restart`** antes del smoke (refresh solo no basta).  
+- No dejar follow de logs como modo normal de trabajo del agente.
+
+Detalle completo (mapa, leyes, stack, sprints, anti-alcance): **`docs/desarrollo/dev-spec-gen1.md`**.

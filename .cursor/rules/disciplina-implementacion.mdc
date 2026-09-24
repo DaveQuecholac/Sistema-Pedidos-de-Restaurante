@@ -14,7 +14,7 @@ alwaysApply: true
 
 ## Docs y código
 
-- Al implementar: leer primero `docs/` relevante (`propuesta-inicial`, RF, stack).
+- Al implementar: leer primero Gen 1 (`docs/desarrollo/dev-spec-gen1.md`) y el doc de producto en `docs/documentacion-inicial/` que aplique (propuesta, RF, stack, hexagonal).
 - Si el área ya está documentada, actualizar docs **con** el código, o avisar el drift.
 - Si doc y código se contradicen: **parar**, reportar mismatch, acordar cuál manda.
 

@@ -7,6 +7,7 @@ alwaysApply: false
 # Frontend Next.js + React
 
 - La UI es un **adaptador de entrada**: muestra estado y llama a la API.
+- Spec: `docs/desarrollo/dev-spec-gen1.md`.
 - No calcular totales, impuestos, descuentos ni validar reglas de cocina en el cliente como fuente de verdad.
 - No persistir reglas de venta en componentes; el servidor/dominio decide.
 - Pantallas MVP esperadas: menú, comanda/orden, cobro.

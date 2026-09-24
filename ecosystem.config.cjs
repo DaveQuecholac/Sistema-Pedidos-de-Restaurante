@@ -1,6 +1,6 @@
 /**
  * PM2: api (Nest :3001) + web (Next :3000) in watch/dev mode.
- * Root scripts: pnpm start | stop | status | logs | restart
+ * Root scripts: pnpm dev | dev:stop | dev:status | dev:logs | dev:restart
  */
 const { existsSync } = require("node:fs");
 const { resolve } = require("node:path");

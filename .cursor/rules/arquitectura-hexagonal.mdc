@@ -7,7 +7,7 @@ alwaysApply: true
 
 Este proyecto **es** Hexagonal (Ports & Adapters). No negociable sin acuerdo explícito de Hector.
 
-**Guía canónica (leer al implementar):** `docs/arquitectura-hexagonal.md`
+**Guía canónica (leer al implementar):** `docs/documentacion-inicial/arquitectura-hexagonal.md`
 
 ## Leyes (stop-the-line)
 
@@ -39,4 +39,4 @@ Si no hay puerto para una tech nueva → **crear puerto primero**, luego adaptad
 - [ ] ¿Sin imports de framework en domain?  
 - [ ] ¿API en vocabulario de producto?  
 
-Fallar checklist = **no mergear / no dar por hecho**. Detalle completo en `docs/arquitectura-hexagonal.md`.
+Fallar checklist = **no mergear / no dar por hecho**. Detalle completo en `docs/documentacion-inicial/arquitectura-hexagonal.md`.

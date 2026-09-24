@@ -6,9 +6,11 @@ alwaysApply: false
 
 # API NestJS + dominio
 
+- Spec: `docs/desarrollo/dev-spec-gen1.md`.
 - Stack: TypeScript, NestJS, Drizzle, Zod, PostgreSQL.
 - Zod valida en el **borde** (DTOs); no calcula totales ni aplica reglas de cocina.
 - Repositorios implementan interfaces de `application/`; el dominio no conoce Drizzle.
+- `process.env` solo en composition root / adaptadores de infra; domain y use cases por DI/puertos.
 - Pagos: `PaymentPort` + strategies simuladas (efectivo, tarjeta, pasarela fake).
 - Preferir tests de dominio/casos de uso sin UI ni BD real cuando sea posible (repo en memoria).
 - REST en controllers Nest; no añadir tRPC/GraphQL sin acuerdo.

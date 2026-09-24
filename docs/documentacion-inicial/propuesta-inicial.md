@@ -197,7 +197,7 @@ Los controllers Nest y las pantallas Next **solo disparan** estos casos de uso.
 
 ```text
 Restaurante/
-  docs/
+  docs/                 # por subcarpeta (ver README.md)
   apps/
     api/     # NestJS — dominio, aplicación, infraestructura, HTTP
     web/     # Next.js — UI (adaptador)

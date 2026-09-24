@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Root PM2 helper for api + web (no portless).
+ * Root: pnpm dev | dev:stop | dev:restart | dev:status | dev:logs
  * Usage: node scripts/pm2-root.mjs start|stop|restart|status|logs
  */
 import { spawnSync } from "node:child_process";
@@ -50,7 +51,7 @@ switch (command) {
     runPm2(["start", ecosystem]);
     console.log("API  http://localhost:3001");
     console.log("Web  http://localhost:3000");
-    console.log("Logs: pnpm logs | stop: pnpm stop");
+    console.log("Logs: pnpm dev:logs | stop: pnpm dev:stop");
     break;
   case "stop":
     runPm2(["stop", ...APP_NAMES]);

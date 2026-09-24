@@ -6,8 +6,9 @@ alwaysApply: true
 # Proyecto Restaurante — cómo trabajamos
 
 - Usuario: **Hector**. Preferir flujo: analizar → acordar → documentar/implementar.
-- Fuente de verdad: `docs/` (`propuesta-inicial.md`, `arquitectura-hexagonal.md`, análisis, `stack-tecnologico.md`).
-- Al escribir código: Hexagonal siempre — regla `arquitectura-hexagonal.mdc` + guía `docs/arquitectura-hexagonal.md`.
+- Spec de repo (cita única): `docs/desarrollo/dev-spec-gen1.md` (+ rule `dev-spec-gen1.mdc`). Índice: `docs/README.md`.
+- Producto / RF / Hexagonal detalle: `docs/documentacion-inicial/` (`propuesta-inicial.md`, `arquitectura-hexagonal.md`, análisis, `stack-tecnologico.md`).
+- Al escribir código: Hexagonal siempre — Gen 1 + `arquitectura-hexagonal.mdc` + `docs/documentacion-inicial/arquitectura-hexagonal.md`. Lo de este repo manda sobre cualquier hábito externo.
 - No inventar requisitos fuera de RF1–RF5 ni ampliar alcance sin preguntar.
 - Documentación en **español**. Código (nombres) en **inglés**; comentarios solo si aportan.
 - No contaminar docs con proyectos externos ni ejemplos ajenos al restaurante.

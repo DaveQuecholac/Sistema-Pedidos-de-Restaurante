@@ -99,7 +99,7 @@ Fuera del stack base (se pueden valorar después si el curso lo pide):
 
 ```text
 Restaurante/
-  docs/                 # documentación (ya existente)
+  docs/                 # por subcarpeta (ver docs/README.md)
   apps/
     api/                # NestJS (núcleo hexagonal + adaptadores)
     web/                # Next.js + React

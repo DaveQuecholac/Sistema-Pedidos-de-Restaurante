@@ -7,7 +7,8 @@ alwaysApply: false
 # Documentación (`docs/`)
 
 - Español claro y directo.
-- Alinear cambios con `propuesta-inicial.md`, `arquitectura-hexagonal.md` y decisiones ya cerradas.
+- **Organización:** no dejar `.md` sueltos en la raíz de `docs/` (salvo `README.md`). Cada tema/fase va en `docs/<carpeta>/`. Índice: `docs/README.md`.
+- Spec de repo: `docs/desarrollo/dev-spec-gen1.md`. Producto: `docs/documentacion-inicial/propuesta-inicial.md`, `arquitectura-hexagonal.md` y decisiones ya cerradas.
 - No referenciar proyectos externos ajenos al restaurante.
 - Si una decisión cambia, actualizar el doc de análisis correspondiente y la propuesta si aplica.
-- No duplicar párrafos largos entre archivos; enlazar por nombre de archivo.
+- No duplicar párrafos largos entre archivos; enlazar por nombre de archivo (o ruta relativa dentro de la misma carpeta).
