@@ -13,6 +13,12 @@ const applicableTaxSchema = z
   })
   .strict();
 
+const ingredientSchema = z
+  .object({
+    name: z.string(),
+  })
+  .strict();
+
 const modifierSchema = z
   .object({
     name: z.string(),
@@ -25,6 +31,7 @@ const menuItemFields = {
   name: z.string(),
   price: priceSchema,
   applicableTax: applicableTaxSchema,
+  ingredients: z.array(ingredientSchema),
   modifiers: z.array(modifierSchema),
 };
 

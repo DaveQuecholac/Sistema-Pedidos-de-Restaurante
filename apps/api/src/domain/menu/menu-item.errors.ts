@@ -32,3 +32,24 @@ export class ExclusionHasPriceError extends Error {
     this.name = 'ExclusionHasPriceError';
   }
 }
+
+export class DuplicateIngredientNameError extends Error {
+  constructor() {
+    super('Ingredient names must be unique on a dish');
+    this.name = 'DuplicateIngredientNameError';
+  }
+}
+
+export class ExclusionUnknownIngredientError extends Error {
+  constructor() {
+    super('An exclusion must name an ingredient of the dish');
+    this.name = 'ExclusionUnknownIngredientError';
+  }
+}
+
+export class DuplicateExclusionError extends Error {
+  constructor() {
+    super('An ingredient can be omitted only once');
+    this.name = 'DuplicateExclusionError';
+  }
+}

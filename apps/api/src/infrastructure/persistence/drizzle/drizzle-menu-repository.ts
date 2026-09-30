@@ -7,12 +7,19 @@ import {
   MenuItemNotFoundError,
 } from '../../../application/menu/menu-item-repository.errors';
 import type { MenuRepository } from '../../../application/ports/menu-repository';
+import type { Ingredient } from '../../../domain/menu/ingredient';
+import { ExclusionUnknownIngredientError } from '../../../domain/menu/menu-item.errors';
 import type { MenuItem } from '../../../domain/menu/menu-item';
 import type { Modifier } from '../../../domain/menu/modifier';
 import type { AppDatabase } from './client';
-import { toMenuItem, type MenuItemModifierRow, type MenuItemRow } from './menu-item.mapper';
+import {
+  toMenuItem,
+  type MenuItemIngredientRow,
+  type MenuItemModifierRow,
+  type MenuItemRow,
+} from './menu-item.mapper';
 import * as schema from './schema/menu';
-import { menuItemModifiers, menuItems } from './schema/menu';
+import { menuItemIngredients, menuItemModifiers, menuItems } from './schema/menu';
 
 type MenuSchema = typeof schema;
 
@@ -28,6 +35,7 @@ export class DrizzleMenuRepository implements MenuRepository {
     try {
       await this.db.transaction(async (tx) => {
         await tx.insert(menuItems).values(itemRow(item));
+        await insertIngredients(tx, item);
         await insertModifiers(tx, item);
       });
     } catch (error) {
@@ -51,6 +59,8 @@ export class DrizzleMenuRepository implements MenuRepository {
       }
 
       await tx.delete(menuItemModifiers).where(eq(menuItemModifiers.menuItemId, item.id));
+      await tx.delete(menuItemIngredients).where(eq(menuItemIngredients.menuItemId, item.id));
+      await insertIngredients(tx, item);
       await insertModifiers(tx, item);
     });
   }
@@ -62,22 +72,41 @@ export class DrizzleMenuRepository implements MenuRepository {
       return null;
     }
 
+    const ingredients = await this.ingredientsOf(stored.id);
     const modifiers = await this.modifiersOf(stored.id);
-    return toMenuItem(stored, modifiers);
+    return toMenuItem(stored, ingredients, modifiers);
   }
 
   async list(): Promise<MenuItem[]> {
     const rows = await this.db.select().from(menuItems).orderBy(asc(menuItems.id));
+    const ingredients = await this.db
+      .select()
+      .from(menuItemIngredients)
+      .orderBy(asc(menuItemIngredients.position), asc(menuItemIngredients.id));
     const modifiers = await this.db
       .select()
       .from(menuItemModifiers)
       .orderBy(asc(menuItemModifiers.position), asc(menuItemModifiers.id));
-    const modifiersByItem = groupModifiers(modifiers);
+    const ingredientsByItem = groupRows(ingredients);
+    const modifiersByItem = groupRows(modifiers);
 
     return rows.map((row) => {
+      const storedIngredients = ingredientsByItem.get(row.id);
       const storedModifiers = modifiersByItem.get(row.id);
-      return toMenuItem(row, storedModifiers === undefined ? [] : storedModifiers);
+      return toMenuItem(
+        row,
+        storedIngredients === undefined ? [] : storedIngredients,
+        storedModifiers === undefined ? [] : storedModifiers,
+      );
     });
+  }
+
+  private ingredientsOf(menuItemId: string): Promise<MenuItemIngredientRow[]> {
+    return this.db
+      .select()
+      .from(menuItemIngredients)
+      .where(eq(menuItemIngredients.menuItemId, menuItemId))
+      .orderBy(asc(menuItemIngredients.position), asc(menuItemIngredients.id));
   }
 
   private modifiersOf(menuItemId: string): Promise<MenuItemModifierRow[]> {
@@ -89,6 +118,17 @@ export class DrizzleMenuRepository implements MenuRepository {
   }
 }
 
+async function insertIngredients(tx: MenuDatabase, item: MenuItem): Promise<void> {
+  const ingredients = item.ingredients;
+  if (ingredients.length === 0) {
+    return;
+  }
+
+  await tx.insert(menuItemIngredients).values(
+    ingredients.map((ingredient, position) => ingredientRow(item.id, ingredient, position)),
+  );
+}
+
 async function insertModifiers(tx: MenuDatabase, item: MenuItem): Promise<void> {
   const modifiers = item.modifiers;
   if (modifiers.length === 0) {
@@ -96,7 +136,7 @@ async function insertModifiers(tx: MenuDatabase, item: MenuItem): Promise<void> 
   }
 
   await tx.insert(menuItemModifiers).values(
-    modifiers.map((modifier, position) => modifierRow(item.id, modifier, position)),
+    modifiers.map((modifier, position) => modifierRow(item, modifier, position)),
   );
 }
 
@@ -111,22 +151,45 @@ function itemRow(item: MenuItem): MenuItemRow {
   };
 }
 
-function modifierRow(menuItemId: string, modifier: Modifier, position: number) {
+function ingredientRow(menuItemId: string, ingredient: Ingredient, position: number) {
+  return {
+    id: ingredient.id,
+    menuItemId,
+    name: ingredient.name,
+    position,
+  };
+}
+
+function modifierRow(item: MenuItem, modifier: Modifier, position: number) {
   const price = modifier.price;
 
   return {
     id: modifier.id,
-    menuItemId,
+    menuItemId: item.id,
     name: modifier.name,
     kind: modifier.kind,
+    ingredientId: ingredientIdOf(item, modifier),
     priceAmount: price === null ? null : price.amount,
     priceCurrency: price === null ? null : price.currency,
     position,
   };
 }
 
-function groupModifiers(rows: MenuItemModifierRow[]): Map<string, MenuItemModifierRow[]> {
-  const grouped = new Map<string, MenuItemModifierRow[]>();
+function ingredientIdOf(item: MenuItem, modifier: Modifier): string | null {
+  if (modifier.kind !== 'exclusion') {
+    return null;
+  }
+
+  const ingredient = item.ingredients.find((candidate) => candidate.name === modifier.name);
+  if (ingredient === undefined) {
+    throw new ExclusionUnknownIngredientError();
+  }
+
+  return ingredient.id;
+}
+
+function groupRows<Row extends { menuItemId: string }>(rows: Row[]): Map<string, Row[]> {
+  const grouped = new Map<string, Row[]>();
 
   for (const row of rows) {
     const current = grouped.get(row.menuItemId);

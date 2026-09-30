@@ -46,6 +46,7 @@ function command(overrides: Partial<CreateMenuItemCommand> = {}): CreateMenuItem
     name: 'Tacos',
     price: { amount: 4500, currency: 'MXN' },
     applicableTax: { basisPoints: 1600 },
+    ingredients: [{ name: 'Sin cebolla' }],
     modifiers: [
       { name: 'Queso', kind: 'extra', price: { amount: 1500, currency: 'MXN' } },
       { name: 'Sin cebolla', kind: 'exclusion' },
@@ -58,7 +59,7 @@ describe('CreateMenuItem', () => {
   it('stores an active dish with an extra and an exclusion (C1)', async () => {
     const menu = new InMemoryMenuRepository();
     const seen = watch(menu);
-    const useCase = new CreateMenuItem(seen.menu, idsOf('item-1', 'mod-1', 'mod-2'));
+    const useCase = new CreateMenuItem(seen.menu, idsOf('item-1', 'mod-1', 'mod-2', 'ing-1'));
 
     const created = await useCase.execute(command());
 
@@ -79,7 +80,7 @@ describe('CreateMenuItem', () => {
     const seen = watch(menu);
     const useCase = new CreateMenuItem(seen.menu, idsOf('item-1'));
 
-    const created = await useCase.execute(command({ modifiers: [] }));
+    const created = await useCase.execute(command({ modifiers: [], ingredients: [] }));
 
     expect(seen.calls.add).toBe(1);
     expect(created.modifiers).toEqual([]);
@@ -125,9 +126,9 @@ describe('CreateMenuItem', () => {
   it('keeps the original dish when the generated id already exists (C4)', async () => {
     const menu = new InMemoryMenuRepository();
     const useCase = new CreateMenuItem(menu, idsOf('item-1', 'item-1'));
-    const original = await useCase.execute(command({ name: 'Tacos', modifiers: [] }));
+    const original = await useCase.execute(command({ name: 'Tacos', modifiers: [], ingredients: [] }));
 
-    await expect(useCase.execute(command({ name: 'Quesadillas', modifiers: [] }))).rejects.toBeInstanceOf(
+    await expect(useCase.execute(command({ name: 'Quesadillas', modifiers: [], ingredients: [] }))).rejects.toBeInstanceOf(
       MenuItemAlreadyExistsError,
     );
 
@@ -146,6 +147,7 @@ describe('CreateMenuItem', () => {
       command({
         price: { amount: 0, currency: 'MXN' },
         applicableTax: { basisPoints: 0 },
+        ingredients: [],
         modifiers: [{ name: 'Queso', kind: 'extra', price: { amount: 0, currency: 'MXN' } }],
       }),
     );
@@ -160,8 +162,8 @@ describe('CreateMenuItem', () => {
     const menu = new InMemoryMenuRepository();
     const useCase = new CreateMenuItem(menu, idsOf('item-1', 'item-2'));
 
-    await useCase.execute(command({ name: 'Tacos', modifiers: [] }));
-    await useCase.execute(command({ name: 'Tacos', modifiers: [] }));
+    await useCase.execute(command({ name: 'Tacos', modifiers: [], ingredients: [] }));
+    await useCase.execute(command({ name: 'Tacos', modifiers: [], ingredients: [] }));
 
     const stored = await menu.list();
     expect(stored.map((item) => item.id)).toEqual(['item-1', 'item-2']);
@@ -173,6 +175,7 @@ describe('CreateMenuItem', () => {
     const useCase = new CreateMenuItem(menu, idsOf('item-1', 'mod-1'));
     const created = await useCase.execute(
       command({
+        ingredients: [],
         modifiers: [{ name: 'Queso', kind: 'extra', price: { amount: 1500, currency: 'MXN' } }],
       }),
     );

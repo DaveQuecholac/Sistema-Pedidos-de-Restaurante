@@ -1,0 +1,279 @@
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+  overflow-x: clip;
+  color: #111;
+  font-family: system-ui, sans-serif;
+  line-height: 1.35;
+}
+
+.page * {
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  min-width: 0;
+}
+
+.monitor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.bezel {
+  width: 100%;
+  padding: 0.7rem 0.7rem 0.45rem;
+  border: 3px solid #111;
+  background: transparent;
+}
+
+.screen {
+  min-width: 0;
+  padding: 0.7rem;
+  border: 2px solid #111;
+  background: transparent;
+  overflow: auto;
+}
+
+.chin {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 1.15rem;
+  margin-top: 0.4rem;
+}
+
+.power {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #111;
+  border-radius: 50%;
+}
+
+.neck {
+  width: 3.25rem;
+  height: 1rem;
+  border-right: 3px solid #111;
+  border-left: 3px solid #111;
+}
+
+.base {
+  width: 7.5rem;
+  height: 0.45rem;
+  border: 3px solid #111;
+  border-top: none;
+}
+
+.catalog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  align-content: start;
+}
+
+.row,
+.rowInactive {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0.65rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.rowInactive {
+  border-style: dashed;
+}
+
+.row h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.modifiers {
+  margin: 0.45rem 0 0.6rem;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.form h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.panel {
+  margin: 0;
+  min-width: 0;
+  border: 2px solid #111;
+  padding: 0.55rem 0.75rem;
+  background: transparent;
+}
+
+.panel[open] {
+  padding-bottom: 0.75rem;
+}
+
+.panel summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.panel[open] summary {
+  margin-bottom: 0.65rem;
+}
+
+.page label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.page input,
+.page select,
+.page button {
+  font: inherit;
+  min-height: 2.75rem;
+}
+
+.page input,
+.page select {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.modifier {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+}
+
+.page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.5rem 0.9rem;
+  border: 2px solid #111;
+  background: transparent;
+  color: #111;
+  cursor: pointer;
+}
+
+.page button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.page button.primary {
+  border-width: 3px;
+  background: transparent;
+  color: #111;
+  font-weight: 700;
+}
+
+.row .actions button,
+.rowInactive .actions button {
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.82rem;
+}
+
+.hint {
+  margin: 0;
+  font-weight: 400;
+  color: #111;
+}
+
+.notice,
+.error {
+  margin: 0;
+  color: #9f1239;
+}
+
+.empty {
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .catalog {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .screen {
+    max-height: 44rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    align-items: start;
+  }
+}

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Money } from '../money/money';
+import { Ingredient } from './ingredient';
 import { MenuItem } from './menu-item';
-import { BlankIdError, BlankNameError, ExtraMissingPriceError } from './menu-item.errors';
+import {
+  BlankIdError,
+  BlankNameError,
+  ExclusionUnknownIngredientError,
+  ExtraMissingPriceError,
+} from './menu-item.errors';
 import { Modifier } from './modifier';
 import { TaxRate } from './tax-rate';
 
@@ -11,6 +17,7 @@ function taco(overrides: Partial<Parameters<typeof MenuItem.create>[0]> = {}) {
     name: 'Tacos',
     price: Money.of(4500, 'MXN'),
     applicableTax: TaxRate.of(1600),
+    ingredients: [] as Ingredient[],
     modifiers: [] as Modifier[],
     ...overrides,
   };
@@ -42,7 +49,12 @@ describe('MenuItem', () => {
       price: Money.of(1500, 'MXN'),
     });
     const exclusion = Modifier.exclusion({ id: 'mod-2', name: 'Sin cebolla' });
-    const item = MenuItem.create(taco({ modifiers: [extra, exclusion] }));
+    const item = MenuItem.create(
+      taco({
+        ingredients: [Ingredient.of({ id: 'ing-1', name: 'Sin cebolla' })],
+        modifiers: [extra, exclusion],
+      }),
+    );
 
     expect(item.modifiers.map((modifier) => modifier.kind)).toEqual(['extra', 'exclusion']);
     expect(item.modifiers.map((modifier) => modifier.id)).toEqual(['mod-1', 'mod-2']);
@@ -102,6 +114,7 @@ describe('MenuItem', () => {
   it('replaces data and keeps the dish id while modifier ids change (D12)', () => {
     const item = MenuItem.create(
       taco({
+        ingredients: [Ingredient.of({ id: 'ing-1', name: 'Sin cebolla' })],
         modifiers: [
           Modifier.extra({ id: 'mod-1', name: 'Queso', price: Money.of(1500, 'MXN') }),
           Modifier.exclusion({ id: 'mod-2', name: 'Sin cebolla' }),
@@ -113,6 +126,7 @@ describe('MenuItem', () => {
       price: Money.of(5200, 'MXN'),
       applicableTax: TaxRate.of(0),
       active: true,
+      ingredients: [Ingredient.of({ id: 'ing-2', name: 'Sin cilantro' })],
       modifiers: [
         Modifier.extra({ id: 'mod-9', name: 'Guacamole', price: Money.of(2000, 'MXN') }),
         Modifier.exclusion({ id: 'mod-8', name: 'Sin cilantro' }),
@@ -148,5 +162,15 @@ describe('MenuItem', () => {
         active: false,
       }),
     ).toThrow(ExtraMissingPriceError);
+  });
+
+  it('rejects an exclusion that is not an ingredient of the dish', () => {
+    expect(() =>
+      MenuItem.create(
+        taco({
+          modifiers: [Modifier.exclusion({ id: 'mod-1', name: 'Cilantro' })],
+        }),
+      ),
+    ).toThrow(ExclusionUnknownIngredientError);
   });
 });

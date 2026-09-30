@@ -7,7 +7,10 @@ import {
 import {
   BlankIdError,
   BlankNameError,
+  DuplicateExclusionError,
+  DuplicateIngredientNameError,
   ExclusionHasPriceError,
+  ExclusionUnknownIngredientError,
   ExtraMissingPriceError,
   InvalidModifierKindError,
 } from '../../../domain/menu/menu-item.errors';
@@ -42,6 +45,18 @@ const translations: ReadonlyArray<{
   },
   {
     accept: (error): error is ExclusionHasPriceError => error instanceof ExclusionHasPriceError,
+    status: 422,
+  },
+  {
+    accept: (error): error is ExclusionUnknownIngredientError => error instanceof ExclusionUnknownIngredientError,
+    status: 422,
+  },
+  {
+    accept: (error): error is DuplicateIngredientNameError => error instanceof DuplicateIngredientNameError,
+    status: 422,
+  },
+  {
+    accept: (error): error is DuplicateExclusionError => error instanceof DuplicateExclusionError,
     status: 422,
   },
   {

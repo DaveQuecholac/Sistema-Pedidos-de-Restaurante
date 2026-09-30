@@ -1,3 +1,4 @@
+import { Ingredient } from '../../domain/menu/ingredient';
 import { MenuItem } from '../../domain/menu/menu-item';
 import { Modifier } from '../../domain/menu/modifier';
 import {
@@ -15,10 +16,15 @@ export type ModifierDraft = {
   price?: { amount: number; currency: string };
 };
 
+export type IngredientDraft = {
+  name: string;
+};
+
 export type CreateMenuItemCommand = {
   name: string;
   price: { amount: number; currency: string };
   applicableTax: { basisPoints: number };
+  ingredients: IngredientDraft[];
   modifiers: ModifierDraft[];
 };
 
@@ -31,17 +37,23 @@ export class CreateMenuItem {
   async execute(command: CreateMenuItemCommand): Promise<MenuItem> {
     const id = this.generateId();
     const modifiers = command.modifiers.map((draft) => toModifier(draft, this.generateId()));
+    const ingredients = command.ingredients.map((draft) => toIngredient(draft, this.generateId()));
     const item = MenuItem.create({
       id,
       name: command.name,
       price: Money.of(command.price.amount, command.price.currency),
       applicableTax: TaxRate.of(command.applicableTax.basisPoints),
+      ingredients,
       modifiers,
     });
 
     await this.menu.add(item);
     return item;
   }
+}
+
+export function toIngredient(draft: IngredientDraft, id: string): Ingredient {
+  return Ingredient.of({ id, name: draft.name });
 }
 
 export function toModifier(draft: ModifierDraft, id: string): Modifier {

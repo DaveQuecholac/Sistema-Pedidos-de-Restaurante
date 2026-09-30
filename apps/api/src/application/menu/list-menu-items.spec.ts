@@ -11,6 +11,7 @@ function dish(id: string, name: string, active: boolean): MenuItem {
     name,
     price: Money.of(4500, 'MXN'),
     applicableTax: TaxRate.of(1600),
+    ingredients: [],
     modifiers: [],
   };
   return active ? MenuItem.create(data) : MenuItem.restore({ ...data, active: false });
@@ -45,6 +46,7 @@ describe('ListMenuItems', () => {
         price: first!.price,
         applicableTax: first!.applicableTax,
         active: first!.active,
+        ingredients: first!.ingredients,
         modifiers: first!.modifiers,
       }),
     );

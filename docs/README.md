@@ -22,6 +22,8 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 | [`dev/plataforma/01-base-de-datos-y-arranque/`](./dev/plataforma/01-base-de-datos-y-arranque/) | Tarea 1 del Sprint 1: análisis y plan de base de datos y arranque |
 | [`dev/menu/01-modelo-y-operaciones/`](./dev/menu/01-modelo-y-operaciones/) | Tarea 1 de la épica Menú: análisis y plan del modelo y las operaciones |
 | [`dev/menu/02-persistencia-y-api/`](./dev/menu/02-persistencia-y-api/) | Tarea 2 de la épica Menú: análisis y plan de persistencia y API |
+| [`dev/menu/03-pantalla-admin-y-demo/`](./dev/menu/03-pantalla-admin-y-demo/) | Tarea 3 de la épica Menú: análisis y plan de la pantalla admin y la demo |
+| [`dev/menu/cierre-del-modulo.md`](./dev/menu/cierre-del-modulo.md) | Cierre del módulo de menú, en lenguaje del local |
 
 ## Docs de trabajo por tarea
 

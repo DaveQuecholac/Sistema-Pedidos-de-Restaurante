@@ -12,6 +12,10 @@ export function presentMenuItem(item: MenuItem) {
       basisPoints: item.applicableTax.basisPoints,
     },
     active: item.active,
+    ingredients: item.ingredients.map((ingredient) => ({
+      id: ingredient.id,
+      name: ingredient.name,
+    })),
     modifiers: item.modifiers.map((modifier) => ({
       id: modifier.id,
       name: modifier.name,

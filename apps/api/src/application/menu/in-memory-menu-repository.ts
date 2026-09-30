@@ -39,6 +39,7 @@ function copy(item: MenuItem): MenuItem {
     price: item.price,
     applicableTax: item.applicableTax,
     active: item.active,
+    ingredients: item.ingredients,
     modifiers: item.modifiers,
   });
 }

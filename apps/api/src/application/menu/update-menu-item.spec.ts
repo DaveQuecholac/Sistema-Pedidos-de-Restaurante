@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Ingredient } from '../../domain/menu/ingredient';
 import { MenuItem } from '../../domain/menu/menu-item';
 import { BlankNameError } from '../../domain/menu/menu-item.errors';
 import { Modifier } from '../../domain/menu/modifier';
@@ -43,6 +44,7 @@ function storedDish(): MenuItem {
     name: 'Tacos',
     price: Money.of(4500, 'MXN'),
     applicableTax: TaxRate.of(1600),
+    ingredients: [Ingredient.of({ id: 'ing-1', name: 'Sin cebolla' })],
     modifiers: [
       Modifier.extra({ id: 'mod-1', name: 'Queso', price: Money.of(1500, 'MXN') }),
       Modifier.exclusion({ id: 'mod-2', name: 'Sin cebolla' }),
@@ -57,6 +59,7 @@ function command(overrides: Partial<UpdateMenuItemCommand> = {}): UpdateMenuItem
     price: { amount: 5200, currency: 'MXN' },
     applicableTax: { basisPoints: 800 },
     active: true,
+    ingredients: [{ name: 'Sin cilantro' }],
     modifiers: [
       { name: 'Guacamole', kind: 'extra', price: { amount: 2000, currency: 'MXN' } },
       { name: 'Sin cilantro', kind: 'exclusion' },
@@ -79,7 +82,7 @@ describe('UpdateMenuItem', () => {
     const menu = new InMemoryMenuRepository();
     await menu.add(storedDish());
     const seen = watch(menu);
-    const useCase = new UpdateMenuItem(seen.menu, idsOf('mod-9', 'mod-8'));
+    const useCase = new UpdateMenuItem(seen.menu, idsOf('mod-9', 'mod-8', 'ing-9'));
 
     const updated = await useCase.execute(command());
 
@@ -96,7 +99,7 @@ describe('UpdateMenuItem', () => {
     const menu = new InMemoryMenuRepository();
     await menu.add(storedDish());
     const seen = watch(menu);
-    const useCase = new UpdateMenuItem(seen.menu, idsOf('mod-9', 'mod-8'));
+    const useCase = new UpdateMenuItem(seen.menu, idsOf('mod-9', 'mod-8', 'ing-9'));
 
     await expect(useCase.execute(command({ name: '   ' }))).rejects.toBeInstanceOf(BlankNameError);
 
@@ -110,7 +113,7 @@ describe('UpdateMenuItem', () => {
   it('replaces modifiers with new ids in command order (U4)', async () => {
     const menu = new InMemoryMenuRepository();
     await menu.add(storedDish());
-    const useCase = new UpdateMenuItem(menu, idsOf('mod-9', 'mod-8'));
+    const useCase = new UpdateMenuItem(menu, idsOf('mod-9', 'mod-8', 'ing-9'));
 
     const updated = await useCase.execute(
       command({
@@ -131,7 +134,7 @@ describe('UpdateMenuItem', () => {
     const inactive = storedDish().deactivate();
     await menu.add(inactive);
     const seen = watch(menu);
-    const useCase = new UpdateMenuItem(seen.menu, idsOf('mod-9', 'mod-8'));
+    const useCase = new UpdateMenuItem(seen.menu, idsOf('mod-9', 'mod-8', 'ing-9'));
 
     const updated = await useCase.execute(command({ active: true }));
 
@@ -143,7 +146,7 @@ describe('UpdateMenuItem', () => {
   it('deactivates through an edit and replaces the modifiers (U6)', async () => {
     const menu = new InMemoryMenuRepository();
     await menu.add(storedDish());
-    const useCase = new UpdateMenuItem(menu, idsOf('mod-9'));
+    const useCase = new UpdateMenuItem(menu, idsOf('mod-9', 'ing-9'));
 
     const updated = await useCase.execute(
       command({

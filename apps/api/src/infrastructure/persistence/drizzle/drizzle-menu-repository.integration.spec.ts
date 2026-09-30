@@ -6,6 +6,7 @@ import {
   MenuItemMappingError,
   MenuItemNotFoundError,
 } from '../../../application/menu/menu-item-repository.errors';
+import { Ingredient } from '../../../domain/menu/ingredient';
 import { MenuItem } from '../../../domain/menu/menu-item';
 import { Modifier } from '../../../domain/menu/modifier';
 import { TaxRate } from '../../../domain/menu/tax-rate';
@@ -93,6 +94,7 @@ describeIntegration('DrizzleMenuRepository', () => {
       price: original.price,
       applicableTax: original.applicableTax,
       active: true,
+      ingredients: [],
       modifiers: [Modifier.extra({ id: id(), name: 'Salsa', price: Money.of(500, 'MXN') })],
     });
 
@@ -200,6 +202,8 @@ describeIntegration('DrizzleMenuRepository', () => {
       expect(rows[0]?.priceCurrency).toBe('MXN');
       expect(rows[1]?.priceAmount).toBeNull();
       expect(rows[1]?.priceCurrency).toBeNull();
+      expect(rows[0]?.ingredientId).toBeNull();
+      expect(rows[1]?.ingredientId).toBe(`ing-${rows[1]?.id}`);
     });
   });
 });
@@ -245,6 +249,9 @@ function dish(itemId: string, modifiers: Modifier[], active = true): MenuItem {
     price: Money.of(4500, 'MXN'),
     applicableTax: TaxRate.of(1600),
     active,
+    ingredients: modifiers
+      .filter((modifier) => modifier.kind === 'exclusion')
+      .map((modifier) => Ingredient.of({ id: `ing-${modifier.id}`, name: modifier.name })),
     modifiers,
   });
 }

@@ -15,6 +15,20 @@
       "when": 1790790670456,
       "tag": "0001_chilly_quasar",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790799192679,
+      "tag": "0002_glossy_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790801111518,
+      "tag": "0003_unknown_rick_jones",
+      "breakpoints": true
     }
   ]
 }

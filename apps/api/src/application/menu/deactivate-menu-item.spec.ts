@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Ingredient } from '../../domain/menu/ingredient';
 import { MenuItem } from '../../domain/menu/menu-item';
 import { Modifier } from '../../domain/menu/modifier';
 import { Money } from '../../domain/money/money';
@@ -28,6 +29,7 @@ function activeDish(): MenuItem {
     name: 'Tacos',
     price: Money.of(4500, 'MXN'),
     applicableTax: TaxRate.of(1600),
+    ingredients: [Ingredient.of({ id: 'ing-1', name: 'Sin cebolla' })],
     modifiers: [
       Modifier.extra({ id: 'mod-1', name: 'Queso', price: Money.of(1500, 'MXN') }),
       Modifier.exclusion({ id: 'mod-2', name: 'Sin cebolla' }),
@@ -80,6 +82,7 @@ describe('DeactivateMenuItem', () => {
         name: 'Tacos',
         price: Money.of(4500, 'MXN'),
         applicableTax: TaxRate.of(1600),
+        ingredients: [],
         modifiers: [],
         active: false,
       }),

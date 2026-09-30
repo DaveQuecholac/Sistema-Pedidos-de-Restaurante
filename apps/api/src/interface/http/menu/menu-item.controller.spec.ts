@@ -61,6 +61,7 @@ function dish(overrides: Record<string, unknown> = {}) {
     name: 'Tacos al pastor',
     price: { amount: 4500, currency: 'MXN' },
     applicableTax: { basisPoints: 1600 },
+    ingredients: [{ name: 'Sin cilantro' }],
     modifiers: [
       { name: 'Queso extra', kind: 'extra', price: { amount: 1500, currency: 'MXN' } },
       { name: 'Sin cilantro', kind: 'exclusion' },
@@ -125,6 +126,7 @@ describe('menu items HTTP', () => {
       price: { amount: 4500, currency: 'MXN' },
       applicableTax: { basisPoints: 1600 },
       active: true,
+      ingredients: [{ id: 'mod-3', name: 'Sin cilantro' }],
       modifiers: [
         {
           id: 'mod-1',
@@ -181,6 +183,7 @@ describe('menu items HTTP', () => {
       price: { amount: 4500, currency: 'MXN' },
       applicableTax: { basisPoints: 1600 },
       active: true,
+      ingredients: [],
       modifiers: [{ name: 'Salsa', kind: 'extra', price: { amount: 500, currency: 'MXN' } }],
     });
     const body = await response.json();
@@ -223,6 +226,7 @@ describe('menu items HTTP', () => {
       price: { amount: 4500, currency: 'MXN' },
       applicableTax: { basisPoints: 1600 },
       active: true,
+      ingredients: [],
       modifiers: [],
     });
     const deactivate = await send(`${base}/menu-items/missing/deactivate`, 'POST');
@@ -381,6 +385,7 @@ describe('menu items HTTP', () => {
       price: { amount: 4500, currency: 'MXN' },
       applicableTax: { basisPoints: 1600 },
       active: true,
+      ingredients: [],
       modifiers: [],
     };
     const response = await send(`${base}/menu-items/item-1`, 'PATCH', changed);
