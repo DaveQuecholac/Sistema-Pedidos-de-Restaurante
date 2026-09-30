@@ -5,7 +5,7 @@
 **Estado:** canónica para desarrollo en este repo  
 **Precedencia:** si otra rule, hábito o ejemplo externo choca con este documento o con Hexagonal → **gana este repo**.
 
-Este archivo es la **única especificación de repositorio** a citar para “cómo se trabaja aquí”. El detalle de Ports & Adapters vive en Hexagonal; Gen 1 lo amarra al layout, scripts, capas y disciplina diaria.
+Este archivo es la especificación larga del repositorio (layout, scripts, capas, disciplina). El extracto para planes y para el agente es `.cursor/rules/dev-spec-gen1.mdc`. El detalle de Ports & Adapters vive en Hexagonal; Gen 1 lo amarra al día a día.
 
 | Tema | Documento |
 |------|-----------|
@@ -99,9 +99,9 @@ Gestión unificada de **api** + **web** desde la **raíz** del repo.
 | Comando | Efecto |
 |---------|--------|
 | `pnpm install` | Dependencias del workspace |
-| **`pnpm dev`** | Arranca / registra procesos PM2 (api + web) |
-| **`pnpm dev:stop`** | Detiene api + web |
-| **`pnpm dev:restart`** | Reinicia api + web |
+| **`pnpm dev`** | Enciende el servicio systemd de Postgres si está apagado, luego arranca PM2 (api + web) |
+| **`pnpm dev:stop`** | Detiene api + web. No apaga Postgres |
+| **`pnpm dev:restart`** | Enciende Postgres si está apagado y reinicia api + web |
 | **`pnpm dev:status`** | Lista procesos PM2 |
 | **`pnpm dev:logs`** | Últimas líneas de logs |
 | `pnpm dev:plain` | Dev **sin** PM2 (Nest/Next en paralelo en foreground) |
@@ -186,11 +186,13 @@ No inventar ni cablear sin acuerdo: delivery de terceros, pasarelas reales, micr
 
 ## 11. Referencias Cursor (rules)
 
-Las rules en `.cursor/rules/` **aplican** este spec; no lo sustituyen.
+**Maestro operativo:** `.cursor/rules/dev-spec-gen1.mdc`. Es el extracto para planes de acción y para el agente (producto, hexagonal, capas, disciplina, PM2). Debe permanecer alineado con este spec. Si chocan: parar y acordar cuál manda.
+
+Las demás rules en `.cursor/rules/` aplican el mismo contrato por tema o por glob; no lo sustituyen.
 
 | Rule | Rol |
 |------|-----|
-| `dev-spec-gen1.mdc` | Cita este markdown; resumen operativo |
+| `dev-spec-gen1.mdc` | Maestro: el que se adjunta a un plan |
 | `arquitectura-hexagonal.mdc` | Leyes Hexagonales |
 | `limites-capas.mdc` | Dependencias y vocabulario de producto |
 | `disciplina-implementacion.mdc` | Slices, mock→real, docs |

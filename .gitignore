@@ -1,13 +1,20 @@
+# Dependencias y artefactos de build
 node_modules
 dist
 .next
 out
 coverage
 *.tsbuildinfo
+
+# Secretos locales. El ejemplo apps/api/.env.example sí se versiona.
 .env
 .env.local
 .env.*.local
+
+# Logs y basura del sistema
 *.log
 logs/
 .DS_Store
-apps/api/drizzle/meta
+
+# Las migraciones de Drizzle sí se versionan:
+# apps/api/drizzle/*.sql y apps/api/drizzle/meta (journal y snapshots).

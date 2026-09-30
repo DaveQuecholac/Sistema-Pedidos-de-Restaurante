@@ -1,45 +1,279 @@
 ---
-description: Spec canónica Gen 1 del repo — cita docs/desarrollo/dev-spec-gen1.md; Hexagonal manda
+description: Maestro de construcción Gen 1 — producto RF1–RF5, hexagonal, capas, stack, disciplina y PM2. Suficiente para planes de acción.
 alwaysApply: true
 ---
 
-# Dev Spec Gen 1 (Cursor)
+# Dev Spec Gen 1 — maestro de construcción
 
-**Fuente normativa:** `docs/desarrollo/dev-spec-gen1.md`
+Contrato de trabajo de este repo. Al armar un **plan de acción** o implementar, **este archivo basta**: no hace falta pegar `.cursor/rules/` ni `docs/`.
 
-Ante ambigüedad, conflicto con hábitos de otros proyectos, o duda de layout/scripts/capas: **leer ese markdown**. No inventar otra arquitectura.
+El largo (porqué y análisis) sigue en `docs/desarrollo/dev-spec-gen1.md` y `docs/documentacion-inicial/`. Si este maestro y un doc se contradicen: **parar**, reportar el mismatch y acordar cuál manda. No inventar otra arquitectura.
 
-## Precedencia (siempre)
+Usuario: **Hector**. Flujo: analizar → acordar → documentar/implementar. Docs en **español**. Nombres de código en **inglés**. Comentarios solo si aportan. Commits solo si Hector lo pide. No crear markdown extra salvo que lo pida. No meter en docs proyectos ajenos al restaurante.
 
-1. Hexagonal + reglas de **este** repo  
-2. `docs/desarrollo/dev-spec-gen1.md`  
-3. `docs/documentacion-inicial/arquitectura-hexagonal.md`  
-4. Cualquier otra rule o ejemplo externo  
+## Precedencia
 
-Si chocan → **gana lo de este repo**.
+1. Hexagonal + decisiones cerradas de **este** repo  
+2. Este maestro (`dev-spec-gen1.mdc`)  
+3. `docs/desarrollo/dev-spec-gen1.md` y `docs/documentacion-inicial/arquitectura-hexagonal.md`  
+4. Hábito externo o ejemplo de otro proyecto  
 
-## Resumen operativo
+## Decisiones cerradas (no reabrir sin acuerdo)
 
-- Monolito modular: `apps/api` (Nest hexagonal) + `apps/web` (Next adaptador).  
-- Capas API: `domain` → `application` (puertos) ← `infrastructure` / `interface/http`.  
-- UI no calcula totales ni reglas de cocina como verdad.  
-- API/UI: vocabulario de producto, no tablas/ORM.  
-- Drizzle: solo `generate` + `migrate`; sin SQL/journal a mano; migraciones ≠ seeds.  
-- Slice mínimo; mock→real sin arrastre; docs en subcarpetas de `docs/`.
+| Nivel | Decisión |
+|-------|----------|
+| Diseño | Hexagonal (Ports & Adapters); núcleo estilo Clean (entidades → casos de uso) |
+| Sistema | Monolito modular, un solo despliegue (API + web + una BD) |
+| Stack | TypeScript, NestJS, PostgreSQL + Drizzle, Zod, pnpm, Next.js + React |
+| Cobros MVP | Adaptadores **simulados** detrás de `PaymentPort` |
+| Alcance | RF1–RF5 |
+
+## Producto (RF1–RF5)
+
+Sistema de pedidos: menú, comanda (mesa o ID externo), estado de cocina, totales deterministas, cierre y cobro. Las reglas de venta viven en el núcleo; canales, UI, BD y cobros son adaptadores.
+
+| ID | Requisito | Dónde vive |
+|----|-----------|------------|
+| **RF1** | Menú: platos, modificadores (extra/exclusión), precios, impuestos | Catálogo de dominio + `MenuRepository` + UI admin |
+| **RF2** | Abrir orden con mesa o ID externo | Un caso `OpenOrder`; el origen es dato de canal |
+| **RF3** | Alta/cambio/cancelación de líneas según cocina; no editable al iniciar cocción | Agregado `Order` + State |
+| **RF4** | Subtotal, propina opcional, descuentos, impuestos, total determinista | `Money` + Strategy de descuento/impuesto |
+| **RF5** | Cerrar y cobrar (efectivo, tarjeta, pasarela) | `CloseOrder` + `PaymentPort` + Strategies |
+
+| Módulo | Responsabilidad |
+|--------|-----------------|
+| Menú | Platos, modificadores, precios, impuestos |
+| Órdenes | Comanda, líneas, mesa / ID externo |
+| Cocina / estado | Transiciones; bloqueo de edición |
+| Cálculo | Subtotal, propina, descuento, impuesto, total |
+| Pagos | Cierre y registro de cobro |
+
+### Dominio mínimo
+
+| Concepto | Rol |
+|----------|-----|
+| `MenuItem` | Plato, precio base, impuestos |
+| `Modifier` | Extra o exclusión |
+| `Order` | Agregado: origen, líneas, estado, totales, pago |
+| `LineItem` | Plato + modificadores + cantidad + precios capturados |
+| `Payment` | Medio, monto, resultado |
+| `Money` | Monto en unidad mínima + moneda (sin `float`) |
+
+Estados:
+
+```text
+OPEN → IN_KITCHEN → READY → CLOSED
+  │         │
+  └─────────┴──→ CANCELLED (según reglas)
+```
+
+- `OPEN`: se agregan, modifican o cancelan líneas.  
+- Desde `IN_KITCHEN`: líneas no editables (RF3).  
+- `CLOSED`: cobro exitoso (RF5); sin más cambios de negocio.  
+
+Pedido con ID externo = mismo flujo que mesa; cambia el dato de origen.
+
+### Casos de uso
+
+| Caso | RF |
+|------|----|
+| CRUD menú y modificadores | RF1 |
+| `OpenOrder` | RF2 |
+| `AddLine` / `ModifyLine` / `CancelLine` | RF3 |
+| `StartCooking` (o transición equivalente) | RF3 |
+| `CalculateTotals` | RF4 |
+| `CloseOrder` | RF5 |
+
+Controllers y pantallas solo disparan estos casos.
+
+### Puertos MVP
+
+| Puerto (núcleo) | Adaptador MVP |
+|-----------------|---------------|
+| `MenuRepository` / `OrderRepository` | Drizzle + PostgreSQL |
+| `PaymentPort` | Efectivo, tarjeta fake, pasarela fake |
+
+### Flujos demo
+
+1. **Mesa:** abrir → líneas → cocina (ya no se edita) → totales → cerrar con pago simulado.  
+2. **Externo:** igual, con ID externo.  
+3. **Menú:** CRUD de platos y modificadores para el cálculo.
+
+### Sprints (slice vertical demoable)
+
+| Sprint | RF | Demo |
+|--------|-----|------|
+| 1 | RF1 | UI admin menú |
+| 2 | RF2–RF3 | UI comanda + cocina |
+| 3 | RF4 | UI desglose de totales |
+| 4 | RF5 | UI cobro + E2E |
+
+Tarjetas: `docs/documentacion-inicial/plan-sprints-trello.md`.
+
+### Fuera de Gen 1
+
+Sin acuerdo de Hector no se cablea: delivery real, pasarelas reales, microservicios, auth avanzada, app móvil, tRPC/GraphQL, design systems pesados, event-bus como base, paquetes `lib/*` de dominio prematuros, Docusaurus/Storybook en el workspace.
+
+## Mapa del repo
+
+```text
+Restaurante/
+  apps/api/          # Nest — hexágono + HTTP / BD / pago
+  apps/web/          # Next — adaptador driving
+  docs/              # subcarpetas; suelto solo docs/README.md
+  scripts/           # ops (PM2, ensure one-off)
+  ecosystem.config.cjs
+  pnpm-workspace.yaml
+```
+
+```text
+apps/api/src/
+  domain/            # reglas puras
+  application/       # use cases + ports/
+  infrastructure/    # persistence/drizzle, payment
+  interface/http/    # controllers + Zod
+  main.ts + app.module.ts   # composition root
+```
+
+Subdividir por feature (`menu/`, `order/`, `payment/`) **dentro** de esas capas. Nombres de carpeta pueden variar; la dirección de dependencias no.
+
+## Hexagonal (stop-the-line)
+
+El núcleo (domain + application) funciona **sin** UI y **sin** BD. No conoce Nest, Next, Drizzle, HTTP, SQL ni SDKs de pago. Toda dependencia externa entra por un puerto en lenguaje de dominio. Driving (Next, REST, tests) **llama** casos de uso. Driven (Drizzle, cobros) **implementa** puertos. El cableado concreto vive solo en el composition root (módulos Nest). Dependencias: `adapters → application → domain`.
+
+| Desde → hacia | ¿Permitido? |
+|---------------|-------------|
+| `domain` → Nest / Next / Drizzle / HTTP | No |
+| `application` → `domain` + puertos | Sí |
+| `infrastructure` → application / domain | Sí (implementa puertos) |
+| `interface` HTTP → casos de uso | Sí |
+| UI → dominio o Drizzle directo | No |
+| persistencia → React o DTOs de UI | No |
+
+| Qué | Dónde |
+|-----|--------|
+| Entidades, State, Money, reglas RF3/RF4 | `domain/` |
+| Use cases + interfaces de puertos | `application/` |
+| Drizzle, pagos fake/reales | `infrastructure/` |
+| Controllers + Zod | `interface/http/` |
+| Pantallas | `apps/web` (sin lógica de venta) |
+
+Puerto bien nombrado: `OrderRepository`, `PaymentPort`, `CloseOrder`. El puerto no se llama `PostgresOrderDao` ni `StripePort`. El adaptador sí: `DrizzleOrderRepository`, `CashPaymentAdapter`.
+
+**Orden al construir un slice:** dominio y tests de reglas → puerto + caso de uso con fake → adaptador driven (mapeo fila ↔ producto aquí) → controller Zod / pantalla → cableado en el módulo Nest. Sin puerto para una tech nueva: **crear el puerto primero**.
+
+Si un cambio toca capas, decir en el chat (3–6 líneas) qué va en dominio, application y adapter.
+
+### Checklist (fallar = no dar por hecho)
+
+- [ ] Caso de uso testeable con fake, sin Postgres ni browser  
+- [ ] Cero imports de framework en domain  
+- [ ] Puerto por cada dependencia externa nueva; el adaptador implementa el puerto  
+- [ ] API/UI en vocabulario de producto  
+- [ ] RF3/RF4 en el dominio  
+- [ ] El módulo Nest es quien elige el adaptador concreto  
+
+### Rechazar
+
+Service Nest con SQL y reglas de cocina juntos. Puerto con `query(sql)`. IVA calculado en React como verdad. Entidad `Order` decorada con schema Drizzle. Un medio de pago nuevo como `if` dentro del caso de uso. Controller sin puerto “porque es más rápido”.
+
+## Stack y bordes
+
+| Pieza | Rol |
+|-------|-----|
+| NestJS | API, DI, composition root. REST. |
+| Zod | Valida DTOs en el borde HTTP. No calcula totales ni cocina. |
+| Drizzle + PostgreSQL | Persistencia driven |
+| Next/React | Muestra lo que devolvió el núcleo y llama la API |
+| Money / Strategy | Cálculo y cobro en dominio/aplicación |
+
+`process.env` solo en composition root o adaptadores de infra. Dominio y casos de uso reciben puertos por constructor.
+
+Vocabulario público (REST, Zod, UI): `Order`, `MenuItem`, `LineItem`, `Payment`, `tableId`, `externalOrderId`. Nada de nombres de tabla, columna ni ORM. Si no puedes nombrar el tipo de producto del puerto o DTO, parar y definir el contrato antes de codear.
+
+```typescript
+// Dominio acoplado — no
+@Injectable()
+class Order { constructor(private db: DrizzleService) {} }
+
+// Caso de uso — sí
+class CloseOrder {
+  constructor(private orders: OrderRepository, private payments: PaymentPort) {}
+}
+```
+
+```tsx
+// Total de negocio en el cliente — no
+const total = lines.reduce((a, l) => a + l.price * 1.16, 0);
+// Total que devolvió la API — sí
+const total = order.totals.total;
+```
+
+Pantallas MVP: menú, comanda/orden, cobro. UI simple. Tests de dominio y casos de uso con repo en memoria cuando sea posible.
+
+## Layout
+
+Agrupar por módulo (Menú, Órdenes, Cálculo, Pagos). Un archivo ≈ una preocupación del dueño (un caso de uso, un mapper, un schema). Raíz transversal prohibida: `utils/`, `hooks/`, `zod/`, `helpers/` que mezclen features. Si la ruta no dice quién es el dueño, colocalizar.
+
+## Drizzle
+
+Tras cambiar tablas: `db:generate` → `db:migrate` → comprobar columna/tabla en la BD. Prohibido escribir `drizzle/*.sql` a mano, editar `_journal.json` o snapshots, o usar `ALTER` como sustituto. Migraciones = schema, no seeds. `NOT NULL` / FK con datos: default o backfill seguro. Scripts `ensure-*` en `scripts/` o docs, no junto a casos de uso.
+
+## Patrones (solo si resuelven un RF o un puerto)
+
+| Patrón | Uso |
+|--------|-----|
+| Aggregate / Domain Model | `Order` + líneas + reglas |
+| State | Ciclo de vida orden/cocina |
+| Strategy | Cobro (RF5); descuento/impuesto (RF4) |
+| Money / Value Object | Precios y totales deterministas |
+| Repository | Puertos de persistencia |
+| Adapter | HTTP, UI, BD, pagos |
+| Use Case + DI | Orquestación Nest |
+| Factory | Solo si la creación (canal/pago) lo pide |
+
+Evitar por ahora: Observer/event-bus como base, CQRS, Singleton de dominio, Abstract Factory sin necesidad.
+
+## Disciplina de implementación
+
+1. Solo lo pedido en este turno. Diff mínimo.  
+2. Una preocupación por cambio (dominio **o** API **o** UI), salvo que pida el flujo completo.  
+3. Antes de editar muchos archivos: listarlos y pedir OK si el alcance no estaba claro.  
+4. No arreglar de paso reglas, docs o refactors no pedidos.  
+5. Leer este maestro y el doc de producto que aplique antes de codear. Si el área está documentada, actualizar el doc con el código o avisar el drift.  
+6. Mock → real: implementar solo el contrato acordado. El path real no importa el mock ni copia sus `||` ni literales de relleno. `null` se expone como `null`.  
+7. No borrar proxies, scripts o configs sin mostrar archivo, símbolo y síntoma.  
+8. Docs nuevos en `docs/<carpeta>/`. En la raíz de `docs/` solo `README.md`. Enlazar; no duplicar párrafos largos.  
+9. Tests web: tras cambios user-visible en `apps/web`, `pnpm dev:restart` antes del smoke (refresh no basta). Verificar el flujo en el navegador.
+
+Criterio de un slice bueno: el núcleo se prueba sin UI; cambiar BD o medio de cobro no reescribe reglas de venta; “no editable en cocción” y totales deterministas tienen test de dominio.
 
 ## PM2 (raíz del repo)
 
-| Humano / agente | Comando |
-|-----------------|---------|
-| Arrancar | `pnpm dev` |
-| Parar | `pnpm dev:stop` |
-| Reiniciar | `pnpm dev:restart` |
-| Estado / logs | `pnpm dev:status` / `pnpm dev:logs` |
-| Sin PM2 | `pnpm dev:plain` |
+| Comando | Efecto |
+|---------|--------|
+| `pnpm dev` | Enciende Postgres si está apagado, luego arranca api + web |
+| `pnpm dev:stop` | Para api y web. Postgres sigue encendido |
+| `pnpm dev:restart` | Enciende Postgres si está apagado y reinicia api + web |
+| `pnpm dev:status` / `pnpm dev:logs` | Estado / últimas líneas |
+| `pnpm dev:plain` | Sin PM2 (foreground) |
+| `pnpm typecheck` / `pnpm build` | api + web |
 
-- Procesos: `restaurante-api` (:3001), `restaurante-web` (:3000).  
-- Logs: `logs/pm2/`.  
-- Tras cambios en `apps/web` que el usuario deba ver: **`pnpm dev:restart`** antes del smoke (refresh solo no basta).  
-- No dejar follow de logs como modo normal de trabajo del agente.
+| App | URL | Logs |
+|-----|-----|------|
+| `restaurante-api` | http://localhost:3001 | `logs/pm2/api-*.log` |
+| `restaurante-web` | http://localhost:3000 | `logs/pm2/web-*.log` |
 
-Detalle completo (mapa, leyes, stack, sprints, anti-alcance): **`docs/desarrollo/dev-spec-gen1.md`**.
+Preferir `pnpm dev` / `dev:restart` / `dev:stop` / `dev:status`. No dejar follow de logs ni `dev:plain` como arranque normal.
+
+## Dónde profundizar (no hace falta para un plan)
+
+| Tema | Archivo |
+|------|---------|
+| Spec larga de repo | `docs/desarrollo/dev-spec-gen1.md` |
+| Índice | `docs/README.md` |
+| Enunciado RF | `docs/documentacion-inicial/documentacion-inicial.md` |
+| Propuesta | `docs/documentacion-inicial/propuesta-inicial.md` |
+| Guía hexagonal | `docs/documentacion-inicial/arquitectura-hexagonal.md` |
+| Patrones / stack / monolito | `analisis-patrones-diseno.md`, `stack-tecnologico.md`, `analisis-estilo-sistema-despliegue.md` |
+| Sprints | `docs/documentacion-inicial/plan-sprints-trello.md` |

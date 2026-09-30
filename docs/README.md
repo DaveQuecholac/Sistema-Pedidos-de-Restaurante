@@ -8,6 +8,7 @@ La documentación **no vive suelta** en `docs/`. Cada tema o fase va en su **sub
 |-----|--------|
 | Índice y esta guía | `docs/README.md` |
 | Docs de un tema / fase | `docs/<nombre-tema>/` |
+| Análisis y plan de una tarea | `docs/<rama>/<tarea>/analisis.md` y `plan-de-accion.md` |
 | Archivos sueltos en la raíz de `docs/` | **No** (salvo este README) |
 
 Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no añadir `.md` directamente bajo `docs/`.
@@ -18,12 +19,26 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 |---------|-----------|
 | [`desarrollo/`](./desarrollo/) | **Dev Spec Gen 1** — cómo se trabaja en este repo |
 | [`documentacion-inicial/`](./documentacion-inicial/) | Enunciado RF, análisis, propuesta, stack, hexagonal, plan de sprints/Trello |
+| [`dev/plataforma/01-base-de-datos-y-arranque/`](./dev/plataforma/01-base-de-datos-y-arranque/) | Tarea 1 del Sprint 1: análisis y plan de base de datos y arranque |
 
-## Spec de repositorio (cita esto)
+## Docs de trabajo por tarea
+
+Cada tarea deja su propio par de archivos, dentro de la carpeta de la rama:
+
+```text
+docs/<rama>/<tarea>/analisis.md
+docs/<rama>/<tarea>/plan-de-accion.md
+```
+
+Ejemplo: la tarea 1 en `dev/plataforma` está en `docs/dev/plataforma/01-base-de-datos-y-arranque/`. El plan se acuerda antes de implementar. El maestro de construcción sigue siendo `.cursor/rules/dev-spec-gen1.mdc`.
+
+## Spec de repositorio
 
 | Documento | Rol |
 |-----------|-----|
-| [**dev-spec-gen1.md**](./desarrollo/dev-spec-gen1.md) | Especificación normativa Gen 1 (layout, Hexagonal, PM2, Drizzle, disciplina) |
+| [**dev-spec-gen1.md**](./desarrollo/dev-spec-gen1.md) | Especificación larga Gen 1 (layout, Hexagonal, PM2, Drizzle, disciplina) |
+| [**pruebas-cttm.md**](./desarrollo/pruebas-cttm.md) | Cómo probar código, integración, sistema y madurez, y el resultado de cada corrida |
+| `.cursor/rules/dev-spec-gen1.mdc` | Maestro operativo: el archivo que se adjunta a un plan de acción |
 
 ## Índice — documentación inicial
 
