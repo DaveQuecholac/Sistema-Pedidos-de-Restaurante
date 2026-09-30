@@ -11,3 +11,10 @@ export class MenuItemAlreadyExistsError extends Error {
     this.name = 'MenuItemAlreadyExistsError';
   }
 }
+
+export class MenuItemMappingError extends Error {
+  constructor() {
+    super('Stored menu item does not match the catalog rules');
+    this.name = 'MenuItemMappingError';
+  }
+}

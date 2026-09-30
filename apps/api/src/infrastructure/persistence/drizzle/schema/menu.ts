@@ -30,10 +30,12 @@ export const menuItemModifiers = pgTable(
     kind: text('kind').notNull(),
     priceAmount: integer('price_amount'),
     priceCurrency: text('price_currency'),
+    position: integer('position').notNull().default(0),
   },
   (table) => [
     check('menu_item_modifiers_name_not_blank', sql`length(btrim(${table.name})) > 0`),
     check('menu_item_modifiers_kind', sql`${table.kind} in ('extra', 'exclusion')`),
+    check('menu_item_modifiers_position_gte_0', sql`${table.position} >= 0`),
     check(
       'menu_item_modifiers_price_by_kind',
       sql`(

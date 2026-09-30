@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 30 de septiembre de 2026.  
-**Alcance de la corrida:** todo el código de producto que existe hoy (tarea 1, base de datos y arranque).
+**Alcance de esta corrida:** rama de menú, tareas 1 y 2 (modelo y API). La corrida anterior de plataforma queda abajo y no se borra.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -113,3 +113,26 @@ Al final de la corrida, añadir una sección «Corrida» con fecha, rango de lí
 3. El lector de `apps/api/.env` acepta `export` y comillas simples o dobles, y no pisa una variable que el proceso ya traiga. Prueba: `apps/api/src/load-api-env.spec.ts`.
 
 Nada de eso adelanta menú, órdenes ni cobro.
+
+## Corrida — 30 de septiembre de 2026, menú tareas 1 y 2
+
+**Bloques de código:** 2. Unas 1711 líneas de producto en `apps/`, `scripts/`, `ecosystem.config.cjs` y las migraciones SQL, sin specs y sin `drizzle/meta`. Los specs van aparte (unas 900 líneas ya rastreadas, más los nuevos de menú).
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 940 | Dominio, casos de uso, web, scripts, ecosystem y config de la API |
+| 2 | 733 | `main.ts`, carga de `.env`, `AppModule`, Drizzle, HTTP de menú y las migraciones `0000` y `0001` |
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 12 archivos, 66 pruebas; 8 skipped a propósito (P1–P8). Typecheck de la API pasó. Dominio y casos sin Nest, Drizzle, Postgres ni Zod. El JSON de `GET /menu-items` usa `MenuItem`, `price`, `applicableTax` y `modifiers`; no salen nombres de tabla. `0001_chilly_quasar.sql` salió de `db:generate`. |
+| T Integración | Pasó | `select 1` devolvió 1. Las dos tablas están, con `position` en los modificadores. El plato `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` sigue con extra en posición 0 y exclusión con precios nulos. Nombre en blanco, precio negativo, tasa negativa, `kind` inválido, extra sin precio y exclusión con precio caen en check `23514`; esa prueba hizo rollback. `test:db`: 8 pruebas, P1–P8. Health y health/database en 200 con `{"status":"ok","service":"restaurante-api"}`. Una API aparte con URL imposible salió con código 1 y no escuchó el puerto 3099. La de 3001 siguió arriba. |
+| T Sistema | Pasó | Postgres ya estaba encendido; `pnpm dev` lo dejó así y volvió a levantar API y web. La home responde 200 y muestra «Sistema de Pedidos». `pnpm dev:stop` apagó API y web; `select 1` siguió respondiendo. Después `pnpm dev` dejó otra vez health y home en 200. No hubo cambio en `apps/web`, así que no aplica un reinicio extra para mirar el navegador. |
+| M Madurez | Nivel 2 de la rama | Los planes de las tareas 1 y 2 tienen resultado y fecha. El núcleo de menú se prueba sin navegador. La pantalla admin no está: es la tarea 3 y no se adelantó. RF1 no llega a nivel 3 hasta esa demo. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja P1–P8 en skipped. No es un fallo: `pnpm test:db` las corre y pasaron en esta misma corrida.
+2. Queda la fila `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` (`Tacos de suadero`, inactiva). Es el plato del smoke de la tarea 2, no un seed. No se borró.
+3. El cierre de la tarea 1 dice que `AppModule` no menciona el menú. Eso era cierto al cerrarla. La tarea 2 lo cablea a propósito. El plan de la tarea 2 manda.
+4. No se apagó el servicio `postgresql-18` para ver el encendido en frío. El script avisó que ya estaba encendido.
