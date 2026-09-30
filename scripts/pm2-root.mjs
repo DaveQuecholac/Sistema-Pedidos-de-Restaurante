@@ -43,10 +43,25 @@ function ensureLogsDir() {
   mkdirSync(logsDir, { recursive: true });
 }
 
+function ensurePostgres() {
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-postgres.mjs")], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
 const command = process.argv[2] ?? "start";
 
 switch (command) {
   case "start":
+    ensurePostgres();
     ensureLogsDir();
     runPm2(["start", ecosystem]);
     console.log("API  http://localhost:3001");
@@ -57,8 +72,9 @@ switch (command) {
     runPm2(["stop", ...APP_NAMES]);
     break;
   case "restart":
+    ensurePostgres();
     ensureLogsDir();
-    runPm2(["restart", ...APP_NAMES]);
+    runPm2(["restart", ecosystem, "--update-env"]);
     break;
   case "status":
     runPm2(["ls"]);
