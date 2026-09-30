@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Root PM2 helper for api + web (no portless).
+ * Root PM2 helper: api en :3001 y web en https://restaurante.localhost.
  * Root: pnpm dev | dev:stop | dev:restart | dev:status | dev:logs
  * Usage: node scripts/pm2-root.mjs start|stop|restart|status|logs
  */
@@ -57,6 +57,12 @@ function ensurePostgres() {
   }
 }
 
+function printUrls() {
+  console.log("API  http://localhost:3001");
+  console.log("Web  https://restaurante.localhost");
+  console.log("Logs: pnpm dev:logs | stop: pnpm dev:stop");
+}
+
 const command = process.argv[2] ?? "start";
 
 switch (command) {
@@ -64,9 +70,7 @@ switch (command) {
     ensurePostgres();
     ensureLogsDir();
     runPm2(["start", ecosystem]);
-    console.log("API  http://localhost:3001");
-    console.log("Web  http://localhost:3000");
-    console.log("Logs: pnpm dev:logs | stop: pnpm dev:stop");
+    printUrls();
     break;
   case "stop":
     runPm2(["stop", ...APP_NAMES]);
@@ -75,6 +79,7 @@ switch (command) {
     ensurePostgres();
     ensureLogsDir();
     runPm2(["restart", ecosystem, "--update-env"]);
+    printUrls();
     break;
   case "status":
     runPm2(["ls"]);

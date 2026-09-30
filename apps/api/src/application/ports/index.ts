@@ -1,2 +1,2 @@
 /** Driven ports owned by the hexagon (repositories, payment, etc.). */
-export {};
+export type { MenuRepository } from './menu-repository';

@@ -53,7 +53,8 @@ Sistema de pedidos: menú, comanda (mesa o ID externo), estado de cocina, totale
 | Concepto | Rol |
 |----------|-----|
 | `MenuItem` | Plato, precio base, impuestos |
-| `Modifier` | Extra o exclusión |
+| `Ingredient` | Lo que el plato trae. Un omitir solo puede nombrar uno de estos |
+| `Modifier` | Extra con precio, o exclusión que nombra un ingrediente del plato |
 | `Order` | Agregado: origen, líneas, estado, totales, pago |
 | `LineItem` | Plato + modificadores + cantidad + precios capturados |
 | `Payment` | Medio, monto, resultado |
@@ -262,7 +263,7 @@ Criterio de un slice bueno: el núcleo se prueba sin UI; cambiar BD o medio de c
 | App | URL | Logs |
 |-----|-----|------|
 | `restaurante-api` | http://localhost:3001 | `logs/pm2/api-*.log` |
-| `restaurante-web` | http://localhost:3000 | `logs/pm2/web-*.log` |
+| `restaurante-web` | https://restaurante.localhost | `logs/pm2/web-*.log` |
 
 Preferir `pnpm dev` / `dev:restart` / `dev:stop` / `dev:status`. No dejar follow de logs ni `dev:plain` como arranque normal.
 

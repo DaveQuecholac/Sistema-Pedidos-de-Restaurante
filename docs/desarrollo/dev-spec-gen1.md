@@ -110,7 +110,7 @@ Gestión unificada de **api** + **web** desde la **raíz** del repo.
 | App PM2 | Puerto | Logs |
 |---------|--------|------|
 | `restaurante-api` | http://localhost:3001 | `logs/pm2/api-*.log` |
-| `restaurante-web` | http://localhost:3000 | `logs/pm2/web-*.log` |
+| `restaurante-web` | https://restaurante.localhost | `logs/pm2/web-*.log` |
 
 Implementación: `ecosystem.config.cjs` + `scripts/pm2-root.mjs`.
 
@@ -217,4 +217,4 @@ pnpm typecheck
 pnpm build
 ```
 
-**URLs:** Web http://localhost:3000 · API http://localhost:3001
+**URLs:** Web https://restaurante.localhost · API http://localhost:3001. `pnpm dev` registra la web con portless (el puerto local lo asigna el proxy). `pnpm dev:plain` y `pnpm dev:web` siguen en http://localhost:3000.

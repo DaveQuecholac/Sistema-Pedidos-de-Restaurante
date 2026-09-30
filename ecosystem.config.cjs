@@ -1,5 +1,5 @@
 /**
- * PM2: api (Nest :3001) + web (Next :3000) in watch/dev mode.
+ * PM2: api (Nest :3001) + web (Next vía portless, https://restaurante.localhost).
  * Root scripts: pnpm dev | dev:stop | dev:status | dev:logs | dev:restart
  */
 const { existsSync } = require("node:fs");
@@ -53,9 +53,13 @@ module.exports = {
     },
     {
       name: "restaurante-web",
-      cwd: root,
-      script: pnpm,
-      args: ["--filter", "@restaurante/web", "dev"],
+      cwd: resolve(root, "apps/web"),
+      script: process.execPath,
+      args: [
+        resolve(root, "scripts/pm2-portless-run.mjs"),
+        "restaurante",
+        resolve(root, "scripts/run-web-dev.mjs"),
+      ],
       interpreter: "none",
       autorestart: true,
       watch: false,

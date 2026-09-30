@@ -1,8 +1,8 @@
 # Guía de pruebas CTTM
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
-**Fecha de esta corrida:** 30 de septiembre de 2026.  
-**Alcance de la corrida:** todo el código de producto que existe hoy (tarea 1, base de datos y arranque).
+**Fecha de esta corrida:** 30 de septiembre de 2026, por la tarde.  
+**Alcance de esta corrida:** menú con ingredientes y pantalla admin, más el arranque con portless. Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -63,13 +63,13 @@ El detalle de inserciones (D3–D9) está en `docs/dev/plataforma/01-base-de-dat
 ## T — Sistema
 
 - [ ] `pnpm dev` enciende Postgres si estaba apagado, y luego API y web.
-- [ ] `http://localhost:3000/` muestra la home actual («Sistema de Pedidos»).
+- [ ] `https://restaurante.localhost/` muestra la home actual («Sistema de Pedidos»). `pnpm dev:plain` y `pnpm dev:web` siguen en el puerto 3000.
 - [ ] `pnpm dev:stop` para API y web y deja Postgres encendido.
 - [ ] Tras un cambio visible en `apps/web`, `pnpm dev:restart` antes de mirar el navegador.
 
 ```bash
 pnpm dev:restart
-curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:3000/
+curl -sS --cacert "$HOME/.portless/ca.pem" -o /dev/null -w '%{http_code}\n' https://restaurante.localhost/
 ```
 
 ## M — Madurez
@@ -113,3 +113,47 @@ Al final de la corrida, añadir una sección «Corrida» con fecha, rango de lí
 3. El lector de `apps/api/.env` acepta `export` y comillas simples o dobles, y no pisa una variable que el proceso ya traiga. Prueba: `apps/api/src/load-api-env.spec.ts`.
 
 Nada de eso adelanta menú, órdenes ni cobro.
+
+## Corrida — 30 de septiembre de 2026, menú tareas 1 y 2
+
+**Bloques de código:** 2. Unas 1711 líneas de producto en `apps/`, `scripts/`, `ecosystem.config.cjs` y las migraciones SQL, sin specs y sin `drizzle/meta`. Los specs van aparte (unas 900 líneas ya rastreadas, más los nuevos de menú).
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 940 | Dominio, casos de uso, web, scripts, ecosystem y config de la API |
+| 2 | 733 | `main.ts`, carga de `.env`, `AppModule`, Drizzle, HTTP de menú y las migraciones `0000` y `0001` |
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 12 archivos, 66 pruebas; 8 skipped a propósito (P1–P8). Typecheck de la API pasó. Dominio y casos sin Nest, Drizzle, Postgres ni Zod. El JSON de `GET /menu-items` usa `MenuItem`, `price`, `applicableTax` y `modifiers`; no salen nombres de tabla. `0001_chilly_quasar.sql` salió de `db:generate`. |
+| T Integración | Pasó | `select 1` devolvió 1. Las dos tablas están, con `position` en los modificadores. El plato `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` sigue con extra en posición 0 y exclusión con precios nulos. Nombre en blanco, precio negativo, tasa negativa, `kind` inválido, extra sin precio y exclusión con precio caen en check `23514`; esa prueba hizo rollback. `test:db`: 8 pruebas, P1–P8. Health y health/database en 200 con `{"status":"ok","service":"restaurante-api"}`. Una API aparte con URL imposible salió con código 1 y no escuchó el puerto 3099. La de 3001 siguió arriba. |
+| T Sistema | Pasó | Postgres ya estaba encendido; `pnpm dev` lo dejó así y volvió a levantar API y web. La home responde 200 y muestra «Sistema de Pedidos». `pnpm dev:stop` apagó API y web; `select 1` siguió respondiendo. Después `pnpm dev` dejó otra vez health y home en 200. No hubo cambio en `apps/web`, así que no aplica un reinicio extra para mirar el navegador. |
+| M Madurez | Nivel 2 de la rama | Los planes de las tareas 1 y 2 tienen resultado y fecha. El núcleo de menú se prueba sin navegador. La pantalla admin no está: es la tarea 3 y no se adelantó. RF1 no llega a nivel 3 hasta esa demo. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja P1–P8 en skipped. No es un fallo: `pnpm test:db` las corre y pasaron en esta misma corrida.
+2. Queda la fila `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` (`Tacos de suadero`, inactiva). Es el plato del smoke de la tarea 2, no un seed. No se borró.
+3. El cierre de la tarea 1 dice que `AppModule` no menciona el menú. Eso era cierto al cerrarla. La tarea 2 lo cablea a propósito. El plan de la tarea 2 manda.
+4. No se apagó el servicio `postgresql-18` para ver el encendido en frío. El script avisó que ya estaba encendido.
+
+## Corrida — 30 de septiembre de 2026, por la tarde
+
+**Alcance:** ingredientes del plato, la regla de que un omitir nombra un ingrediente, la pantalla admin y el enlace `https://restaurante.localhost`.  
+**Bloques de código:** 4. Unas 3594 líneas de producto en `apps/`, `scripts/`, `ecosystem.config.cjs` y los SQL de `apps/api/drizzle/`, sin specs y sin `drizzle/meta`. Los cuatro bloques quedan en 873, 982, 982 y 757 líneas.
+
+La revisión de capas miró los imports de dominio, casos de uso y web. El dominio de producto no importa Nest, Next, Drizzle ni Postgres. Los specs de dominio sí importan Vitest. Los casos de uso solo ven `MenuRepository`. `AppModule` elige `DrizzleMenuRepository`. La web llama el HTTP; no importa el dominio.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | API sin `DATABASE_URL`: 12 archivos, 67 pruebas, 8 skipped (P1–P8). Typecheck de API y web limpio. Web: 2 archivos, 14 pruebas. `GET /menu-items` usa `id`, `name`, `price`, `applicableTax`, `active`, `ingredients`, `modifiers`. No salen nombres de tabla. La tabla `menu_item_ingredients` salió de `db:generate` (`0002_glossy_master_mold.sql`). |
+| T Integración | Pasó | `select 1` devolvió 1. Están `menu_items`, `menu_item_modifiers` y `menu_item_ingredients`. Los cinco platos guardan extra con precio y exclusión con precio nulo, y los ingredientes del plato. Nombre vacío, precio negativo, tasa negativa, `kind` inválido, extra sin precio, exclusión con precio e ingrediente en blanco caen en `23514`; el caso hace rollback. `test:db`: 8 pruebas. Health y health/database en 200 con `{"status":"ok","service":"restaurante-api"}`. Una API en el puerto 3099 con URL imposible salió con código 1 y no escuchó. La de 3001 siguió arriba. |
+| T Sistema | Pasó | Postgres ya estaba encendido. `pnpm dev:stop` apagó API y web; `select 1` siguió. `pnpm dev` los volvió a levantar. Health en 200. La home en `https://restaurante.localhost/` responde 200 y muestra «Sistema de Pedidos» y «Administrar menú». El puerto 3000 no abre: con `pnpm dev` la web va por portless. |
+| M Madurez | Nivel 3 para el catálogo de menú | Hay caso de uso, prueba sin navegador y pantalla. Órdenes, cocina, totales y cobro siguen sin construir. |
+
+### Huecos de esta corrida, cerrados el mismo día
+
+1. Se quitó el `INSERT` a mano de `0002_glossy_master_mold.sql`. Esa copia ya no hace falta: una base nueva no tiene exclusiones al crear la tabla, y el catálogo actual se cargó por el API.
+2. `0003_unknown_rick_jones.sql` liga cada exclusión al ingrediente del mismo plato. La columna `ingredient_id` es nula en el extra y obligatoria en el omitir. La llave `menu_item_modifiers_same_item_ingredient_fk` rechaza el ingrediente de otro plato (`23503`). El check `menu_item_modifiers_price_by_kind` rechaza el omitir sin ingrediente (`23514`). El `UPDATE` de esa migración rellena los cinco platos que ya estaban, para que el check no los tire. Al leer, si el nombre no coincide con ese ingrediente, el mapper no arma el plato.
+3. El plato `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` no se restaura. El catálogo pedido son los cinco platos de la demo.
+4. No se apaga `postgresql-18`. Es el servicio del sistema, y `scripts/ensure-postgres.mjs` solo lo enciende si está apagado.
