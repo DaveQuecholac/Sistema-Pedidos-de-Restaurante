@@ -3,7 +3,7 @@
 **Rama:** `dev/totales`  
 **Sprint:** 3 (RF4). Tarea 2 de 3. Solo esta.  
 **Fecha:** 4 de octubre de 2026  
-**Estado:** acordado el 4 de octubre de 2026. Empieza cuando la tarea 1 esté cerrada.  
+**Estado:** cerrada el 4 de octubre de 2026 (Pasos 0–5 + S1–S8).  
 **Análisis:** `analisis.md` en esta carpeta.  
 **Reglas de trabajo:** sección 5 de `../01-calculo-en-el-nucleo/plan-de-accion.md`.  
 **Maestro:** `.cursor/rules/dev-spec-gen1.mdc`.
@@ -60,6 +60,20 @@ Cada paso cierra con API test y typecheck en verde; los pasos 1 y 2 además con 
 3. `select count(*) from orders` → anotar.
 4. `GET /menu-items`: Tacos de suadero `4500`/`1600` con Queso `1500`; Agua de jamaica `2500`/`0`. Si cambiaron, recalcular los valores esperados de S2–S6 con la sección 5.8 del análisis de la tarea 1 antes de seguir.
 
+**Línea base — 4 de octubre de 2026**
+
+| Comando | Resultado |
+|---------|-----------|
+| `pnpm dev:status` | `restaurante-api` y `restaurante-web` online |
+| `GET /health/database` | 200 `{"status":"ok","service":"restaurante-api"}` |
+| `env -u DATABASE_URL pnpm --filter @restaurante/api test` | **289** passed + **22** skipped (cierre tarea 1) |
+| `pnpm --filter @restaurante/api test:db` | **22** passed |
+| `pnpm --filter @restaurante/api typecheck` | OK |
+| `select count(*) from orders` | **26** |
+| Carta | Tacos de suadero `4500`/`1600`, Queso `1500`; Agua de jamaica `2500`/`0`, Chía `500` — sin recalcular S2–S6 |
+
+Piso de la tarea: API **289** + 22 skipped; `test:db` **22**. No pueden bajar.
+
 ### Paso 1 — Esquema y migración
 
 1. Columnas y checks en `schema/order.ts`.
@@ -73,6 +87,18 @@ Cada paso cierra con API test y typecheck en verde; los pasos 1 y 2 además con 
 
 Si el SQL no cumple: se corrige `schema/order.ts`, se borra **solo** la migración recién generada con `drizzle-kit drop` y se vuelve a generar. No se edita el SQL. Si la migración falla en la base, parar; no se aplica `ALTER` a mano. Si no hay Postgres, parar.
 
+**Hecho — 4 de octubre de 2026**
+
+| Chequeo | Resultado |
+|---------|-----------|
+| Migración | `0006_shocking_the_captain.sql` — solo `ADD COLUMN` × 8 y `ADD CONSTRAINT CHECK` × 4 en `orders` |
+| `\d orders` | ocho columnas nulas + `orders_discount_kind/shape` + `orders_tip_kind/shape` |
+| `count(*)` orders | **26** (igual que paso 0) |
+| con ajuste no nulo | **0** |
+| API test | **289** + 22 skipped |
+| `test:db` | **22** |
+| Typecheck | OK (`orderRow` escribe `null` en las 8 columnas; el mapeo real es el Paso 2) |
+
 ### Paso 2 — Mapper y repositorio
 
 1. Mapper en las dos direcciones; errores de dominio → `OrderMappingError`.
@@ -80,6 +106,20 @@ Si el SQL no cumple: se corrige `schema/order.ts`, se borra **solo** la migraci�
 3. Pruebas P15–P22. P1–P14 de órdenes y P1–P8 del menú siguen.
 
 **Control:** quitar las columnas de propina del `set` de `save` → P16 falla. Restaurar.
+
+**Hecho — 4 de octubre de 2026**
+
+| Chequeo | Resultado |
+|---------|-----------|
+| Mapper | lee/escribe `Discount` y `Tip`; errores de dominio → `OrderMappingError` |
+| `add` / `save` | las ocho columnas |
+| P15–P22 | pasan |
+| Control P16 (sin tip en `set`) | falla como se espera; restaurado |
+| P1–P14 + menú P1–P8 | siguen |
+| Migración extra | `0007_omniscient_ted_forrester` — endurece shape: `fixedAmount` exige `currency is not null` (Postgres trataba `length(null)=3` como OK) |
+| `test:db` | **30** passed |
+| API test | **289** + 30 skipped (más specs de integración omitidos sin `DATABASE_URL`) |
+| Typecheck | OK |
 
 ### Paso 3 — HTTP sin base
 
@@ -96,9 +136,32 @@ export const setTipBodySchema = z.object({ tip: adjustment.nullable() }).strict(
 
 **Control:** quitar `OrderTotalsNotAdjustableError` de la tabla de errores → H36 falla (500 en lugar de 409). Restaurar.
 
+**Hecho — 4 de octubre de 2026**
+
+| Chequeo | Resultado |
+|---------|-----------|
+| Archivos | `totals.schema.ts`, `totals.presenter.ts`, `totals-http.errors.ts`, `totals.controller.ts`, `totals.controller.spec.ts` |
+| H26–H44 | pasan (20 tests) |
+| Control H36 (sin mapeo) | 500 en lugar de 409; restaurado |
+| API test | **309** + 30 skipped (289 + H26–H44) |
+| Typecheck | OK |
+| AppModule | aún sin cablear (Paso 4) |
+| App / web | no se ve: rutas no registradas en el arranque |
+
 ### Paso 4 — Cableado
 
 En `AppModule.register`: `CalculateTotals`, `SetOrderDiscount`, `SetOrderTip` con `inject: [ORDER_REPOSITORY]`, y `TotalsController` en `controllers`. Nada más cambia en el módulo.
+
+**Hecho — 4 de octubre de 2026**
+
+| Chequeo | Resultado |
+|---------|-----------|
+| `AppModule` | `TotalsController` + tres casos de uso con `ORDER_REPOSITORY` |
+| API test | **309** + 30 skipped |
+| Typecheck | OK |
+| Arranque | rutas `GET …/totals`, `PUT …/discount`, `PUT …/tip` mapeadas |
+| Sonda | `GET /orders/no-existe/totals` → 404 `OrderNotFoundError` |
+| Web | menú/comanda/cocina 200; sin UI de totales (tarea 3) |
 
 ### Paso 5 — Smoke y cierre
 
@@ -106,6 +169,15 @@ En `AppModule.register`: `CalculateTotals`, `SetOrderDiscount`, `SetOrderTip` co
 2. `pnpm dev:restart`.
 3. S1–S8 contra `http://localhost:3001`.
 4. Anotar la sección 10.
+
+**Hecho — 4 de octubre de 2026**
+
+| Chequeo | Resultado |
+|---------|-----------|
+| API test | **309** + 30 skipped |
+| `test:db` | **30** |
+| Typecheck | OK |
+| S1–S8 | todos PASS (ids en §10) |
 
 ## 6. Catálogo con Postgres
 
@@ -177,31 +249,33 @@ PGPASSWORD=postgres /usr/pgsql-18/bin/psql -h localhost -U postgres -d restauran
 
 ## 9. Hecho cuando
 
-- [ ] Migración `0006` generada por Drizzle Kit, revisada y aplicada; filas previas intactas
-- [ ] P15–P22 pasan junto con P1–P14 de órdenes y P1–P8 del menú
-- [ ] H26–H44 pasan; H1–H25 sin cambio
-- [ ] Los controles de los pasos 2 y 3 fallaron al romper y pasaron al restaurar
-- [ ] S1–S8 anotados con ids
-- [ ] Ningún JSON trae nombres de tabla ni `version`
-- [ ] `domain/` y `application/` no importan Drizzle, Nest, Zod ni HTTP
-- [ ] Solo `AppModule` instancia adaptadores en el arranque
-- [ ] `apps/web` no cambió
+- [x] Migración `0006` generada por Drizzle Kit, revisada y aplicada; filas previas intactas
+- [x] P15–P22 pasan junto con P1–P14 de órdenes y P1–P8 del menú
+- [x] H26–H44 pasan; H1–H25 sin cambio
+- [x] Los controles de los pasos 2 y 3 fallaron al romper y pasaron al restaurar
+- [x] S1–S8 anotados con ids
+- [x] Ningún JSON trae nombres de tabla ni `version`
+- [x] `domain/` y `application/` no importan Drizzle, Nest, Zod ni HTTP
+- [x] Solo `AppModule` instancia adaptadores en el arranque
+- [x] `apps/web` no cambió
 
 ## 10. Cierre
 
-Se llena al terminar.
+Cerrado el 4 de octubre de 2026.
 
 | Familia | Comando | Resultado |
 |---------|---------|-----------|
-| Línea base | paso 0 | |
-| Migración | `db:generate` + `db:migrate` + `\d orders` | |
-| Integración | `pnpm --filter @restaurante/api test:db` | |
-| Unit / HTTP | `env -u DATABASE_URL pnpm --filter @restaurante/api test` | |
-| Typecheck | `pnpm --filter @restaurante/api typecheck` | |
-| Smoke | S1–S8 | |
+| Línea base | paso 0 | API 289 + 22 skipped; test:db 22; orders=26; carta OK (4 oct 2026) |
+| Migración | `db:generate` + `db:migrate` + `\d orders` | `0006_shocking_the_captain` (+ `0007` shape); 8 cols + checks; orders=26 |
+| Integración | `pnpm --filter @restaurante/api test:db` | **30** (P1–P22 órdenes + P1–P8 menú) |
+| Unit / HTTP | `env -u DATABASE_URL pnpm --filter @restaurante/api test` | **309** + 30 skipped |
+| Typecheck | `pnpm --filter @restaurante/api typecheck` | OK |
+| Smoke | S1–S8 | todos PASS |
 
 | Id smoke | order id | Estado final |
 |----------|----------|--------------|
-| | | |
+| S1 | — | health/DB/carta OK |
+| S2–S5, S7–S8 | `3d144fa4-e6d3-402f-bf84-2194adafde66` (mesa `D3-API-1`) | `SENT_TO_KITCHEN`; descuento 10 %; propina 15 %; total 16736 |
+| S6 | `61ecd29e-b4e2-4594-b92b-203f39d97ac1` (mesa `D3-API-2`) | `CANCELLED`; tip 409; `adjustable` false |
 
 Siguiente tarea del sprint: `docs/dev/totales/03-pantalla-cuenta-y-demo/`.

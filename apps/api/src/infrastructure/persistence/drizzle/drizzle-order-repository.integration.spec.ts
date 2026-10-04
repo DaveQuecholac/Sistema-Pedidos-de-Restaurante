@@ -17,6 +17,9 @@ import { LineItem } from '../../../domain/order/line-item';
 import { Order } from '../../../domain/order/order';
 import { OrderOrigin } from '../../../domain/order/order-origin';
 import { Quantity } from '../../../domain/order/quantity';
+import { Discount } from '../../../domain/totals/discount';
+import { Percentage } from '../../../domain/totals/percentage';
+import { Tip } from '../../../domain/totals/tip';
 import { type AppDatabase, createDatabase } from './client';
 import { DrizzleMenuRepository, type MenuDatabase } from './drizzle-menu-repository';
 import { DrizzleOrderRepository, type OrderDatabase } from './drizzle-order-repository';
@@ -601,7 +604,268 @@ describeIntegration('DrizzleOrderRepository', () => {
       });
     });
   });
+
+  it('adds a new order with null adjustment columns (P15)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, _menu, tx) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table('20'), openedAt: OPENED_AT }),
+      );
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.discount).toBeNull();
+      expect(found?.tip).toBeNull();
+
+      const rows = await tx.select().from(orders).where(eq(orders.id, orderId));
+      expect(rows[0]?.discountKind).toBeNull();
+      expect(rows[0]?.discountBasisPoints).toBeNull();
+      expect(rows[0]?.discountAmount).toBeNull();
+      expect(rows[0]?.discountCurrency).toBeNull();
+      expect(rows[0]?.tipKind).toBeNull();
+      expect(rows[0]?.tipBasisPoints).toBeNull();
+      expect(rows[0]?.tipAmount).toBeNull();
+      expect(rows[0]?.tipCurrency).toBeNull();
+    });
+  });
+
+  it('saves percentage discount and fixed tip and reads them back (P16)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table('21'), openedAt: OPENED_AT }),
+      );
+      const opened = await ordersRepo.findById(orderId);
+      expect(opened).not.toBeNull();
+
+      await ordersRepo.save(
+        opened!
+          .setDiscount(Discount.percentage(Percentage.of(1000)))
+          .setTip(Tip.fixedAmount(Money.of(2000, 'MXN'))),
+      );
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.version).toBe(1);
+      expect(found?.discount?.kind).toBe('percentage');
+      expect(found?.discount?.amountFor(Money.of(14500, 'MXN')).amount).toBe(1450);
+      expect(found?.tip?.kind).toBe('fixedAmount');
+      expect(found?.tip?.amountFor(Money.zero('MXN')).amount).toBe(2000);
+    });
+  });
+
+  it('clears discount and tip on save (P17)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, _menu, tx) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table('22'), openedAt: OPENED_AT })
+          .setDiscount(Discount.percentage(Percentage.of(1000)))
+          .setTip(Tip.percentage(Percentage.of(1500))),
+      );
+      const stored = await ordersRepo.findById(orderId);
+      expect(stored).not.toBeNull();
+
+      await ordersRepo.save(stored!.setDiscount(null).setTip(null));
+      const found = await ordersRepo.findById(orderId);
+
+      expect(found?.discount).toBeNull();
+      expect(found?.tip).toBeNull();
+      const rows = await tx.select().from(orders).where(eq(orders.id, orderId));
+      expect(rows[0]?.discountKind).toBeNull();
+      expect(rows[0]?.tipKind).toBeNull();
+    });
+  });
+
+  it('keeps discount when saving only tip (P18)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table('23'), openedAt: OPENED_AT }).setDiscount(
+          Discount.fixedAmount(Money.of(5000, 'MXN')),
+        ),
+      );
+      const withDiscount = await ordersRepo.findById(orderId);
+      expect(withDiscount).not.toBeNull();
+
+      await ordersRepo.save(withDiscount!.setTip(Tip.percentage(Percentage.of(1000))));
+      const found = await ordersRepo.findById(orderId);
+
+      expect(found?.discount?.kind).toBe('fixedAmount');
+      expect(found?.discount?.amountFor(Money.of(14500, 'MXN')).amount).toBe(5000);
+      expect(found?.tip?.kind).toBe('percentage');
+    });
+  });
+
+  it('rejects a concurrent tip save and keeps the first write (P19)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table('24'), openedAt: OPENED_AT }),
+      );
+
+      const first = await ordersRepo.findById(orderId);
+      const second = await ordersRepo.findById(orderId);
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+
+      await ordersRepo.save(first!.setTip(Tip.percentage(Percentage.of(1000))));
+      await expect(
+        ordersRepo.save(second!.setTip(Tip.percentage(Percentage.of(1500)))),
+      ).rejects.toBeInstanceOf(OrderConcurrencyError);
+
+      const stored = await ordersRepo.findById(orderId);
+      expect(stored?.tip?.kind).toBe('percentage');
+      expect(stored?.tip?.amountFor(Money.of(14500, 'MXN')).amount).toBe(1450);
+    });
+  });
+
+  it('rejects invalid discount column combinations by check (P20)', async () => {
+    await inTransaction(db, async (_orders, _menu, tx) => {
+      const base = {
+        tableId: '25',
+        externalOrderId: null as string | null,
+        status: 'OPEN',
+        openedAt: OPENED_AT,
+        version: 0,
+      };
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          discountKind: 'coupon',
+        });
+      });
+
+      for (const basisPoints of [0, 10001]) {
+        await expectCheckViolation(tx, async () => {
+          await tx.insert(orders).values({
+            ...base,
+            id: id(),
+            discountKind: 'percentage',
+            discountBasisPoints: basisPoints,
+          });
+        });
+      }
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          discountKind: 'percentage',
+          discountBasisPoints: 1000,
+          discountAmount: 5000,
+        });
+      });
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          discountKind: 'fixedAmount',
+          discountAmount: 0,
+          discountCurrency: 'MXN',
+        });
+      });
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          discountKind: 'fixedAmount',
+          discountAmount: 5000,
+          discountCurrency: null,
+        });
+      });
+    });
+  });
+
+  it('rejects invalid tip column combinations by check (P21)', async () => {
+    await inTransaction(db, async (_orders, _menu, tx) => {
+      const base = {
+        tableId: '26',
+        externalOrderId: null as string | null,
+        status: 'OPEN',
+        openedAt: OPENED_AT,
+        version: 0,
+      };
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          tipKind: 'coupon',
+        });
+      });
+
+      for (const basisPoints of [0, 10001]) {
+        await expectCheckViolation(tx, async () => {
+          await tx.insert(orders).values({
+            ...base,
+            id: id(),
+            tipKind: 'percentage',
+            tipBasisPoints: basisPoints,
+          });
+        });
+      }
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          tipKind: 'percentage',
+          tipBasisPoints: 1000,
+          tipAmount: 5000,
+        });
+      });
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          tipKind: 'fixedAmount',
+          tipAmount: 0,
+          tipCurrency: 'MXN',
+        });
+      });
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orders).values({
+          ...base,
+          id: id(),
+          tipKind: 'fixedAmount',
+          tipAmount: 5000,
+          tipCurrency: null,
+        });
+      });
+    });
+  });
+
+  it('maps USD discount currency to OrderMappingError (P22)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, _menu, tx) => {
+      await tx.insert(orders).values({
+        id: orderId,
+        tableId: '27',
+        externalOrderId: null,
+        status: 'OPEN',
+        openedAt: OPENED_AT,
+        version: 0,
+        discountKind: 'fixedAmount',
+        discountBasisPoints: null,
+        discountAmount: 5000,
+        discountCurrency: 'USD',
+      });
+
+      await expect(ordersRepo.findById(orderId)).rejects.toBeInstanceOf(OrderMappingError);
+    });
+  });
 });
+
 
 class RollbackSignal extends Error {
   constructor() {

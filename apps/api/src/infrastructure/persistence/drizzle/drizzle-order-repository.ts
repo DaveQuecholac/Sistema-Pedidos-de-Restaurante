@@ -14,7 +14,10 @@ import type { Order } from '../../../domain/order/order';
 import type { OrderStatus } from '../../../domain/order/order-status';
 import type { AppDatabase } from './client';
 import {
+  toDiscountColumns,
   toOrder,
+  toOrderRow,
+  toTipColumns,
   type OrderLineModifierRow,
   type OrderLineRow,
   type OrderRow,
@@ -35,7 +38,7 @@ export class DrizzleOrderRepository implements OrderRepository {
   async add(order: Order): Promise<void> {
     try {
       await this.db.transaction(async (tx) => {
-        await tx.insert(orders).values(orderRow(order));
+        await tx.insert(orders).values(toOrderRow(order));
         await insertLines(tx, order);
       });
     } catch (error) {
@@ -56,6 +59,8 @@ export class DrizzleOrderRepository implements OrderRepository {
         .set({
           status: order.status,
           version: order.version + 1,
+          ...toDiscountColumns(order.discount),
+          ...toTipColumns(order.tip),
         })
         .where(and(eq(orders.id, order.id), eq(orders.version, order.version)))
         .returning({ id: orders.id });
@@ -173,17 +178,6 @@ async function insertLines(tx: OrderDatabase, order: Order): Promise<void> {
   if (modifierValues.length > 0) {
     await tx.insert(orderLineModifiers).values(modifierValues);
   }
-}
-
-function orderRow(order: Order): OrderRow {
-  return {
-    id: order.id,
-    tableId: order.origin.tableId,
-    externalOrderId: order.origin.externalOrderId,
-    status: order.status,
-    openedAt: order.openedAt,
-    version: order.version,
-  };
 }
 
 function lineRow(orderId: string, line: LineItem, position: number) {

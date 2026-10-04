@@ -17,6 +17,9 @@ import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import { MenuRepository } from './application/ports/menu-repository';
 import { OrderRepository } from './application/ports/order-repository';
+import { CalculateTotals } from './application/totals/calculate-totals';
+import { SetOrderDiscount } from './application/totals/set-order-discount';
+import { SetOrderTip } from './application/totals/set-order-tip';
 import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
 import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
@@ -25,6 +28,7 @@ import { DatabaseHealthController } from './interface/http/controllers/database-
 import { HealthController } from './interface/http/controllers/health.controller';
 import { MenuItemController } from './interface/http/menu/menu-item.controller';
 import { OrderController } from './interface/http/order/order.controller';
+import { TotalsController } from './interface/http/totals/totals.controller';
 
 export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
 export const MENU_REPOSITORY = Symbol('MENU_REPOSITORY');
@@ -41,6 +45,7 @@ export class AppModule {
         DatabaseHealthController,
         MenuItemController,
         OrderController,
+        TotalsController,
       ],
       providers: [
         {
@@ -132,6 +137,21 @@ export class AppModule {
           provide: CancelOrder,
           inject: [ORDER_REPOSITORY],
           useFactory: (orders: OrderRepository) => new CancelOrder(orders),
+        },
+        {
+          provide: CalculateTotals,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new CalculateTotals(orders),
+        },
+        {
+          provide: SetOrderDiscount,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new SetOrderDiscount(orders),
+        },
+        {
+          provide: SetOrderTip,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new SetOrderTip(orders),
         },
       ],
     };
