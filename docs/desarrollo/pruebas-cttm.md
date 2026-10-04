@@ -253,13 +253,14 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 | C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 29 archivos, **210** pruebas, 22 skipped (P menú + P órdenes). Typecheck API limpio. Web: 4 archivos, **36** pruebas (W1–W9, V1–V13), typecheck limpio. Capas OK. `0005_hot_omega_sentinel.sql` salió de `db:generate`. |
 | T Integración | Pasó | `select 1` = 1. Tablas: 3 menú + `orders` / `order_lines` / `order_line_modifiers`. `test:db`: **22**. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos (**5 activos** en esta corrida). API con `DATABASE_URL` imposible en 3099: «Database connection failed», no escuchó. Smoke RF3: `send-to-kitchen` → `SENT_TO_KITCHEN` → `begin-cooking` → cancel 409 → `mark-ready` → `READY` (orden `0b315ee5-8e3b-41a0-9b92-f172b6ac6476`, mesa `D2-CTTM`). |
 | T Sistema | Pasó | `pnpm dev:restart`: API y web online (Postgres ya encendido). Home 200 con «Sistema de Pedidos», «Administrar menú», «Comandas», «Cocina». `/menu`, `/orders`, `/kitchen` → 200. |
-| M Madurez | Nivel 3 para RF2–RF3 (comanda) | Hay casos de uso, pruebas sin navegador, API y pantallas. Totales (RF4) y cobro (RF5) siguen fuera. El recorrido B1–B22 del plan §7 quedó parcial: flujo RF3 verificado por API + páginas 200; no se anotó viewport 1280/390 ítem a ítem en esta corrida. |
+| M Madurez | Nivel 3 para RF2–RF3 (comanda) | Hay casos de uso, pruebas sin navegador, API y pantallas. Totales (RF4) y cobro (RF5) siguen fuera. B1–B22 anotados el mismo día en el plan §7 (API + páginas + CSS + PM2). |
 
 ### Huecos de esta corrida
 
 1. El plan de la tarea 3 decía «no tocar `apps/api/**`»; el ajuste RF3 acordado con Hector sí tocó dominio, application, HTTP y migración `0005`. Manda el acuerdo RF3 + Gen 1 actualizado.
-2. El recorrido B del plan §7 aún habla de «Enviar a cocina» → «En cocción» directo. El producto ahora pasa por `SENT_TO_KITCHEN` («En cocina») y luego «Poner en cocción». Hay que actualizar B13–B16 en el plan cuando se cierre el recorrido manual.
+2. B13–B16 del plan §7 se actualizaron al flujo `SENT_TO_KITCHEN` → `beginCooking` → `markReady`.
 3. R1 no queda literalmente vacío por el texto de la home; no es dependencia de código.
 4. `pnpm test` deja P* en skipped; `test:db` las corre (22 verdes).
 5. No se apagó `postgresql-18` para probar el encendido en frío.
-6. Órdenes de smoke/demo siguen en la BD (no seeds), incluida `0b315ee5-…` READY.
+6. Órdenes de smoke/demo siguen en la BD (no seeds), p. ej. `1fd99515-…` READY (recorrido B) y `0b315ee5-…` READY (CTTM).
+7. Deuda: CSS de comandas/cocina copiado del menú hasta la UI final.

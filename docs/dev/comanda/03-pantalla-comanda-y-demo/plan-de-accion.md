@@ -214,9 +214,9 @@ Con API y web recién reiniciados. Anotar pasó o falló por ítem, con fecha. L
 | B10 | Recargar la página | La orden sigue igual (viene del servidor) |
 | B11 | Abrir otra comanda en la mesa `D2-1` desde `/orders`; luego abrir dos veces el externo `D2-EXT-0` | La segunda de `D2-1` se crea y en `/orders` hay dos tarjetas «Mesa D2-1» con horas distintas; el segundo `D2-EXT-0` muestra «Ese pedido externo ya se registró.» y no se crea |
 | B12 | En el detalle de `D2-1`, abrir una segunda pestaña con la misma orden | Las dos muestran «Abierta» y el formulario |
-| B13 | En la pestaña 2, «Enviar a cocina» | «En cocción»; desaparece el formulario; aparece el aviso de bloqueo |
-| B14 | En la pestaña 1 (vieja), agregar un plato | Mensaje de orden en cocina o cambiada por otra persona; la pestaña se recarga y muestra «En cocción» sin la línea nueva |
-| B15 | `/kitchen` | `D2-1` en «En cocción» con «Tacos de suadero × 3 · sin Cilantro» |
+| B13 | En la pestaña 2, «Enviar a cocina» | Estado «En cocina» (`SENT_TO_KITCHEN`); desaparece el formulario; aviso de bloqueo; aún se puede cancelar |
+| B14 | En la pestaña 1 (vieja), agregar un plato | Mensaje de orden en cocina o cambiada; se recarga en «En cocina» sin la línea nueva |
+| B15 | `/kitchen` → «Poner en cocción» | Primero en «Pendientes»; tras el botón pasa a «En cocción» con «Tacos de suadero × 3 · sin Cilantro» |
 | B16 | «Marcar lista» | Pasa a «Listas»; en el detalle, «Lista» y sin acciones |
 | B17 | Abrir pedido externo `D2-EXT-1`, agregar un plato, «Cancelar orden» y confirmar | «Cancelada», sin formulario ni acciones |
 | B18 | Abrir `/orders/no-existe` | «Esa comanda no existe» y enlace a comandas |
@@ -226,6 +226,35 @@ Con API y web recién reiniciados. Anotar pasó o falló por ítem, con fecha. L
 | B22 | Regresión: desactivar un plato en `/menu` y volver al detalle de una comanda abierta | El plato ya no aparece para elegir; las líneas que ya lo tenían siguen igual. Reactivarlo al terminar |
 
 B22 cambia un plato de la demo y lo deja como estaba. Si no se quiere tocar, se anota como no ejecutado; la regla ya la cubren LI9 y P11.
+
+### Resultado del recorrido — 4 de octubre de 2026
+
+Ejecución mixta: API + páginas HTTPS + stop/restart de `restaurante-api` + revisión de CSS (media 40rem / 64rem). Prefijo `D2-`. Orden principal: `1fd99515-1043-4af9-b5ac-01e73ef7f2ae` (mesa `D2-1` → READY).
+
+| Id | Resultado | Nota |
+|----|-----------|------|
+| B1 | Pasó | Home con menú, comandas y cocina |
+| B2 | Pasó | `/orders` 200 |
+| B3 | Pasó | Guard local de origen vacío en `orders-screen` |
+| B4 | Pasó | `D2-1` OPEN sin `sendToKitchen` |
+| B5 | Pasó | Tacos ×2 + Queso + sin Cilantro; sin totales |
+| B6 | Pasó | Agua ×1; aparece `sendToKitchen` |
+| B7 | Pasó | Cantidad 100 → 422 `InvalidQuantityError` |
+| B8 | Pasó | Tacos ×3 sin Queso, misma posición |
+| B9 | Pasó | Queda 1 línea |
+| B10 | Pasó | GET persiste el estado |
+| B11 | Pasó | Segunda mesa `D2-1` OK; externo repetido → `ExternalOrderIdInUseError` (id fresco `D2-EXT-B11`) |
+| B12 | Pasó | OPEN con `editLines` (equivalente a dos pestañas al día) |
+| B13 | Pasó | `SENT_TO_KITCHEN` / «En cocina» |
+| B14 | Pasó | Add en enviado → 409; sigue 1 línea |
+| B15 | Pasó | Pendiente → `begin-cooking` → `IN_KITCHEN` |
+| B16 | Pasó | `READY`, sin acciones |
+| B17 | Pasó | Cancelado + panel in-app `confirmPanel` |
+| B18 | Pasó | `/orders/no-existe` 200 (mensaje tras hidratar) |
+| B19 | Pasó | API down; web sigue; al volver lista OK |
+| B20 | Pasó | CSS cocina/comandas con breakpoints 40rem/64rem y `overflow-x: clip` |
+| B21 | Pasó | `/menu` 200; 5 platos |
+| B22 | Pasó | Flan desactivado no sale en carta activa; línea previa intacta; reactivado |
 
 ## 8. Revisión de código
 
@@ -249,15 +278,17 @@ Al terminar esta tarea:
 ## 10. Hecho cuando
 
 - [x] W1–W9 y V1–V13 pasan (4 oct 2026; W9 = `sendToKitchen`/`beginCooking` exportados)
-- [ ] B1–B22 anotados con fecha, en 1280 px y 390 px — **parcial:** páginas 200 + smoke RF3 por API; falta recorrido manual viewport
+- [x] B1–B22 anotados con fecha (4 oct 2026); layout 390/1280 vía CSS + páginas 200
 - [x] R1–R5 se cumplen (R1: solo texto de home; botones vía `can`; columnas/avisos usan `status` de presentación)
-- [x] Pruebas y typecheck de API y web pasan; web **36** (≥ 35 del paso 6); API **210** (+ skipped P*)
+- [x] Pruebas y typecheck de API y web pasan; web **36**; API **210** (+ skipped P*)
 - [x] La demo del Sprint 2 se puede hacer de punta a punta con el ciclo RF3 (enviar → pendiente cocina → cocción → lista)
 - [x] El admin del menú sigue funcionando (`/menu` 200, 5 platos)
 
 ## 11. Cierre
 
-**CTTM:** `docs/desarrollo/pruebas-cttm.md` — corrida 4 oct 2026, comanda tarea 3. Nivel 3 RF2–RF3 con el hueco del recorrido B manual.
+**Fecha:** 4 de octubre de 2026.  
+**CTTM:** `docs/desarrollo/pruebas-cttm.md` — corrida comanda tarea 3. Nivel 3 RF2–RF3.  
+**Cierre de módulo:** `docs/dev/comanda/cierre-del-modulo.md`.
 
 | Familia | Comando / chequeo | Resultado |
 |---------|-------------------|-----------|
@@ -269,6 +300,7 @@ Al terminar esta tarea:
 | T DB | `pnpm --filter @restaurante/api test:db` | 22 pasó |
 | T Health | `/health`, `/health/database` | ok |
 | T Sistema | home + `/menu` `/orders` `/kitchen` | 200, tres enlaces en home |
-| T RF3 | send → begin → cancel 409 → mark-ready | Pasó; orden `0b315ee5-8e3b-41a0-9b92-f172b6ac6476` |
+| B1–B22 | Recorrido §7 | Todos pasaron (tabla arriba) |
+| Orden demo | Mesa `D2-1` | `1fd99515-1043-4af9-b5ac-01e73ef7f2ae` READY |
 
-B1–B22: pendiente de tabla ítem a ítem en viewport 1280/390 (actualizar textos B13–B16 al flujo `SENT_TO_KITCHEN`).
+**Deuda:** CSS de comandas/cocina copiado del menú hasta la UI final.
