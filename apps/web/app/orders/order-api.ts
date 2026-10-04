@@ -54,7 +54,8 @@ export type OrderActionJson =
   | 'sendToKitchen'
   | 'beginCooking'
   | 'markReady'
-  | 'cancel';
+  | 'cancel'
+  | 'close';
 
 export type OrderJson = {
   id: string;

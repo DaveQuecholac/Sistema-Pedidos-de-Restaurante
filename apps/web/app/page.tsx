@@ -16,6 +16,9 @@ export default function HomePage() {
         {' · '}
         <Link href="/kitchen">Cocina</Link>
       </p>
+      <p>
+        Flujo del local: comanda → cocina → cuenta → cobro.
+      </p>
     </main>
   );
 }

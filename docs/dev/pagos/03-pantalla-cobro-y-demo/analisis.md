@@ -3,7 +3,7 @@
 **Rama:** `dev/pagos`  
 **Sprint:** 4 (RF5). Tarea 3 de 3. Solo esta. Cierra la demo del Sprint 4 y del MVP.  
 **Fecha:** 4 de octubre de 2026  
-**Estado:** propuesta. Empieza cuando la tarea 2 esté cerrada.  
+**Estado:** cerrada el 4 de octubre de 2026 (ver plan §10).  
 **Plan:** `plan-de-accion.md` en esta carpeta.  
 **Reglas de cobro:** `../01-cobro-en-el-nucleo/analisis.md`. **Contrato HTTP:** sección 7 de `../02-adaptadores-persistencia-y-api/analisis.md`.  
 **Maestro:** `.cursor/rules/dev-spec-gen1.mdc`.

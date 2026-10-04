@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 4 de octubre de 2026.  
-**Alcance de esta corrida:** Sprint 3 completo — `dev/totales` tareas 1–3 (núcleo RF4, persistencia/API, pantalla de cuenta). Las corridas anteriores quedan abajo y no se borran.
+**Alcance de esta corrida:** Sprint 4 completo — `dev/pagos` tareas 1–3 (núcleo RF5, adaptadores/API, pantalla de cobro + demo MVP). Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -340,3 +340,49 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 4. Órdenes de smoke/demo (incl. `D3-API-*` del plan 02 y `D3-CTTM-*` de esta corrida) quedan en la BD; no son seeds.
 5. `cierre-del-modulo.md` de totales no se escribió: el plan lo deja solo si Hector lo pide.
 6. La corrida «totales tarea 3» de más arriba quedó anotada el mismo día; esta corrida revalida en vivo todo el sprint.
+
+## Corrida — 4 de octubre de 2026, Sprint 4 completo (`dev/pagos` 01–03)
+
+**Alcance:** RF5 de punta a punta: cobro en el núcleo, adaptadores simulados + `order_payments` + API de cierre, pantalla `/orders/[id]/payment` y recorrido B1–B20.  
+**Planes:** `docs/dev/pagos/01-cobro-en-el-nucleo/`, `02-adaptadores-persistencia-y-api/`, `03-pantalla-cobro-y-demo/`.  
+**Bloques de código de producto del sprint (sin specs ni `drizzle/meta`):** 2. Unas **~1900+** líneas (núcleo pago + adaptadores/migración `0008`/HTTP + web cobro).
+
+| Bloque | Líneas (aprox.) | Qué se revisó |
+|--------|-----------------|---------------|
+| 1 | ~950 | Dominio `payment` + `Order.close`/`canClose` + `CloseOrder`/`GetOrderPayment` + `PaymentPort` + adaptadores cash/card/gateway + schema `order_payments` + mapper/repo |
+| 2 | ~950 | HTTP `payment.*` + `AppModule` PAYMENT_PORTS + web `payment-api` / `payment-view` / `payment-screen` + enlaces U1–U4 + CSS |
+
+### Hexagonal (revisión de capas)
+
+- Dominio `payment`/`order`: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de cobro: solo `OrderRepository` + `PaymentPort`. Sin `@nestjs/*` ni `drizzle-orm`.
+- Adaptadores de cobro en `infrastructure/payment/`; cableado solo en `AppModule`. Migración `0008` de `db:generate`.
+- JSON de cierre/pago: `orderId`, `status`, `payment` (llaves fijas, `null` donde no aplica). Sin `version` ni nombres de columna.
+- Web: fetch a `NEXT_PUBLIC_API_URL`; cambio solo de `payment.change`; formulario si `can(order, 'close')`. R13–R18 OK.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | API: **408** passed, **41** skipped. Web: **73**. Typecheck API y web OK. Capas OK. |
+| T Integración | Pasó | `test:db` **41**. Health / health/database 200. Carta Tacos/Agua sin cambio. Smoke API tarea 2 (S1–S10) y B1–B20 en vivo. |
+| T Sistema | Pasó | `pnpm dev:restart`. Home con flujo comanda→cocina→cuenta→cobro. `/menu`, `/orders`, `/kitchen`, `/orders/:id/payment` → 200. B16: API caída → web 200; al volver, payment OK. |
+| M Madurez | Nivel 3 para RF5 (Sprint 4 / MVP) | Planes 01–03 con cierre. Núcleo + adaptadores + pantalla + demo B. RF1–RF5 demostrables. |
+
+### Smoke B de esta corrida (no seeds)
+
+| Id | order id | Origen |
+|----|----------|--------|
+| B2–B9 | `a9ea9210-d20b-4105-91ac-b514c84e8cc1` | `D4-1` CLOSED cash |
+| B10 | `50420a8f-4aae-4568-82b2-b65aa53618de` | `D4-2` CLOSED card |
+| B11 | `0d22725f-a90f-40a1-b5ac-93dd9658468e` | `D4-EXT-1` CLOSED gateway |
+| B12 | `9635bb5e-cf5d-4eb9-a341-6f591175af4b` | `D4-3` tip + cash |
+| B13 | `ab23f126-d416-4dcc-b1c7-484158695e07` | `D4-4` exact |
+| B14 | `6ee07a9a-624d-44b9-bd44-9e585f31e358` | `D4-5` CANCELLED |
+| B19–B20 | `8aa8b7dd-decd-44e6-959f-4eb5ebc04d89` | `D4-B19` 16083 → change 3917 |
+
+### Huecos de esta corrida
+
+1. B17: sin navegador headed en el agente; layout verificado por CSS (`flex`/`overflow-x: clip`) y HTTP 200. Conviene mirar 1280/390 a ojo en demo.
+2. `pnpm test` deja P* en skipped; `test:db` las corre (41 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío.
+4. Órdenes `D4-*` / `D4-API-*` quedan en la BD; no son seeds.
+5. `cierre-del-modulo.md` de pagos no se escribió: el plan lo deja solo si Hector lo pide.
