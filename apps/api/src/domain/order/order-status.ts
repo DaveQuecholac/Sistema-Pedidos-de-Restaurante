@@ -13,7 +13,8 @@ export type OrderAction =
   | 'sendToKitchen'
   | 'beginCooking'
   | 'markReady'
-  | 'cancel';
+  | 'cancel'
+  | 'close';
 
 /** Actions that `next` understands. `editLines` is never a transition. */
 export type OrderTransitionAction = OrderAction;
@@ -22,6 +23,7 @@ type OrderStatusBehavior = {
   readonly name: OrderStatus;
   readonly canEditLines: boolean;
   readonly canAdjustTotals: boolean;
+  readonly canClose: boolean;
   next(action: OrderTransitionAction): OrderStatus;
   allowedActions(lineCount: number): OrderAction[];
 };
@@ -30,6 +32,7 @@ const openStatus: OrderStatusBehavior = {
   name: 'OPEN',
   canEditLines: true,
   canAdjustTotals: true,
+  canClose: false,
   next(action) {
     if (action === 'sendToKitchen') {
       return 'SENT_TO_KITCHEN';
@@ -52,6 +55,7 @@ const sentToKitchenStatus: OrderStatusBehavior = {
   name: 'SENT_TO_KITCHEN',
   canEditLines: false,
   canAdjustTotals: true,
+  canClose: false,
   next(action) {
     if (action === 'beginCooking') {
       return 'IN_KITCHEN';
@@ -71,6 +75,7 @@ const inKitchenStatus: OrderStatusBehavior = {
   name: 'IN_KITCHEN',
   canEditLines: false,
   canAdjustTotals: true,
+  canClose: false,
   next(action) {
     if (action === 'markReady') {
       return 'READY';
@@ -86,11 +91,15 @@ const readyStatus: OrderStatusBehavior = {
   name: 'READY',
   canEditLines: false,
   canAdjustTotals: true,
-  next() {
+  canClose: true,
+  next(action) {
+    if (action === 'close') {
+      return 'CLOSED';
+    }
     throw new InvalidOrderTransitionError();
   },
   allowedActions() {
-    return [];
+    return ['close'];
   },
 };
 
@@ -98,6 +107,7 @@ const closedStatus: OrderStatusBehavior = {
   name: 'CLOSED',
   canEditLines: false,
   canAdjustTotals: false,
+  canClose: false,
   next() {
     throw new InvalidOrderTransitionError();
   },
@@ -110,6 +120,7 @@ const cancelledStatus: OrderStatusBehavior = {
   name: 'CANCELLED',
   canEditLines: false,
   canAdjustTotals: false,
+  canClose: false,
   next() {
     throw new InvalidOrderTransitionError();
   },
@@ -153,4 +164,5 @@ export const ORDER_TRANSITION_ACTIONS: readonly OrderTransitionAction[] = [
   'beginCooking',
   'markReady',
   'cancel',
+  'close',
 ];

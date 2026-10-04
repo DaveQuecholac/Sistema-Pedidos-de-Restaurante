@@ -173,3 +173,63 @@ export const orderLineModifiers = pgTable(
     ),
   ],
 );
+
+/** One payment per order. Change is derived in the domain and is not stored. */
+export const orderPayments = pgTable(
+  'order_payments',
+  {
+    orderId: text('order_id')
+      .primaryKey()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    paymentId: text('payment_id').notNull(),
+    method: text('method').notNull(),
+    amount: integer('amount').notNull(),
+    currency: text('currency').notNull(),
+    tenderedAmount: integer('tendered_amount'),
+    cardLast4: text('card_last4'),
+    payerReference: text('payer_reference'),
+    reference: text('reference').notNull(),
+    paidAt: timestamp('paid_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    unique('order_payments_payment_id_unique').on(table.paymentId),
+    check(
+      'order_payments_method',
+      sql`${table.method} in ('cash', 'card', 'digitalGateway')`,
+    ),
+    check('order_payments_amount_gte_0', sql`${table.amount} >= 0`),
+    check('order_payments_currency_len_3', sql`length(${table.currency}) = 3`),
+    check(
+      'order_payments_reference_len',
+      sql`length(btrim(${table.reference})) between 1 and 64`,
+    ),
+    check(
+      'order_payments_shape',
+      sql`(
+        (
+          ${table.method} = 'cash'
+          and ${table.tenderedAmount} is not null
+          and ${table.tenderedAmount} >= ${table.amount}
+          and ${table.cardLast4} is null
+          and ${table.payerReference} is null
+        )
+        or
+        (
+          ${table.method} = 'card'
+          and ${table.cardLast4} is not null
+          and ${table.cardLast4} ~ '^[0-9]{4}$'
+          and ${table.tenderedAmount} is null
+          and ${table.payerReference} is null
+        )
+        or
+        (
+          ${table.method} = 'digitalGateway'
+          and ${table.payerReference} is not null
+          and length(btrim(${table.payerReference})) between 3 and 64
+          and ${table.tenderedAmount} is null
+          and ${table.cardLast4} is null
+        )
+      )`,
+    ),
+  ],
+);

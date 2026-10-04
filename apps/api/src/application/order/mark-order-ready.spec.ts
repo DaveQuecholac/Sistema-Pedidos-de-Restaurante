@@ -28,6 +28,7 @@ describe('MarkOrderReady', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     const useCase = new MarkOrderReady(orders);
@@ -59,6 +60,7 @@ describe('MarkOrderReady', () => {
               version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
       );
       const seen = watchOrders(orders);

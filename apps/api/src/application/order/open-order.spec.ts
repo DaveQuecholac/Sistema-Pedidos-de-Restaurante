@@ -65,6 +65,7 @@ describe('OpenOrder', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
 
@@ -105,6 +106,7 @@ describe('OpenOrder', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     const useCase = new OpenOrder(seen.orders, idsOf('order-b'), () => FIXED_NOW);

@@ -150,6 +150,7 @@ describe('ModifyLine', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     const seen = watchOrders(orders);

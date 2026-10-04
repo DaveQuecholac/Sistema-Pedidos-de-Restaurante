@@ -26,6 +26,7 @@ async function seedOrderL(status: 'OPEN' | 'CANCELLED' = 'OPEN'): Promise<InMemo
     version: 1,
     discount: null,
     tip: null,
+    payment: null,
     lines: [
       LineItem.capture({
         id: 'line-tacos',

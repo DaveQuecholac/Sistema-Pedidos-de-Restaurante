@@ -25,10 +25,14 @@ type BoardState =
   | { kind: 'ready'; orders: OrderJson[] };
 
 type OriginKind = 'table' | 'external';
+type BoardFilter = 'active' | 'closed';
+
+const ACTIVE_STATUSES = ['OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const;
 
 export function OrdersScreen() {
   const router = useRouter();
   const [board, setBoard] = useState<BoardState>({ kind: 'loading' });
+  const [filter, setFilter] = useState<BoardFilter>('active');
   const [originKind, setOriginKind] = useState<OriginKind>('table');
   const [originValue, setOriginValue] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -36,8 +40,8 @@ export function OrdersScreen() {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   useEffect(() => {
-    void refreshBoard(setBoard);
-  }, []);
+    void refreshBoard(setBoard, filter);
+  }, [filter]);
 
   const view = boardView(toBoardStatus(board));
 
@@ -62,7 +66,7 @@ export function OrdersScreen() {
     } catch (error) {
       setNotice(errorText(error));
       if (error instanceof OrderApiError && error.code === 'ExternalOrderIdInUseError') {
-        await refreshBoard(setBoard);
+        await refreshBoard(setBoard, filter);
       }
     } finally {
       setSending(false);
@@ -79,12 +83,37 @@ export function OrdersScreen() {
         </nav>
       </header>
 
+      <div className={styles.segmented} role="group" aria-label="Filtro de comandas">
+        <button
+          type="button"
+          className={filter === 'active' ? styles.segmentActive : styles.segment}
+          aria-pressed={filter === 'active'}
+          disabled={sending}
+          onClick={() => setFilter('active')}
+        >
+          Activas
+        </button>
+        <button
+          type="button"
+          className={filter === 'closed' ? styles.segmentActive : styles.segment}
+          aria-pressed={filter === 'closed'}
+          disabled={sending}
+          onClick={() => setFilter('closed')}
+        >
+          Cerradas
+        </button>
+      </div>
+
       {view === 'loading' ? <p>Cargando comandas…</p> : null}
 
       {view === 'error' && board.kind === 'error' ? (
         <div className={styles.error} role="alert">
           <p>{board.message}</p>
-          <button type="button" disabled={sending} onClick={() => void refreshBoard(setBoard)}>
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => void refreshBoard(setBoard, filter)}
+          >
             Reintentar
           </button>
         </div>
@@ -92,11 +121,18 @@ export function OrdersScreen() {
 
       {view === 'empty' || view === 'list' ? (
         <div className={styles.workspace}>
-          <section className={styles.monitor} aria-label="Comandas abiertas">
+          <section
+            className={styles.monitor}
+            aria-label={filter === 'active' ? 'Comandas activas' : 'Comandas cerradas'}
+          >
             <div className={styles.bezel}>
               <div className={styles.screen}>
                 {view === 'empty' ? (
-                  <p className={styles.empty}>No hay comandas abiertas, en cocción o listas.</p>
+                  <p className={styles.empty}>
+                    {filter === 'active'
+                      ? 'No hay comandas abiertas, en cocción o listas.'
+                      : 'No hay comandas cerradas.'}
+                  </p>
                 ) : (
                   <ul className={styles.catalog}>
                     {board.kind === 'ready'
@@ -131,43 +167,45 @@ export function OrdersScreen() {
             <div className={styles.base} aria-hidden="true" />
           </section>
 
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onOpen();
-            }}
-          >
-            <h2>Abrir comanda</h2>
-            <label>
-              Origen
-              <select
-                value={originKind}
-                disabled={sending}
-                onChange={(event) => setOriginKind(event.target.value as OriginKind)}
-              >
-                <option value="table">Mesa</option>
-                <option value="external">Pedido externo</option>
-              </select>
-            </label>
-            <label>
-              {originKind === 'table' ? 'Mesa' : 'Id externo'}
-              <input
-                value={originValue}
-                disabled={sending}
-                autoComplete="off"
-                onChange={(event) => setOriginValue(event.target.value)}
-              />
-            </label>
-            {notice ? (
-              <p className={styles.notice} role="alert">
-                {notice}
-              </p>
-            ) : null}
-            <button type="submit" className={styles.primary} disabled={sending}>
-              Abrir comanda
-            </button>
-          </form>
+          {filter === 'active' ? (
+            <form
+              className={styles.form}
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onOpen();
+              }}
+            >
+              <h2>Abrir comanda</h2>
+              <label>
+                Origen
+                <select
+                  value={originKind}
+                  disabled={sending}
+                  onChange={(event) => setOriginKind(event.target.value as OriginKind)}
+                >
+                  <option value="table">Mesa</option>
+                  <option value="external">Pedido externo</option>
+                </select>
+              </label>
+              <label>
+                {originKind === 'table' ? 'Mesa' : 'Id externo'}
+                <input
+                  value={originValue}
+                  disabled={sending}
+                  autoComplete="off"
+                  onChange={(event) => setOriginValue(event.target.value)}
+                />
+              </label>
+              {notice ? (
+                <p className={styles.notice} role="alert">
+                  {notice}
+                </p>
+              ) : null}
+              <button type="submit" className={styles.primary} disabled={sending}>
+                Abrir comanda
+              </button>
+            </form>
+          ) : null}
         </div>
       ) : null}
     </main>
@@ -181,10 +219,16 @@ function toBoardStatus(board: BoardState): BoardStatus {
   return { kind: board.kind };
 }
 
-async function refreshBoard(setBoard: (board: BoardState) => void): Promise<void> {
+async function refreshBoard(
+  setBoard: (board: BoardState) => void,
+  filter: BoardFilter,
+): Promise<void> {
   setBoard({ kind: 'loading' });
   try {
-    const orders = await listOrders(['OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY']);
+    const orders =
+      filter === 'active'
+        ? await listOrders(ACTIVE_STATUSES)
+        : await listOrders(['CLOSED']);
     setBoard({ kind: 'ready', orders });
   } catch (error) {
     setBoard({ kind: 'error', message: errorText(error) });

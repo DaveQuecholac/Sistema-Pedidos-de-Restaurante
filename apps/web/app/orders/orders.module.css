@@ -268,6 +268,24 @@
   gap: 0.4rem;
 }
 
+.confirmActions:has(> :only-child) {
+  grid-template-columns: 1fr;
+}
+
+.confirmActions a.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.75rem;
+  border: 3px solid #111;
+  background: transparent;
+  color: #111;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+
 .page button.danger {
   border-width: 3px;
   font-weight: 700;
@@ -522,6 +540,90 @@
 .page .presetRow .segmentActive {
   flex: 0 1 auto;
   min-width: 4.5rem;
+}
+
+.chargeTotal {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 3px solid #111;
+}
+
+.chargeLabel {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.chargeAmount {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.methodSelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.page .methodOption,
+.page .methodActive {
+  flex: 1 1 8rem;
+  min-height: 2.75rem;
+  border: 2px solid #111;
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+}
+
+.page .methodActive {
+  background: #111;
+  color: #fff;
+}
+
+.page .methodOption:hover:not(:disabled),
+.page .methodOption:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+.receipt {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 3px solid #111;
+}
+
+.receipt h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+}
+
+.receiptList {
+  margin: 0;
+}
+
+.receiptRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid #ccc;
+}
+
+.receiptRow:first-of-type {
+  border-top: none;
+}
+
+.receiptRow dt {
+  margin: 0;
+  font-weight: 600;
+}
+
+.receiptRow dd {
+  margin: 0;
+  text-align: right;
 }
 
 @media (min-width: 40rem) {

@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { basisPointsToPercentLabel, centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
-import { originLabel, statusLabel } from '../../order-view';
+import { can, originLabel, statusLabel } from '../../order-view';
 import styles from '../../orders.module.css';
+import { acceptAccount, isAccountAccepted } from './account-accepted';
 import {
   getOrderTotals,
   setOrderDiscount,
@@ -38,6 +39,7 @@ export function TotalsScreen({ orderId }: Props) {
   const [discountText, setDiscountText] = useState('');
   const [tipMode, setTipMode] = useState<AdjustmentMode>('none');
   const [tipText, setTipText] = useState('');
+  const [accountLocked, setAccountLocked] = useState(false);
 
   function syncForms(next: OrderTotalsJson) {
     if (next.discount === null) {
@@ -66,6 +68,7 @@ export function TotalsScreen({ orderId }: Props) {
   }
 
   useEffect(() => {
+    setAccountLocked(isAccountAccepted(orderId));
     void loadAccount(orderId, setStatus, setNotice, syncForms);
   }, [orderId]);
 
@@ -118,6 +121,8 @@ export function TotalsScreen({ orderId }: Props) {
 
   const { order, totals } = status;
   const capNotice = discountCapNotice(totals);
+  const readyToCharge = can(order, 'close');
+  const showAdjustmentForms = totals.adjustable && !accountLocked;
 
   async function runAdjustment(action: () => Promise<OrderTotalsJson>) {
     setSending(true);
@@ -254,7 +259,7 @@ export function TotalsScreen({ orderId }: Props) {
           <div className={styles.base} aria-hidden="true" />
         </section>
 
-        {totals.adjustable ? (
+        {showAdjustmentForms ? (
           <div className={styles.formsStack}>
             <form
               className={styles.form}
@@ -387,11 +392,49 @@ export function TotalsScreen({ orderId }: Props) {
                 Aplicar
               </button>
             </form>
+
+            {readyToCharge ? (
+              <div className={styles.confirmPanel}>
+                <p className={styles.hint}>
+                  Cuando el descuento y la propina estén listos, acepta la cuenta para cobrar.
+                </p>
+                <div className={styles.confirmActions}>
+                  <button
+                    type="button"
+                    className={styles.primary}
+                    disabled={sending}
+                    onClick={() => {
+                      acceptAccount(orderId);
+                      setAccountLocked(true);
+                      setNotice(null);
+                    }}
+                  >
+                    Aceptar cuenta
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
-          <p className={styles.lockNotice} role="status">
-            La cuenta ya no se puede ajustar
-          </p>
+          <div className={styles.confirmPanel}>
+            <p className={styles.lockNotice} role="status">
+              {order.status === 'CLOSED'
+                ? 'La cuenta ya no se puede ajustar'
+                : accountLocked
+                  ? 'Cuenta aceptada. Ya no se puede modificar el descuento ni la propina.'
+                  : 'La cuenta ya no se puede ajustar'}
+            </p>
+            {readyToCharge || order.status === 'CLOSED' ? (
+              <div className={styles.confirmActions}>
+                <Link
+                  className={styles.primary}
+                  href={`/orders/${encodeURIComponent(orderId)}/payment`}
+                >
+                  {order.status === 'CLOSED' ? 'Ver cobro' : 'Ir a cobrar'}
+                </Link>
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
     </main>

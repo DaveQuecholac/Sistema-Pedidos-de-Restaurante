@@ -39,6 +39,7 @@ async function seedOrderL(
       version: 0,
       discount: null,
       tip: null,
+      payment: null,
       lines: [
         LineItem.capture({
           id: 'line-tacos',

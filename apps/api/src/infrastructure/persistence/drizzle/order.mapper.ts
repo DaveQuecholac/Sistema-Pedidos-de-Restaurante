@@ -14,6 +14,7 @@ import { Order } from '../../../domain/order/order';
 import {
   DuplicateLineItemIdError,
   InvalidExternalOrderIdError,
+  InvalidOrderPaymentError,
   InvalidOrderStatusError,
   InvalidOrderVersionError,
   InvalidQuantityError,
@@ -21,6 +22,15 @@ import {
 } from '../../../domain/order/order.errors';
 import { OrderOrigin } from '../../../domain/order/order-origin';
 import { Quantity } from '../../../domain/order/quantity';
+import { PaymentDetails } from '../../../domain/payment/payment-details';
+import { Payment } from '../../../domain/payment/payment';
+import {
+  InsufficientCashError,
+  InvalidCardLast4Error,
+  InvalidPayerReferenceError,
+  InvalidPaymentMethodError,
+  InvalidPaymentReferenceError,
+} from '../../../domain/payment/payment.errors';
 import { Discount } from '../../../domain/totals/discount';
 import { Percentage } from '../../../domain/totals/percentage';
 import { Tip } from '../../../domain/totals/tip';
@@ -29,11 +39,12 @@ import {
   InvalidPercentageError,
   InvalidTipError,
 } from '../../../domain/totals/totals.errors';
-import { orderLineModifiers, orderLines, orders } from './schema/order';
+import { orderLineModifiers, orderLines, orderPayments, orders } from './schema/order';
 
 export type OrderRow = InferSelectModel<typeof orders>;
 export type OrderLineRow = InferSelectModel<typeof orderLines>;
 export type OrderLineModifierRow = InferSelectModel<typeof orderLineModifiers>;
+export type OrderPaymentRow = InferSelectModel<typeof orderPayments>;
 
 const PERCENTAGE_PROBE = Money.of(10_000, 'MXN');
 const FIXED_PROBE = Money.of(2_147_483_647, 'MXN');
@@ -42,6 +53,7 @@ export function toOrder(
   order: OrderRow,
   lines: readonly OrderLineRow[],
   modifiers: readonly OrderLineModifierRow[],
+  payment: OrderPaymentRow | null,
 ): Order {
   try {
     const modifiersByLine = groupModifiers(modifiers);
@@ -58,6 +70,7 @@ export function toOrder(
       }),
       discount: toDiscount(order),
       tip: toTip(order),
+      payment: payment === null ? null : toPayment(payment),
     });
   } catch (error) {
     if (isOrderRuleError(error)) {
@@ -65,6 +78,55 @@ export function toOrder(
     }
     throw error;
   }
+}
+
+export function toPayment(row: OrderPaymentRow): Payment {
+  return Payment.restore({
+    id: row.paymentId,
+    amount: Money.of(row.amount, row.currency),
+    details: toPaymentDetails(row),
+    reference: row.reference,
+    paidAt: row.paidAt,
+  });
+}
+
+export function toPaymentRow(orderId: string, payment: Payment): OrderPaymentRow {
+  const base = {
+    orderId,
+    paymentId: payment.id,
+    method: payment.method,
+    amount: payment.amount.amount,
+    currency: payment.amount.currency,
+    tenderedAmount: null as number | null,
+    cardLast4: null as string | null,
+    payerReference: null as string | null,
+    reference: payment.reference,
+    paidAt: payment.paidAt,
+  };
+
+  if (payment.details.method === 'cash') {
+    return { ...base, tenderedAmount: payment.details.tendered.amount };
+  }
+  if (payment.details.method === 'card') {
+    return { ...base, cardLast4: payment.details.cardLast4 };
+  }
+  return { ...base, payerReference: payment.details.payerReference };
+}
+
+function toPaymentDetails(row: OrderPaymentRow): PaymentDetails {
+  if (row.method === 'cash') {
+    if (row.tenderedAmount === null) {
+      throw new OrderMappingError();
+    }
+    return PaymentDetails.cash(Money.of(row.tenderedAmount, row.currency));
+  }
+  if (row.method === 'card') {
+    return PaymentDetails.card(row.cardLast4);
+  }
+  if (row.method === 'digitalGateway') {
+    return PaymentDetails.digitalGateway(row.payerReference);
+  }
+  throw new InvalidPaymentMethodError();
 }
 
 export function toOrderRow(order: Order): OrderRow {
@@ -284,6 +346,7 @@ function isOrderRuleError(error: unknown): boolean {
     error instanceof InvalidQuantityError ||
     error instanceof InvalidOrderStatusError ||
     error instanceof InvalidOrderVersionError ||
+    error instanceof InvalidOrderPaymentError ||
     error instanceof InvalidTableIdError ||
     error instanceof InvalidExternalOrderIdError ||
     error instanceof ExtraMissingPriceError ||
@@ -294,6 +357,11 @@ function isOrderRuleError(error: unknown): boolean {
     error instanceof BlankIdError ||
     error instanceof InvalidPercentageError ||
     error instanceof InvalidDiscountError ||
-    error instanceof InvalidTipError
+    error instanceof InvalidTipError ||
+    error instanceof InvalidPaymentMethodError ||
+    error instanceof InvalidCardLast4Error ||
+    error instanceof InvalidPayerReferenceError ||
+    error instanceof InsufficientCashError ||
+    error instanceof InvalidPaymentReferenceError
   );
 }

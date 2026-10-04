@@ -27,6 +27,7 @@ function sentOrder(): Order {
     version: 1,
       discount: null,
       tip: null,
+      payment: null,
     });
 }
 
@@ -82,6 +83,7 @@ describe('BeginCooking', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     const seen = watchOrders(orders);

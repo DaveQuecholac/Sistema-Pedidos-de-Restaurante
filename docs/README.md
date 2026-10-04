@@ -31,6 +31,9 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 | [`dev/totales/01-calculo-en-el-nucleo/`](./dev/totales/01-calculo-en-el-nucleo/) | Sprint 3, tarea 1: dinero, descuento, propina, impuestos y cálculo de totales en el núcleo |
 | [`dev/totales/02-persistencia-y-api/`](./dev/totales/02-persistencia-y-api/) | Sprint 3, tarea 2: descuento y propina guardados en la orden y API REST de totales |
 | [`dev/totales/03-pantalla-cuenta-y-demo/`](./dev/totales/03-pantalla-cuenta-y-demo/) | Sprint 3, tarea 3: pantalla de cuenta con el desglose, y demo |
+| [`dev/pagos/01-cobro-en-el-nucleo/`](./dev/pagos/01-cobro-en-el-nucleo/) | Sprint 4, tarea 1: pago, cierre `READY → CLOSED`, puerto de cobro y `CloseOrder` en el núcleo |
+| [`dev/pagos/02-adaptadores-persistencia-y-api/`](./dev/pagos/02-adaptadores-persistencia-y-api/) | Sprint 4, tarea 2: simuladores de efectivo, tarjeta y pasarela; tabla de pagos y API de cierre |
+| [`dev/pagos/03-pantalla-cobro-y-demo/`](./dev/pagos/03-pantalla-cobro-y-demo/) | Sprint 4, tarea 3: pantalla de cobro, pulido del recorrido y demo del MVP |
 
 ## Docs de trabajo por tarea
 

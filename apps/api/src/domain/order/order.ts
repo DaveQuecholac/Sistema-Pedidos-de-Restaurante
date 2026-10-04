@@ -1,5 +1,7 @@
 import { BlankIdError } from '../menu/menu-item.errors';
 import { Money } from '../money/money';
+import type { Payment } from '../payment/payment';
+import { PaymentAmountMismatchError } from '../payment/payment.errors';
 import type { Discount } from '../totals/discount';
 import { calculateTotals, type OrderTotals } from '../totals/order-totals';
 import type { Tip } from '../totals/tip';
@@ -8,9 +10,11 @@ import type { OrderOrigin } from './order-origin';
 import {
   DuplicateLineItemIdError,
   EmptyOrderError,
+  InvalidOrderPaymentError,
   InvalidOrderStatusError,
   InvalidOrderVersionError,
   LineItemNotFoundError,
+  OrderNotClosableError,
   OrderNotEditableError,
   OrderTotalsNotAdjustableError,
 } from './order.errors';
@@ -30,9 +34,10 @@ export type OrderRestoreInput = {
   version: number;
   discount: Discount | null;
   tip: Tip | null;
+  payment: Payment | null;
 };
 
-/** Aggregate root: origin, lines, kitchen state, discount and tip. Does not change version. */
+/** Aggregate root: origin, lines, kitchen state, totals adjustments and payment. Does not change version. */
 export class Order {
   private constructor(
     private readonly idValue: string,
@@ -43,10 +48,21 @@ export class Order {
     private readonly versionValue: number,
     private readonly discountValue: Discount | null,
     private readonly tipValue: Tip | null,
+    private readonly paymentValue: Payment | null,
   ) {}
 
   static open(input: { id: string; origin: OrderOrigin; openedAt: Date }): Order {
-    return new Order(requireId(input.id), input.origin, 'OPEN', input.openedAt, [], 0, null, null);
+    return new Order(
+      requireId(input.id),
+      input.origin,
+      'OPEN',
+      input.openedAt,
+      [],
+      0,
+      null,
+      null,
+      null,
+    );
   }
 
   static restore(input: OrderRestoreInput): Order {
@@ -58,7 +74,7 @@ export class Order {
     }
 
     const lines = requireUniqueLines(input.lines);
-    return new Order(
+    const order = new Order(
       requireId(input.id),
       input.origin,
       input.status,
@@ -67,7 +83,22 @@ export class Order {
       input.version,
       input.discount,
       input.tip,
+      input.payment,
     );
+
+    const isClosed = order.statusValue === 'CLOSED';
+    const hasPayment = order.paymentValue !== null;
+    if (isClosed !== hasPayment) {
+      throw new InvalidOrderPaymentError();
+    }
+    if (
+      order.paymentValue !== null &&
+      !order.paymentValue.amount.equals(order.totals().total)
+    ) {
+      throw new InvalidOrderPaymentError();
+    }
+
+    return order;
   }
 
   addLine(line: LineItem): Order {
@@ -123,6 +154,20 @@ export class Order {
     return this.copy({ status: orderStatus(this.statusValue).next('cancel') });
   }
 
+  close(payment: Payment): Order {
+    if (!this.canClose()) {
+      throw new OrderNotClosableError();
+    }
+    if (!payment.amount.equals(this.totals().total)) {
+      throw new PaymentAmountMismatchError();
+    }
+
+    return this.copy({
+      status: orderStatus(this.statusValue).next('close'),
+      payment,
+    });
+  }
+
   setDiscount(discount: Discount | null): Order {
     this.requireAdjustableTotals();
     return this.copy({ discount });
@@ -152,6 +197,10 @@ export class Order {
 
   canAdjustTotals(): boolean {
     return orderStatus(this.statusValue).canAdjustTotals;
+  }
+
+  canClose(): boolean {
+    return orderStatus(this.statusValue).canClose;
   }
 
   allowedActions(): OrderAction[] {
@@ -190,6 +239,10 @@ export class Order {
     return this.tipValue;
   }
 
+  get payment(): Payment | null {
+    return this.paymentValue;
+  }
+
   private requireEditable(): void {
     if (!orderStatus(this.statusValue).canEditLines) {
       throw new OrderNotEditableError();
@@ -207,6 +260,7 @@ export class Order {
     lines?: readonly LineItem[];
     discount?: Discount | null;
     tip?: Tip | null;
+    payment?: Payment | null;
   }): Order {
     return new Order(
       this.idValue,
@@ -217,6 +271,7 @@ export class Order {
       this.versionValue,
       patch.discount !== undefined ? patch.discount : this.discountValue,
       patch.tip !== undefined ? patch.tip : this.tipValue,
+      patch.payment !== undefined ? patch.payment : this.paymentValue,
     );
   }
 }

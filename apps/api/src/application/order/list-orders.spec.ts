@@ -19,6 +19,7 @@ describe('ListOrders', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     await repo.add(
@@ -34,6 +35,7 @@ describe('ListOrders', () => {
         version: 2,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
 

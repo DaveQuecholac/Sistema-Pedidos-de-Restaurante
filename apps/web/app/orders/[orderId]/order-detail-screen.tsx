@@ -220,7 +220,10 @@ export function OrderDetailScreen({ orderId }: Props) {
           </p>
         </div>
         <nav className={styles.nav} aria-label="Secciones">
-          <Link href={`/orders/${encodeURIComponent(orderId)}/totals`}>Ver cuenta</Link>
+          <Link href={`/orders/${encodeURIComponent(orderId)}/totals`}>Cuenta</Link>
+          {current.status === 'CLOSED' ? (
+            <Link href={`/orders/${encodeURIComponent(orderId)}/payment`}>Ver cobro</Link>
+          ) : null}
           <Link href="/orders">Comandas</Link>
         </nav>
       </header>

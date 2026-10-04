@@ -4,6 +4,9 @@ import { MenuItem } from '../../domain/menu/menu-item';
 import { Modifier } from '../../domain/menu/modifier';
 import { TaxRate } from '../../domain/menu/tax-rate';
 import { Money } from '../../domain/money/money';
+import { ChargeRequest } from '../../domain/payment/charge-request';
+import { PaymentDetails } from '../../domain/payment/payment-details';
+import { Payment } from '../../domain/payment/payment';
 import { LineItem } from '../../domain/order/line-item';
 import { Order } from '../../domain/order/order';
 import { OrderOrigin } from '../../domain/order/order-origin';
@@ -17,6 +20,7 @@ import {
   OrderConcurrencyError,
   OrderNotFoundError,
 } from './order-repository.errors';
+import { FIXED_NOW, readyOrderL } from './order-test-fixtures';
 
 const OPENED_AT = new Date('2026-10-04T18:00:00.000Z');
 
@@ -121,6 +125,7 @@ describe('InMemoryOrderRepository', () => {
       version: 3,
       discount: null,
       tip: null,
+      payment: null,
     });
     await repo.add(cancelled);
 
@@ -146,6 +151,7 @@ describe('InMemoryOrderRepository', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     await repo.add(
@@ -158,6 +164,7 @@ describe('InMemoryOrderRepository', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     await repo.add(
@@ -170,6 +177,7 @@ describe('InMemoryOrderRepository', () => {
         version: 0,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     await repo.add(
@@ -182,6 +190,7 @@ describe('InMemoryOrderRepository', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
 
@@ -240,6 +249,88 @@ describe('InMemoryOrderRepository', () => {
     expect(byId.get('order-b')?.discount).toBeNull();
     expect(byId.get('order-c')?.discount).toBeNull();
     expect(byId.get('order-c')?.tip).toBeNull();
+  });
+
+  it('save keeps payment on a closed order and increments version (RP11)', async () => {
+    const repo = new InMemoryOrderRepository();
+    await repo.add(readyOrderL());
+
+    const payment = Payment.record({
+      id: 'pay-1',
+      request: ChargeRequest.of({
+        orderId: 'order-1',
+        amount: Money.of(16420, 'MXN'),
+        details: PaymentDetails.cash(Money.of(20000, 'MXN')),
+      }),
+      reference: 'cash-1',
+      paidAt: FIXED_NOW,
+    });
+    const ready = await repo.findById('order-1');
+    expect(ready).not.toBeNull();
+    await repo.save(ready!.close(payment));
+
+    const saved = await repo.findById('order-1');
+    expect(saved?.status).toBe('CLOSED');
+    expect(saved?.version).toBe(1);
+    expect(saved?.payment?.id).toBe('pay-1');
+    expect(saved?.payment?.method).toBe('cash');
+    expect(saved?.payment?.amount.amount).toBe(16420);
+    expect(saved?.payment?.details).toEqual(payment.details);
+    expect(saved?.payment?.reference).toBe('cash-1');
+    expect(saved?.payment?.paidAt).toEqual(FIXED_NOW);
+    expect(saved?.payment?.change?.amount).toBe(3580);
+  });
+
+  it('list returns each CLOSED order with its payment (RP12)', async () => {
+    const repo = new InMemoryOrderRepository();
+    const paymentA = Payment.record({
+      id: 'pay-a',
+      request: ChargeRequest.of({
+        orderId: 'order-1',
+        amount: Money.of(16420, 'MXN'),
+        details: PaymentDetails.card('4242'),
+      }),
+      reference: 'card-a',
+      paidAt: FIXED_NOW,
+    });
+    const paymentB = Payment.record({
+      id: 'pay-b',
+      request: ChargeRequest.of({
+        orderId: 'order-2',
+        amount: Money.of(16420, 'MXN'),
+        details: PaymentDetails.digitalGateway('cliente@correo.mx'),
+      }),
+      reference: 'gw-b',
+      paidAt: FIXED_NOW,
+    });
+
+    await repo.add(readyOrderL());
+    await repo.save((await repo.findById('order-1'))!.close(paymentA));
+
+    const base = readyOrderL();
+    await repo.add(
+      Order.restore({
+        id: 'order-2',
+        origin: OrderOrigin.table('6'),
+        status: 'READY',
+        openedAt: FIXED_NOW,
+        lines: base.lines,
+        version: 0,
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
+    );
+    await repo.save((await repo.findById('order-2'))!.close(paymentB));
+
+    const listed = await repo.list({ statuses: ['CLOSED'] });
+    const byId = new Map(listed.map((order) => [order.id, order]));
+
+    expect(listed).toHaveLength(2);
+    expect(byId.get('order-1')?.payment?.id).toBe('pay-a');
+    expect(byId.get('order-1')?.payment?.method).toBe('card');
+    expect(byId.get('order-2')?.payment?.id).toBe('pay-b');
+    expect(byId.get('order-2')?.payment?.method).toBe('digitalGateway');
   });
 });
 
