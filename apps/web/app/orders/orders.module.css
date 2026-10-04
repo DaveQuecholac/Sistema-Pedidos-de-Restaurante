@@ -1,0 +1,484 @@
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+  overflow-x: clip;
+  color: #111;
+  font-family: system-ui, sans-serif;
+  line-height: 1.35;
+}
+
+.page * {
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.nav a {
+  color: #111;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid #111;
+}
+
+.nav a:hover,
+.nav a:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 3px;
+}
+
+.navButton {
+  width: auto !important;
+  min-height: 2.25rem !important;
+  padding: 0.35rem 0.8rem !important;
+  font-weight: 700;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  min-width: 0;
+}
+
+.monitor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.bezel {
+  width: 100%;
+  padding: 0.7rem 0.7rem 0.45rem;
+  border: 3px solid #111;
+  background: transparent;
+}
+
+.screen {
+  min-width: 0;
+  padding: 0.7rem;
+  border: 2px solid #111;
+  background: transparent;
+  overflow: auto;
+}
+
+.chin {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 1.15rem;
+  margin-top: 0.4rem;
+}
+
+.power {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #111;
+  border-radius: 50%;
+}
+
+.neck {
+  width: 3.25rem;
+  height: 1rem;
+  border-right: 3px solid #111;
+  border-left: 3px solid #111;
+}
+
+.base {
+  width: 7.5rem;
+  height: 0.45rem;
+  border: 3px solid #111;
+  border-top: none;
+}
+
+.catalog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  align-content: start;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.65rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.row h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border: 2px solid #111;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.lockNotice {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 2px solid #111;
+  border-style: dashed;
+  font-weight: 600;
+}
+
+.lineRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.55rem 0;
+  border-bottom: 2px solid #111;
+}
+
+.lineRow:last-child {
+  border-bottom: none;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.form h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.page label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.page input,
+.page select,
+.page button {
+  font: inherit;
+  min-height: 2.75rem;
+}
+
+.page input,
+.page select {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 2px solid #111;
+  background: transparent;
+}
+
+.page input[type='checkbox'] {
+  width: auto;
+  min-height: 1.25rem;
+  margin: 0;
+}
+
+.checkList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checkRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+}
+
+.actionBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.confirmPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 3px solid #111;
+  background: #fff;
+}
+
+.confirmPanel p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.confirmPanel .hint {
+  font-weight: 400;
+}
+
+.confirmActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.page button.danger {
+  border-width: 3px;
+  font-weight: 700;
+  color: #9f1239;
+  border-color: #9f1239;
+}
+
+.kitchenBoard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.kitchenColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 12rem;
+  padding: 0.85rem;
+  border: 3px solid #111;
+  background: transparent;
+}
+
+.kitchenColumnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid #111;
+}
+
+.kitchenColumnHeader h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.ticketList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.7rem 0.75rem 0.8rem;
+  border: 2px solid #111;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1.35rem,
+      rgba(17, 17, 17, 0.04) 1.35rem,
+      rgba(17, 17, 17, 0.04) 1.36rem
+    );
+}
+
+.ticketHead h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ticketLines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.45rem 0 0;
+  list-style: none;
+  border-top: 2px dashed #111;
+}
+
+.ticketLineTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.ticketQty {
+  display: inline-block;
+  min-width: 1.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticketMods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.2rem 0 0;
+  padding: 0 0 0 1.85rem;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+}
+
+.page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.5rem 0.9rem;
+  border: 2px solid #111;
+  background: transparent;
+  color: #111;
+  cursor: pointer;
+}
+
+.page button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.page button.primary {
+  border-width: 3px;
+  background: transparent;
+  color: #111;
+  font-weight: 700;
+}
+
+.row .actions button,
+.row .actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  border: 2px solid #111;
+  background: transparent;
+  color: #111;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.row .actions a:hover,
+.row .actions a:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+.hint {
+  margin: 0;
+  font-weight: 400;
+  color: #111;
+}
+
+.notice,
+.error {
+  margin: 0;
+  color: #9f1239;
+}
+
+.empty {
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .catalog {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .screen {
+    max-height: 44rem;
+  }
+
+  .kitchenBoard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchenBoard .kitchenColumn:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 64rem) {
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    align-items: start;
+  }
+
+  .catalog {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchenBoard {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .kitchenBoard .kitchenColumn:last-child {
+    grid-column: auto;
+  }
+
+  .kitchenColumn {
+    min-height: 28rem;
+  }
+}

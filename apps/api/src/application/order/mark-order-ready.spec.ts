@@ -35,15 +35,33 @@ describe('MarkOrderReady', () => {
     expect(order.status).toBe('READY');
   });
 
-  it('rejects markReady from OPEN (MR2)', async () => {
-    const orders = new InMemoryOrderRepository();
-    await orders.add(
-      Order.open({ id: 'order-1', origin: OrderOrigin.table('5'), openedAt: FIXED_NOW }),
-    );
-    const seen = watchOrders(orders);
-    const useCase = new MarkOrderReady(seen.orders);
+  it('rejects markReady from OPEN and SENT_TO_KITCHEN (MR2)', async () => {
+    for (const status of ['OPEN', 'SENT_TO_KITCHEN'] as const) {
+      const orders = new InMemoryOrderRepository();
+      await orders.add(
+        status === 'OPEN'
+          ? Order.open({ id: 'order-1', origin: OrderOrigin.table('5'), openedAt: FIXED_NOW })
+          : Order.restore({
+              id: 'order-1',
+              origin: OrderOrigin.table('5'),
+              status: 'SENT_TO_KITCHEN',
+              openedAt: FIXED_NOW,
+              lines: [
+                LineItem.capture({
+                  id: 'line-1',
+                  menuItem: tacosDish(),
+                  quantity: Quantity.of(1),
+                  modifierIds: [],
+                }),
+              ],
+              version: 1,
+            }),
+      );
+      const seen = watchOrders(orders);
+      const useCase = new MarkOrderReady(seen.orders);
 
-    await expect(useCase.execute('order-1')).rejects.toBeInstanceOf(InvalidOrderTransitionError);
-    expect(seen.calls.save).toBe(0);
+      await expect(useCase.execute('order-1')).rejects.toBeInstanceOf(InvalidOrderTransitionError);
+      expect(seen.calls.save).toBe(0);
+    }
   });
 });

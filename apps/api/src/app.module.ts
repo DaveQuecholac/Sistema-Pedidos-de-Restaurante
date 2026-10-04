@@ -9,10 +9,11 @@ import { CancelLine } from './application/order/cancel-line';
 import { CancelOrder } from './application/order/cancel-order';
 import { GetOrder } from './application/order/get-order';
 import { ListOrders } from './application/order/list-orders';
+import { BeginCooking } from './application/order/begin-cooking';
 import { MarkOrderReady } from './application/order/mark-order-ready';
 import { ModifyLine } from './application/order/modify-line';
 import { OpenOrder } from './application/order/open-order';
-import { StartCooking } from './application/order/start-cooking';
+import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import { MenuRepository } from './application/ports/menu-repository';
 import { OrderRepository } from './application/ports/order-repository';
@@ -113,9 +114,14 @@ export class AppModule {
           useFactory: (orders: OrderRepository) => new CancelLine(orders),
         },
         {
-          provide: StartCooking,
+          provide: SendToKitchen,
           inject: [ORDER_REPOSITORY],
-          useFactory: (orders: OrderRepository) => new StartCooking(orders),
+          useFactory: (orders: OrderRepository) => new SendToKitchen(orders),
+        },
+        {
+          provide: BeginCooking,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new BeginCooking(orders),
         },
         {
           provide: MarkOrderReady,

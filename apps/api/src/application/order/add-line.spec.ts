@@ -197,7 +197,7 @@ describe('AddLine', () => {
     expect(stored?.lines.map((line) => line.id)).toEqual(['line-other']);
   });
 
-  it('rejects when StartCooking was saved between read and write (A8)', async () => {
+  it('rejects when SendToKitchen was saved between read and write (A8)', async () => {
     const orders = new InMemoryOrderRepository();
     await orders.add(
       Order.open({ id: 'order-1', origin: OrderOrigin.table('5'), openedAt: FIXED_NOW }).addLine(
@@ -210,7 +210,7 @@ describe('AddLine', () => {
       ),
     );
     const menu = await seedMenu(tacosDish());
-    const concurrent = withConcurrentSave(orders, (order) => order.startCooking());
+    const concurrent = withConcurrentSave(orders, (order) => order.sendToKitchen());
     const useCase = new AddLine(concurrent, menu, idsOf('line-2'));
 
     await expect(
@@ -223,7 +223,7 @@ describe('AddLine', () => {
     ).rejects.toBeInstanceOf(OrderConcurrencyError);
 
     const stored = await orders.findById('order-1');
-    expect(stored?.status).toBe('IN_KITCHEN');
+    expect(stored?.status).toBe('SENT_TO_KITCHEN');
     expect(stored?.lines.map((line) => line.id)).toEqual(['line-1']);
   });
 });

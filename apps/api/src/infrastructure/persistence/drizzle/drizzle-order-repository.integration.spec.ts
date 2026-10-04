@@ -469,11 +469,11 @@ describeIntegration('DrizzleOrderRepository', () => {
                 modifierIds: [],
               }),
             )
-            .startCooking(),
+            .sendToKitchen(),
         );
       }
 
-      const kitchenIds = (await ordersRepo.list({ statuses: ['IN_KITCHEN'] }))
+      const kitchenIds = (await ordersRepo.list({ statuses: ['SENT_TO_KITCHEN'] }))
         .map((order) => order.id)
         .filter((orderId) => orderId === kitchenEarly || orderId === kitchenLate);
       expect(kitchenIds).toEqual([kitchenEarly, kitchenLate]);

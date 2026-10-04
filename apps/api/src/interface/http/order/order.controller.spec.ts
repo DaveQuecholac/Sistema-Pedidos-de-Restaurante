@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import { InMemoryMenuRepository } from '../../../application/menu/in-memory-menu-repository';
 import { AddLine } from '../../../application/order/add-line';
+import { BeginCooking } from '../../../application/order/begin-cooking';
 import { CancelLine } from '../../../application/order/cancel-line';
 import { CancelOrder } from '../../../application/order/cancel-order';
 import { GetOrder } from '../../../application/order/get-order';
@@ -23,7 +24,7 @@ import {
   tacosDish,
   withConcurrentSave,
 } from '../../../application/order/order-test-fixtures';
-import { StartCooking } from '../../../application/order/start-cooking';
+import { SendToKitchen } from '../../../application/order/send-to-kitchen';
 import type { MenuRepository } from '../../../application/ports/menu-repository';
 import type { OrderRepository } from '../../../application/ports/order-repository';
 import { OrderController } from './order.controller';
@@ -96,7 +97,8 @@ function testModule(
       { provide: AddLine, useValue: new AddLine(orders, menu, generateLineId) },
       { provide: ModifyLine, useValue: new ModifyLine(orders, menu) },
       { provide: CancelLine, useValue: new CancelLine(orders) },
-      { provide: StartCooking, useValue: new StartCooking(orders) },
+      { provide: SendToKitchen, useValue: new SendToKitchen(orders) },
+      { provide: BeginCooking, useValue: new BeginCooking(orders) },
       { provide: MarkOrderReady, useValue: new MarkOrderReady(orders) },
       { provide: CancelOrder, useValue: new CancelOrder(orders) },
     ],
@@ -317,7 +319,7 @@ describe('orders HTTP', () => {
         },
       ],
     });
-    expect(body.allowedActions).toContain('startCooking');
+    expect(body.allowedActions).toContain('sendToKitchen');
   });
 
   it('rejects quantity 0 and 100 without saving (H9)', async () => {
@@ -469,10 +471,10 @@ describe('orders HTTP', () => {
     expect(body.lines).toEqual([]);
   });
 
-  it('rejects start-cooking on an empty order without saving (H17)', async () => {
+  it('rejects send-to-kitchen on an empty order without saving (H17)', async () => {
     const { base, calls } = await listen();
     const created = await openTable(base);
-    const response = await send(`${base}/orders/${created.id}/start-cooking`, 'POST', {});
+    const response = await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
 
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({
@@ -482,24 +484,24 @@ describe('orders HTTP', () => {
     expect(calls.save).toBe(0);
   });
 
-  it('starts cooking when the order has lines (H18)', async () => {
+  it('sends the order to kitchen when it has lines (H18)', async () => {
     const { base } = await listen();
     const created = await openTable(base);
     await addTacos(base, created.id);
-    const response = await send(`${base}/orders/${created.id}/start-cooking`, 'POST', {});
+    const response = await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.status).toBe('IN_KITCHEN');
-    expect(body.allowedActions).toEqual(['markReady', 'cancel']);
+    expect(body.status).toBe('SENT_TO_KITCHEN');
+    expect(body.allowedActions).toEqual(['beginCooking', 'cancel']);
   });
 
-  it('rejects line edits while in kitchen without saving (H19)', async () => {
+  it('rejects line edits after send-to-kitchen without saving (H19)', async () => {
     const { base, calls } = await listen();
     const created = await openTable(base);
     const withLine = await addTacos(base, created.id);
     const lineId = withLine.lines[0].id;
-    await send(`${base}/orders/${created.id}/start-cooking`, 'POST', {});
+    await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
     const savesBefore = calls.save;
 
     const add = await send(`${base}/orders/${created.id}/lines`, 'POST', {
@@ -527,25 +529,47 @@ describe('orders HTTP', () => {
     expect(current.lines[0].quantity).toBe(2);
   });
 
-  it('rejects starting cooking twice (H20)', async () => {
+  it('rejects send-to-kitchen twice and begin-cooking from OPEN (H20)', async () => {
     const { base } = await listen();
     const created = await openTable(base);
     await addTacos(base, created.id);
-    await send(`${base}/orders/${created.id}/start-cooking`, 'POST', {});
-    const response = await send(`${base}/orders/${created.id}/start-cooking`, 'POST', {});
+    await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
+    const twice = await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({
+    const open = await openTable(base, 'begin-open');
+    await addTacos(base, open.id);
+    const beginOpen = await send(`${base}/orders/${open.id}/begin-cooking`, 'POST', {});
+
+    expect(twice.status).toBe(409);
+    expect(await twice.json()).toEqual({
+      code: 'InvalidOrderTransitionError',
+      message: 'That order status transition is not allowed',
+    });
+    expect(beginOpen.status).toBe(409);
+    expect(await beginOpen.json()).toEqual({
       code: 'InvalidOrderTransitionError',
       message: 'That order status transition is not allowed',
     });
   });
 
-  it('marks the order ready (H21)', async () => {
+  it('begins cooking then marks the order ready (H21)', async () => {
     const { base } = await listen();
     const created = await openTable(base);
     await addTacos(base, created.id);
-    await send(`${base}/orders/${created.id}/start-cooking`, 'POST', {});
+    await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
+
+    const earlyReady = await send(`${base}/orders/${created.id}/mark-ready`, 'POST', {});
+    expect(earlyReady.status).toBe(409);
+
+    const cooking = await send(`${base}/orders/${created.id}/begin-cooking`, 'POST', {});
+    const cookingBody = await cooking.json();
+    expect(cooking.status).toBe(200);
+    expect(cookingBody.status).toBe('IN_KITCHEN');
+    expect(cookingBody.allowedActions).toEqual(['markReady']);
+
+    const cancelBlocked = await send(`${base}/orders/${created.id}/cancel`, 'POST', {});
+    expect(cancelBlocked.status).toBe(409);
+
     const response = await send(`${base}/orders/${created.id}/mark-ready`, 'POST', {});
     const body = await response.json();
 
@@ -554,38 +578,50 @@ describe('orders HTTP', () => {
     expect(body.allowedActions).toEqual([]);
   });
 
-  it('rejects cancel on READY and cancels an OPEN order (H22)', async () => {
+  it('cancels SENT_TO_KITCHEN, rejects cancel on IN_KITCHEN and READY (H22)', async () => {
     const { base } = await listen();
-    const ready = await openTable(base, '5');
+    const sent = await openTable(base, '5');
+    await addTacos(base, sent.id);
+    await send(`${base}/orders/${sent.id}/send-to-kitchen`, 'POST', {});
+    const cancelledSent = await send(`${base}/orders/${sent.id}/cancel`, 'POST', {});
+
+    const cooking = await openTable(base, '6');
+    await addTacos(base, cooking.id);
+    await send(`${base}/orders/${cooking.id}/send-to-kitchen`, 'POST', {});
+    await send(`${base}/orders/${cooking.id}/begin-cooking`, 'POST', {});
+    const rejectCooking = await send(`${base}/orders/${cooking.id}/cancel`, 'POST', {});
+
+    const ready = await openTable(base, '7');
     await addTacos(base, ready.id);
-    await send(`${base}/orders/${ready.id}/start-cooking`, 'POST', {});
+    await send(`${base}/orders/${ready.id}/send-to-kitchen`, 'POST', {});
+    await send(`${base}/orders/${ready.id}/begin-cooking`, 'POST', {});
     await send(`${base}/orders/${ready.id}/mark-ready`, 'POST', {});
-    const reject = await send(`${base}/orders/${ready.id}/cancel`, 'POST', {});
+    const rejectReady = await send(`${base}/orders/${ready.id}/cancel`, 'POST', {});
 
-    const open = await openTable(base, '6');
-    const cancelled = await send(`${base}/orders/${open.id}/cancel`, 'POST', {});
+    const open = await openTable(base, '8');
+    const cancelledOpen = await send(`${base}/orders/${open.id}/cancel`, 'POST', {});
 
-    expect(reject.status).toBe(409);
-    expect(await reject.json()).toEqual({
-      code: 'InvalidOrderTransitionError',
-      message: 'That order status transition is not allowed',
-    });
-    expect(cancelled.status).toBe(200);
-    expect((await cancelled.json()).status).toBe('CANCELLED');
+    expect(cancelledSent.status).toBe(200);
+    expect((await cancelledSent.json()).status).toBe('CANCELLED');
+    expect(rejectCooking.status).toBe(409);
+    expect(rejectReady.status).toBe(409);
+    expect(cancelledOpen.status).toBe(200);
+    expect((await cancelledOpen.json()).status).toBe('CANCELLED');
   });
 
   it('lists by status filter and rejects unknown status (H23)', async () => {
     const { base } = await listen();
-    const kitchen = await openTable(base, 'k');
-    await addTacos(base, kitchen.id);
-    await send(`${base}/orders/${kitchen.id}/start-cooking`, 'POST', {});
+    const sent = await openTable(base, 'k');
+    await addTacos(base, sent.id);
+    await send(`${base}/orders/${sent.id}/send-to-kitchen`, 'POST', {});
     const ready = await openTable(base, 'r');
     await addTacos(base, ready.id);
-    await send(`${base}/orders/${ready.id}/start-cooking`, 'POST', {});
+    await send(`${base}/orders/${ready.id}/send-to-kitchen`, 'POST', {});
+    await send(`${base}/orders/${ready.id}/begin-cooking`, 'POST', {});
     await send(`${base}/orders/${ready.id}/mark-ready`, 'POST', {});
     const open = await openTable(base, 'o');
 
-    const filtered = await send(`${base}/orders?status=IN_KITCHEN,READY`, 'GET');
+    const filtered = await send(`${base}/orders?status=SENT_TO_KITCHEN,READY`, 'GET');
     const filteredBody = await filtered.json();
     const unknown = await send(`${base}/orders?status=COOKING`, 'GET');
     const all = await send(`${base}/orders`, 'GET');
@@ -593,7 +629,7 @@ describe('orders HTTP', () => {
 
     expect(filtered.status).toBe(200);
     expect(filteredBody.map((order: { id: string }) => order.id).sort()).toEqual(
-      [kitchen.id, ready.id].sort(),
+      [sent.id, ready.id].sort(),
     );
     expect(unknown.status).toBe(400);
     expect(await unknown.json()).toEqual(
@@ -601,7 +637,7 @@ describe('orders HTTP', () => {
     );
     expect(all.status).toBe(200);
     expect(allBody.map((order: { id: string }) => order.id)).toEqual(
-      expect.arrayContaining([kitchen.id, ready.id, open.id]),
+      expect.arrayContaining([sent.id, ready.id, open.id]),
     );
   });
 
@@ -644,7 +680,7 @@ describe('orders HTTP', () => {
       modifierIds: [],
     });
 
-    const concurrent = withConcurrentSave(tracked, (order) => order.startCooking());
+    const concurrent = withConcurrentSave(tracked, (order) => order.sendToKitchen());
     app = await NestFactory.create(
       testModule(concurrent, menu, orderIds(), () => 'line-2'),
       { logger: false },
@@ -668,17 +704,17 @@ describe('orders HTTP', () => {
       code: 'OrderConcurrencyError',
       message: 'Order was changed by another operation',
     });
-    expect(current.status).toBe('IN_KITCHEN');
+    expect(current.status).toBe('SENT_TO_KITCHEN');
     expect(current.lines).toHaveLength(1);
     expect(current.lines[0].id).toBe('line-1');
   });
 
-  it('rejects a body with fields on start-cooking', async () => {
+  it('rejects a body with fields on send-to-kitchen', async () => {
     const { base } = await listen();
     const created = await openTable(base);
     await addTacos(base, created.id);
     const body = { note: 'x' };
-    const response = await send(`${base}/orders/${created.id}/start-cooking`, 'POST', body);
+    const response = await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', body);
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual(invalidRequest(emptyOrderBodySchema, body));

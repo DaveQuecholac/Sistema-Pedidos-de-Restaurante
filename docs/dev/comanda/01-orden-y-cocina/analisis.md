@@ -105,27 +105,30 @@ Si después alguien cambia el precio del plato o lo desactiva, las líneas ya ca
 ### 5.3 Estados (State)
 
 ```text
-OPEN ──startCooking──► IN_KITCHEN ──markReady──► READY ──(Sprint 4: close)──► CLOSED
-  │                        │
-  └────────cancel──────────┴──► CANCELLED
+OPEN ──sendToKitchen──► SENT_TO_KITCHEN ──beginCooking──► IN_KITCHEN ──markReady──► READY ──(Sprint 4: close)──► CLOSED
+  │                           │
+  └──────────cancel───────────┘──► CANCELLED
 ```
 
 Cada estado es un objeto que responde qué permite. No hay `if (status === …)` repartidos por los casos de uso.
 
-| Estado | Editar líneas | `startCooking` | `markReady` | `cancel` |
-|--------|---------------|----------------|-------------|----------|
-| `OPEN` | Sí | Sí, con al menos una línea | No | Sí |
-| `IN_KITCHEN` | **No** | No | Sí | Sí |
-| `READY` | No | No | No | No |
-| `CLOSED` | No | No | No | No |
-| `CANCELLED` | No | No | No | No |
+| Estado | Editar líneas | `sendToKitchen` | `beginCooking` | `markReady` | `cancel` |
+|--------|---------------|-----------------|----------------|-------------|----------|
+| `OPEN` | Sí | Sí, con al menos una línea | No | No | Sí |
+| `SENT_TO_KITCHEN` | **No** | No | Sí | No | Sí |
+| `IN_KITCHEN` | **No** | No | No | Sí | **No** |
+| `READY` | No | No | No | No | No |
+| `CLOSED` | No | No | No | No | No |
+| `CANCELLED` | No | No | No | No | No |
 
-- Editar líneas = agregar, modificar o cancelar una línea. La regla de RF3 es la columna «Editar líneas».
+- Editar líneas = agregar, modificar o cancelar una línea.
+- RF3: no editable tras enviar a cocina; no cancelable tras iniciar cocción (`beginCooking` → `IN_KITCHEN`).
 - Enviar a cocina una orden vacía es un error: la cocina no puede preparar nada.
+- No se puede marcar lista sin haber pasado por «poner en cocción».
 - `READY` espera cobro. `CLOSED` llega en el Sprint 4.
 - `CANCELLED` conserva sus líneas como estaban. No se borran.
 
-El agregado expone `allowedActions()`: una lista de `editLines`, `startCooking`, `markReady`, `cancel`, según el estado y el número de líneas. La API la devuelve y la pantalla la usa para habilitar botones. Así la UI no repite la regla de cocina.
+El agregado expone `allowedActions()`: `editLines`, `sendToKitchen`, `beginCooking`, `markReady`, `cancel`, según el estado y el número de líneas. La API la devuelve; cada pantalla filtra por rol (comandas vs cocina).
 
 ### 5.4 Cancelar una línea
 
@@ -194,9 +197,10 @@ Todos reciben puertos por constructor. Los que crean ids reciben `generateId: ()
 | `AddLine` | `orderId`, `menuItemId`, `quantity`, `modifierIds` | Línea nueva al final |
 | `ModifyLine` | `orderId`, `lineId`, `quantity`, `modifierIds` | Línea recapturada en su lugar |
 | `CancelLine` | `orderId`, `lineId` | Línea quitada |
-| `StartCooking` | `orderId` | `OPEN` → `IN_KITCHEN` |
+| `SendToKitchen` | `orderId` | `OPEN` → `SENT_TO_KITCHEN` |
+| `BeginCooking` | `orderId` | `SENT_TO_KITCHEN` → `IN_KITCHEN` |
 | `MarkOrderReady` | `orderId` | `IN_KITCHEN` → `READY` |
-| `CancelOrder` | `orderId` | `OPEN` o `IN_KITCHEN` → `CANCELLED` |
+| `CancelOrder` | `orderId` | `OPEN` o `SENT_TO_KITCHEN` → `CANCELLED` |
 
 Cada caso que escribe sigue la misma forma: `findById` → operación del agregado → `save`. Si el agregado lanza, no hay `save`. Todos devuelven la orden guardada.
 
@@ -218,7 +222,7 @@ Hector las confirmó el 4 de octubre de 2026. La 1 se apartó de la propuesta in
 | 2 | Externo repetido | Nunca se repite, aunque la anterior esté cancelada |
 | 3 | Cancelar línea | Se quita de la orden |
 | 4 | Modificar línea | Recaptura precio y modificadores de la carta actual |
-| 5 | Cancelar orden | Desde `OPEN` e `IN_KITCHEN` (diagrama del maestro) |
+| 5 | Cancelar orden | Desde `OPEN` y `SENT_TO_KITCHEN`; no desde `IN_KITCHEN` ni `READY` |
 | 6 | `READY` en este sprint | Entra: `MarkOrderReady` y la vista de cocina |
 | 7 | Cantidad | 1 a 99 |
 

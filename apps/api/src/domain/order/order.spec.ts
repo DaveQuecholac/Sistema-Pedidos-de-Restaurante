@@ -54,7 +54,10 @@ function openOrder(): Order {
   });
 }
 
-function withStatus(status: 'IN_KITCHEN' | 'READY' | 'CANCELLED', lines: LineItem[]): Order {
+function withStatus(
+  status: 'SENT_TO_KITCHEN' | 'IN_KITCHEN' | 'READY' | 'CANCELLED',
+  lines: LineItem[],
+): Order {
   return Order.restore({
     id: 'order-1',
     origin: OrderOrigin.table('5'),
@@ -125,27 +128,37 @@ describe('Order', () => {
     expect(order.lines).toEqual([]);
   });
 
-  it('rejects startCooking without lines (OR7)', () => {
-    expect(() => openOrder().startCooking()).toThrow(EmptyOrderError);
+  it('rejects sendToKitchen without lines (OR7)', () => {
+    expect(() => openOrder().sendToKitchen()).toThrow(EmptyOrderError);
   });
 
-  it('startCooking with a line moves to IN_KITCHEN and keeps the lines (OR8)', () => {
+  it('sendToKitchen with a line moves to SENT_TO_KITCHEN and keeps the lines (OR8)', () => {
     const withLine = openOrder().addLine(line('line-1'));
-    const cooking = withLine.startCooking();
+    const sent = withLine.sendToKitchen();
 
-    expect(cooking.status).toBe('IN_KITCHEN');
-    expect(cooking.lines.map((item) => item.id)).toEqual(['line-1']);
+    expect(sent.status).toBe('SENT_TO_KITCHEN');
+    expect(sent.lines.map((item) => item.id)).toEqual(['line-1']);
   });
 
-  it('rejects addLine in IN_KITCHEN (OR9)', () => {
-    const order = withStatus('IN_KITCHEN', [line('line-1')]);
+  it('beginCooking moves SENT_TO_KITCHEN to IN_KITCHEN (OR8b)', () => {
+    const order = withStatus('SENT_TO_KITCHEN', [line('line-1')]).beginCooking();
 
-    expect(() => order.addLine(line('line-2'))).toThrow(OrderNotEditableError);
+    expect(order.status).toBe('IN_KITCHEN');
+    expect(order.lines.map((item) => item.id)).toEqual(['line-1']);
   });
 
-  it('rejects replaceLine in IN_KITCHEN (OR9)', () => {
+  it('rejects addLine after send and while cooking (OR9)', () => {
+    expect(() => withStatus('SENT_TO_KITCHEN', [line('line-1')]).addLine(line('line-2'))).toThrow(
+      OrderNotEditableError,
+    );
+    expect(() => withStatus('IN_KITCHEN', [line('line-1')]).addLine(line('line-2'))).toThrow(
+      OrderNotEditableError,
+    );
+  });
+
+  it('rejects replaceLine after send (OR9)', () => {
     const existing = line('line-1');
-    const order = withStatus('IN_KITCHEN', [existing]);
+    const order = withStatus('SENT_TO_KITCHEN', [existing]);
 
     expect(() =>
       order.replaceLine(
@@ -158,8 +171,8 @@ describe('Order', () => {
     ).toThrow(OrderNotEditableError);
   });
 
-  it('rejects cancelLine in IN_KITCHEN (OR9)', () => {
-    const order = withStatus('IN_KITCHEN', [line('line-1')]);
+  it('rejects cancelLine after send (OR9)', () => {
+    const order = withStatus('SENT_TO_KITCHEN', [line('line-1')]);
 
     expect(() => order.cancelLine('line-1')).toThrow(OrderNotEditableError);
   });
@@ -180,47 +193,65 @@ describe('Order', () => {
     expect(() => order.cancelLine('line-1')).toThrow(OrderNotEditableError);
   });
 
-  it('rejects markReady from OPEN (OR11)', () => {
+  it('rejects markReady from OPEN and SENT_TO_KITCHEN (OR11)', () => {
     expect(() => openOrder().addLine(line('line-1')).markReady()).toThrow(
+      InvalidOrderTransitionError,
+    );
+    expect(() => withStatus('SENT_TO_KITCHEN', [line('line-1')]).markReady()).toThrow(
       InvalidOrderTransitionError,
     );
   });
 
-  it('cancel from IN_KITCHEN keeps the lines (OR12)', () => {
-    const order = withStatus('IN_KITCHEN', [line('line-1'), line('line-2')]).cancel();
+  it('rejects beginCooking from OPEN (OR11b)', () => {
+    expect(() => openOrder().addLine(line('line-1')).beginCooking()).toThrow(
+      InvalidOrderTransitionError,
+    );
+  });
+
+  it('cancel from SENT_TO_KITCHEN keeps the lines (OR12)', () => {
+    const order = withStatus('SENT_TO_KITCHEN', [line('line-1'), line('line-2')]).cancel();
 
     expect(order.status).toBe('CANCELLED');
     expect(order.lines.map((item) => item.id)).toEqual(['line-1', 'line-2']);
+  });
+
+  it('rejects cancel once cooking has begun (OR12b)', () => {
+    expect(() => withStatus('IN_KITCHEN', [line('line-1')]).cancel()).toThrow(
+      InvalidOrderTransitionError,
+    );
   });
 
   it('lists allowedActions for OPEN empty and with lines (OR13)', () => {
     expect(openOrder().allowedActions()).toEqual(['editLines', 'cancel']);
     expect(openOrder().addLine(line('line-1')).allowedActions()).toEqual([
       'editLines',
-      'startCooking',
+      'sendToKitchen',
       'cancel',
     ]);
   });
 
-  it('lists allowedActions for IN_KITCHEN, READY, and CANCELLED (OR14)', () => {
-    expect(withStatus('IN_KITCHEN', [line('line-1')]).allowedActions()).toEqual([
-      'markReady',
+  it('lists allowedActions for SENT, cooking, READY, and CANCELLED (OR14)', () => {
+    expect(withStatus('SENT_TO_KITCHEN', [line('line-1')]).allowedActions()).toEqual([
+      'beginCooking',
       'cancel',
     ]);
+    expect(withStatus('IN_KITCHEN', [line('line-1')]).allowedActions()).toEqual(['markReady']);
     expect(withStatus('READY', [line('line-1')]).allowedActions()).toEqual([]);
     expect(withStatus('CANCELLED', [line('line-1')]).allowedActions()).toEqual([]);
   });
 
   it('does not change version on any operation (OR15)', () => {
-    const original = withStatus('IN_KITCHEN', [line('line-1')]);
-    expect(original.version).toBe(2);
+    const cooking = withStatus('IN_KITCHEN', [line('line-1')]);
+    expect(cooking.version).toBe(2);
+    expect(cooking.markReady().version).toBe(2);
 
-    expect(original.markReady().version).toBe(2);
-    expect(original.cancel().version).toBe(2);
+    const sent = withStatus('SENT_TO_KITCHEN', [line('line-1')]);
+    expect(sent.beginCooking().version).toBe(2);
+    expect(sent.cancel().version).toBe(2);
 
     const open = openOrder().addLine(line('line-1'));
     expect(open.version).toBe(0);
-    expect(open.startCooking().version).toBe(0);
+    expect(open.sendToKitchen().version).toBe(0);
     expect(open.cancelLine('line-1').version).toBe(0);
     expect(
       open.replaceLine(

@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 4 de octubre de 2026.  
-**Alcance de esta corrida:** persistencia y API de órdenes y cocina (Sprint 2, tarea 2 en `dev/comanda`). Las corridas anteriores quedan abajo y no se borran.
+**Alcance de esta corrida:** pantallas de comanda/cocina y ajuste RF3 `SENT_TO_KITCHEN` (Sprint 2, tarea 3 en `dev/comanda`). Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -223,3 +223,43 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 2. Antes del smoke S2, `Agua de jamaica` estaba inactiva; se reactivó con `PATCH` para armar la comanda del plan. El catálogo sigue con 5 platos; al cierre de esta CTTM hay **4 activos** (Consomé sigue inactivo).
 3. Órdenes del smoke quedan en la BD (no son seeds): `3f2325fe-…` READY, `7844ce85-…` OPEN, `af1ee99d-…` CANCELLED, más el intento fallido `3a928775-…` OPEN. Detalle en el plan §11.
 4. No se apagó `postgresql-18` para probar el encendido en frío.
+
+## Corrida — 4 de octubre de 2026, comanda tarea 3 (pantallas + RF3)
+
+**Alcance:** UI `/orders`, `/orders/[id]`, `/kitchen`, home con enlaces; cliente `order-api` / vista pura; ajuste RF3 `OPEN → SENT_TO_KITCHEN → IN_KITCHEN → READY` (`SendToKitchen`, `BeginCooking`); migración `0005` (check de status).  
+**Plan:** `docs/dev/comanda/03-pantalla-comanda-y-demo/plan-de-accion.md`.  
+**Bloques de código de producto de órdenes (sin specs ni `drizzle/meta`):** 5. Unas **4035** líneas en dominio/application/infra/HTTP de orden, migraciones `0004`/`0005`, y web `orders`/`kitchen`/`page.tsx`.
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 807 | Web: `order-api`, `order-view`, `orders-screen`, `page` de orders |
+| 2 | 985 | Web: detalle de comanda + `orders.module.css` |
+| 3 | 273 | Web: cocina |
+| 4 | 800 | Dominio RF3 + casos `SendToKitchen` / `BeginCooking` / cancel / markReady |
+| 5 | 1170 | Driven/HTTP/migración (`schema`, mapper, repo, controller, `0004`+`0005`) + restos |
+
+### Hexagonal (revisión de capas)
+
+- Dominio de orden: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de orden: solo puertos y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `SendToKitchen` / `BeginCooking` / `MarkOrderReady` cableados en `AppModule`; JSON sin `version` ni nombres de tabla.
+- Web: fetch al API; no importa dominio ni Drizzle. `apps/web/app/menu/` no importa orders/kitchen.
+- R1: `rg "@restaurante/api|drizzle" apps/web/app` solo encuentra la frase de la home («el núcleo… vive en @restaurante/api»), no un import.
+- R2: sin cálculo de importes por `quantity *` / `reduce` en orders/kitchen.
+- Botones de acción usan `can(...)`; columnas de cocina y textos de aviso usan `status` solo para presentación (tablero / `lockNotice`).
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 29 archivos, **210** pruebas, 22 skipped (P menú + P órdenes). Typecheck API limpio. Web: 4 archivos, **36** pruebas (W1–W9, V1–V13), typecheck limpio. Capas OK. `0005_hot_omega_sentinel.sql` salió de `db:generate`. |
+| T Integración | Pasó | `select 1` = 1. Tablas: 3 menú + `orders` / `order_lines` / `order_line_modifiers`. `test:db`: **22**. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos (**5 activos** en esta corrida). API con `DATABASE_URL` imposible en 3099: «Database connection failed», no escuchó. Smoke RF3: `send-to-kitchen` → `SENT_TO_KITCHEN` → `begin-cooking` → cancel 409 → `mark-ready` → `READY` (orden `0b315ee5-8e3b-41a0-9b92-f172b6ac6476`, mesa `D2-CTTM`). |
+| T Sistema | Pasó | `pnpm dev:restart`: API y web online (Postgres ya encendido). Home 200 con «Sistema de Pedidos», «Administrar menú», «Comandas», «Cocina». `/menu`, `/orders`, `/kitchen` → 200. |
+| M Madurez | Nivel 3 para RF2–RF3 (comanda) | Hay casos de uso, pruebas sin navegador, API y pantallas. Totales (RF4) y cobro (RF5) siguen fuera. El recorrido B1–B22 del plan §7 quedó parcial: flujo RF3 verificado por API + páginas 200; no se anotó viewport 1280/390 ítem a ítem en esta corrida. |
+
+### Huecos de esta corrida
+
+1. El plan de la tarea 3 decía «no tocar `apps/api/**`»; el ajuste RF3 acordado con Hector sí tocó dominio, application, HTTP y migración `0005`. Manda el acuerdo RF3 + Gen 1 actualizado.
+2. El recorrido B del plan §7 aún habla de «Enviar a cocina» → «En cocción» directo. El producto ahora pasa por `SENT_TO_KITCHEN` («En cocina») y luego «Poner en cocción». Hay que actualizar B13–B16 en el plan cuando se cierre el recorrido manual.
+3. R1 no queda literalmente vacío por el texto de la home; no es dependencia de código.
+4. `pnpm test` deja P* en skipped; `test:db` las corre (22 verdes).
+5. No se apagó `postgresql-18` para probar el encendido en frío.
+6. Órdenes de smoke/demo siguen en la BD (no seeds), incluida `0b315ee5-…` READY.

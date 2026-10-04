@@ -50,6 +50,19 @@ En `https://restaurante.localhost` se abre una comanda por mesa o por pedido ext
 2. `pnpm --filter @restaurante/web test` y `typecheck`. Anotar el número de pruebas.
 3. Con `curl`, el API de la tarea 2 responde `POST /orders` y `GET /orders`.
 
+**Línea base — 4 de octubre de 2026**
+
+| Comando | Resultado |
+|---------|-----------|
+| `pnpm dev:restart` | API y web online |
+| `https://restaurante.localhost/menu` | 200 |
+| `GET /menu-items` | 5 platos (4 activos; Consomé inactivo) |
+| `pnpm --filter @restaurante/web test` | 2 archivos, **14** pruebas |
+| `pnpm --filter @restaurante/web typecheck` | Pasó |
+| `POST /orders` mesa `BASE-0` + `GET /orders/:id` + `GET /orders?status=OPEN` | 201 / 200 / 200 |
+
+Piso web que no puede bajar: **14** pruebas. Orden de la línea base: `a9846006-6c1d-4855-884a-ae6033197702` (queda en la BD).
+
 ### Paso 1 — Cliente HTTP
 
 `apps/web/app/orders/order-api.ts` y su `order-api.spec.ts`, con la misma forma que `menu-api.ts`:
@@ -61,6 +74,8 @@ En `https://restaurante.localhost` se abre una comanda por mesa o por pedido ext
 - Si `response.ok` es falso, lee `{ code, message }`; si no, error con el status.
 
 Pruebas W1–W8 con `fetch` simulado.
+
+**Cierre Paso 1 — 4 de octubre de 2026:** `order-api.ts` + W1–W8. `vitest.config.mts` incluye `app/**/*.spec.ts` (antes solo menú). Web: **22** pruebas (14 previas + 8). Typecheck OK. Sin pantallas todavía.
 
 ### Paso 2 — Vista pura
 
@@ -79,6 +94,8 @@ Pruebas W1–W8 con `fetch` simulado.
 
 Pruebas V1–V13.
 
+**Cierre Paso 2 — 4 de octubre de 2026:** `order-view.ts` + V1–V13. Web: **35** pruebas (22 + 13). Typecheck OK. Sin pantallas todavía.
+
 ### Paso 3 — Comandas (`/orders`)
 
 - `apps/web/app/orders/page.tsx`
@@ -93,6 +110,8 @@ Comportamiento:
 4. Al abrir con éxito, navega a `/orders/{id}`.
 5. 409 `ExternalOrderIdInUseError`: mensaje junto al formulario; la lista se vuelve a pedir.
 6. Enlaces a «Inicio» y «Cocina».
+
+**Cierre Paso 3 — 4 de octubre de 2026:** `/orders` con lista, formulario «Abrir comanda» y CSS (estilo menú + insignia / aviso / fila). Web: **35** pruebas, typecheck OK. `https://restaurante.localhost/orders` → 200 (SSR muestra carga; el cliente hidrata la lista). El detalle `/orders/[id]` llega en el Paso 4.
 
 ### Paso 4 — Detalle (`/orders/[orderId]`)
 
@@ -112,6 +131,8 @@ Comportamiento:
 9. Éxito: `setOrder(respuesta)`. 409: `errorText` y `getOrder` de nuevo. Otro error: `errorText`.
 10. Lista de platos vacía o error al cargar el menú: aviso «No se pudo cargar el menú» y el formulario no se dibuja; las acciones de estado siguen disponibles.
 
+**Cierre Paso 4 — 4 de octubre de 2026:** `page.tsx` (resuelve `params`) + `order-detail-screen.tsx` (carga orden+menú, monitor, formulario, `allowedActions`, 404/409/menú fallido, `lockNotice`). CSS: `checkList` / `actionBar` ya en `orders.module.css`. Web: **35** pruebas, typecheck OK. `POST /orders` → `GET /orders/{id}` página 200; id inexistente 200 con shell de «no existe» tras hidratar. Recorrido B1–B22 queda en el Paso 7.
+
 ### Paso 5 — Cocina (`/kitchen`)
 
 - `apps/web/app/kitchen/page.tsx`
@@ -124,9 +145,13 @@ Comportamiento:
 3. Tras marcar, se reemplaza esa orden con la respuesta.
 4. Botón «Actualizar» vuelve a pedir la lista.
 
+**Cierre Paso 5 — 4 de octubre de 2026:** `kitchen/page.tsx` + `kitchen-screen.tsx` (reusa `orders.module.css`). Lista `IN_KITCHEN` / `READY` por llegada, «Marcar lista» reemplaza la orden en memoria, «Actualizar» refetch. Web: **35** pruebas, typecheck OK. `https://restaurante.localhost/kitchen` → 200. Smoke API con orden en cocción OK.
+
 ### Paso 6 — Home
 
 `apps/web/app/page.tsx`: agregar «Comandas» (`/orders`) y «Cocina» (`/kitchen`) junto a «Administrar menú».
+
+**Cierre Paso 6 — 4 de octubre de 2026:** Home con enlaces «Administrar menú», «Comandas» y «Cocina». Web: **35** pruebas, typecheck OK. `https://restaurante.localhost/` → 200 con los tres enlaces.
 
 ### Paso 7 — Verificación
 
@@ -223,13 +248,27 @@ Al terminar esta tarea:
 
 ## 10. Hecho cuando
 
-- [ ] W1–W8 y V1–V13 pasan
-- [ ] B1–B22 anotados con fecha, en 1280 px y 390 px
-- [ ] R1–R5 se cumplen
-- [ ] Pruebas y typecheck de API y web pasan; el número de pruebas no bajó
-- [ ] La demo del Sprint 2 se puede hacer de punta a punta: menú → abrir → líneas → cocina → bloqueo
-- [ ] El admin del menú sigue funcionando
+- [x] W1–W9 y V1–V13 pasan (4 oct 2026; W9 = `sendToKitchen`/`beginCooking` exportados)
+- [ ] B1–B22 anotados con fecha, en 1280 px y 390 px — **parcial:** páginas 200 + smoke RF3 por API; falta recorrido manual viewport
+- [x] R1–R5 se cumplen (R1: solo texto de home; botones vía `can`; columnas/avisos usan `status` de presentación)
+- [x] Pruebas y typecheck de API y web pasan; web **36** (≥ 35 del paso 6); API **210** (+ skipped P*)
+- [x] La demo del Sprint 2 se puede hacer de punta a punta con el ciclo RF3 (enviar → pendiente cocina → cocción → lista)
+- [x] El admin del menú sigue funcionando (`/menu` 200, 5 platos)
 
 ## 11. Cierre
 
-Pendiente. Tabla con familia, comando y resultado; cada B con pasó o falló; ids de las órdenes creadas en el recorrido.
+**CTTM:** `docs/desarrollo/pruebas-cttm.md` — corrida 4 oct 2026, comanda tarea 3. Nivel 3 RF2–RF3 con el hueco del recorrido B manual.
+
+| Familia | Comando / chequeo | Resultado |
+|---------|-------------------|-----------|
+| C API | `env -u DATABASE_URL pnpm --filter @restaurante/api test` | 210 pasó, 22 skipped |
+| C API | `pnpm --filter @restaurante/api typecheck` | Pasó |
+| C Web | `pnpm --filter @restaurante/web test` | 36 pasó |
+| C Web | `pnpm --filter @restaurante/web typecheck` | Pasó |
+| T DB | `select 1` + `\dt` | 1; 6 tablas (menú+órdenes) |
+| T DB | `pnpm --filter @restaurante/api test:db` | 22 pasó |
+| T Health | `/health`, `/health/database` | ok |
+| T Sistema | home + `/menu` `/orders` `/kitchen` | 200, tres enlaces en home |
+| T RF3 | send → begin → cancel 409 → mark-ready | Pasó; orden `0b315ee5-8e3b-41a0-9b92-f172b6ac6476` |
+
+B1–B22: pendiente de tabla ítem a ítem en viewport 1280/390 (actualizar textos B13–B16 al flujo `SENT_TO_KITCHEN`).

@@ -11,7 +11,7 @@ import { ExternalOrderIdInUseError } from './order-repository.errors';
 import { FIXED_NOW, idsOf, tacosDish, watchOrders } from './order-test-fixtures';
 
 describe('CancelOrder', () => {
-  it('cancels OPEN and IN_KITCHEN keeping lines (X1)', async () => {
+  it('cancels OPEN and SENT_TO_KITCHEN keeping lines (X1)', async () => {
     const orders = new InMemoryOrderRepository();
     const line = LineItem.capture({
       id: 'line-1',
@@ -26,9 +26,9 @@ describe('CancelOrder', () => {
     );
     await orders.add(
       Order.restore({
-        id: 'order-kitchen',
+        id: 'order-sent',
         origin: OrderOrigin.table('2'),
-        status: 'IN_KITCHEN',
+        status: 'SENT_TO_KITCHEN',
         openedAt: FIXED_NOW,
         lines: [line],
         version: 1,
@@ -37,16 +37,16 @@ describe('CancelOrder', () => {
     const useCase = new CancelOrder(orders);
 
     const cancelledOpen = await useCase.execute('order-open');
-    const cancelledKitchen = await useCase.execute('order-kitchen');
+    const cancelledSent = await useCase.execute('order-sent');
 
     expect(cancelledOpen.status).toBe('CANCELLED');
     expect(cancelledOpen.lines).toHaveLength(1);
-    expect(cancelledKitchen.status).toBe('CANCELLED');
-    expect(cancelledKitchen.lines).toHaveLength(1);
+    expect(cancelledSent.status).toBe('CANCELLED');
+    expect(cancelledSent.lines).toHaveLength(1);
   });
 
-  it('rejects cancel from READY and CANCELLED without save (X2)', async () => {
-    for (const status of ['READY', 'CANCELLED'] as const) {
+  it('rejects cancel from IN_KITCHEN, READY and CANCELLED without save (X2)', async () => {
+    for (const status of ['IN_KITCHEN', 'READY', 'CANCELLED'] as const) {
       const orders = new InMemoryOrderRepository();
       await orders.add(
         Order.restore({

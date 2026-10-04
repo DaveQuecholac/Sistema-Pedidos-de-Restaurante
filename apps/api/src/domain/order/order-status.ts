@@ -1,8 +1,19 @@
 import { InvalidOrderTransitionError } from './order.errors';
 
-export type OrderStatus = 'OPEN' | 'IN_KITCHEN' | 'READY' | 'CLOSED' | 'CANCELLED';
+export type OrderStatus =
+  | 'OPEN'
+  | 'SENT_TO_KITCHEN'
+  | 'IN_KITCHEN'
+  | 'READY'
+  | 'CLOSED'
+  | 'CANCELLED';
 
-export type OrderAction = 'editLines' | 'startCooking' | 'markReady' | 'cancel';
+export type OrderAction =
+  | 'editLines'
+  | 'sendToKitchen'
+  | 'beginCooking'
+  | 'markReady'
+  | 'cancel';
 
 /** Actions that `next` understands. `editLines` is never a transition. */
 export type OrderTransitionAction = OrderAction;
@@ -18,8 +29,8 @@ const openStatus: OrderStatusBehavior = {
   name: 'OPEN',
   canEditLines: true,
   next(action) {
-    if (action === 'startCooking') {
-      return 'IN_KITCHEN';
+    if (action === 'sendToKitchen') {
+      return 'SENT_TO_KITCHEN';
     }
     if (action === 'cancel') {
       return 'CANCELLED';
@@ -28,18 +39,19 @@ const openStatus: OrderStatusBehavior = {
   },
   allowedActions(lineCount) {
     if (lineCount > 0) {
-      return ['editLines', 'startCooking', 'cancel'];
+      return ['editLines', 'sendToKitchen', 'cancel'];
     }
     return ['editLines', 'cancel'];
   },
 };
 
-const inKitchenStatus: OrderStatusBehavior = {
-  name: 'IN_KITCHEN',
+/** Arrived at kitchen; waiter may still cancel; kitchen has not begun cooking. */
+const sentToKitchenStatus: OrderStatusBehavior = {
+  name: 'SENT_TO_KITCHEN',
   canEditLines: false,
   next(action) {
-    if (action === 'markReady') {
-      return 'READY';
+    if (action === 'beginCooking') {
+      return 'IN_KITCHEN';
     }
     if (action === 'cancel') {
       return 'CANCELLED';
@@ -47,7 +59,22 @@ const inKitchenStatus: OrderStatusBehavior = {
     throw new InvalidOrderTransitionError();
   },
   allowedActions() {
-    return ['markReady', 'cancel'];
+    return ['beginCooking', 'cancel'];
+  },
+};
+
+/** Cooking in progress: not editable, not cancellable; kitchen may mark ready. */
+const inKitchenStatus: OrderStatusBehavior = {
+  name: 'IN_KITCHEN',
+  canEditLines: false,
+  next(action) {
+    if (action === 'markReady') {
+      return 'READY';
+    }
+    throw new InvalidOrderTransitionError();
+  },
+  allowedActions() {
+    return ['markReady'];
   },
 };
 
@@ -86,6 +113,7 @@ const cancelledStatus: OrderStatusBehavior = {
 
 const byName: Record<OrderStatus, OrderStatusBehavior> = {
   OPEN: openStatus,
+  SENT_TO_KITCHEN: sentToKitchenStatus,
   IN_KITCHEN: inKitchenStatus,
   READY: readyStatus,
   CLOSED: closedStatus,
@@ -94,6 +122,7 @@ const byName: Record<OrderStatus, OrderStatusBehavior> = {
 
 const ALL_STATUSES: readonly OrderStatus[] = [
   'OPEN',
+  'SENT_TO_KITCHEN',
   'IN_KITCHEN',
   'READY',
   'CLOSED',
@@ -113,7 +142,8 @@ export const ORDER_STATUSES = ALL_STATUSES;
 
 export const ORDER_TRANSITION_ACTIONS: readonly OrderTransitionAction[] = [
   'editLines',
-  'startCooking',
+  'sendToKitchen',
+  'beginCooking',
   'markReady',
   'cancel',
 ];

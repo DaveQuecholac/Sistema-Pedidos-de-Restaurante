@@ -92,12 +92,16 @@ export class Order {
     });
   }
 
-  startCooking(): Order {
+  sendToKitchen(): Order {
     if (this.linesValue.length === 0) {
       throw new EmptyOrderError();
     }
 
-    return this.copy({ status: orderStatus(this.statusValue).next('startCooking') });
+    return this.copy({ status: orderStatus(this.statusValue).next('sendToKitchen') });
+  }
+
+  beginCooking(): Order {
+    return this.copy({ status: orderStatus(this.statusValue).next('beginCooking') });
   }
 
   markReady(): Order {

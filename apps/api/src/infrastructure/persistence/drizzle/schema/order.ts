@@ -36,7 +36,7 @@ export const orders = pgTable(
     ),
     check(
       'orders_status',
-      sql`${table.status} in ('OPEN', 'IN_KITCHEN', 'READY', 'CLOSED', 'CANCELLED')`,
+      sql`${table.status} in ('OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY', 'CLOSED', 'CANCELLED')`,
     ),
     check('orders_version_gte_0', sql`${table.version} >= 0`),
     unique('orders_external_order_id_unique').on(table.externalOrderId),

@@ -15,31 +15,43 @@ import {
 const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus | null>> = {
   OPEN: {
     editLines: null,
-    startCooking: 'IN_KITCHEN',
+    sendToKitchen: 'SENT_TO_KITCHEN',
+    beginCooking: null,
+    markReady: null,
+    cancel: 'CANCELLED',
+  },
+  SENT_TO_KITCHEN: {
+    editLines: null,
+    sendToKitchen: null,
+    beginCooking: 'IN_KITCHEN',
     markReady: null,
     cancel: 'CANCELLED',
   },
   IN_KITCHEN: {
     editLines: null,
-    startCooking: null,
+    sendToKitchen: null,
+    beginCooking: null,
     markReady: 'READY',
-    cancel: 'CANCELLED',
+    cancel: null,
   },
   READY: {
     editLines: null,
-    startCooking: null,
+    sendToKitchen: null,
+    beginCooking: null,
     markReady: null,
     cancel: null,
   },
   CLOSED: {
     editLines: null,
-    startCooking: null,
+    sendToKitchen: null,
+    beginCooking: null,
     markReady: null,
     cancel: null,
   },
   CANCELLED: {
     editLines: null,
-    startCooking: null,
+    sendToKitchen: null,
+    beginCooking: null,
     markReady: null,
     cancel: null,
   },
@@ -50,36 +62,39 @@ describe('order status State', () => {
     expect(orderStatus('OPEN').canEditLines).toBe(true);
   });
 
-  it('rejects editing lines in IN_KITCHEN (S2)', () => {
+  it('rejects editing lines after send and while cooking (S2)', () => {
+    expect(orderStatus('SENT_TO_KITCHEN').canEditLines).toBe(false);
     expect(orderStatus('IN_KITCHEN').canEditLines).toBe(false);
-  });
-
-  it('rejects editing lines in READY (S2)', () => {
     expect(orderStatus('READY').canEditLines).toBe(false);
-  });
-
-  it('rejects editing lines in CLOSED (S2)', () => {
     expect(orderStatus('CLOSED').canEditLines).toBe(false);
-  });
-
-  it('rejects editing lines in CANCELLED (S2)', () => {
     expect(orderStatus('CANCELLED').canEditLines).toBe(false);
   });
 
-  it('moves OPEN to IN_KITCHEN on startCooking (S3)', () => {
-    expect(orderStatus('OPEN').next('startCooking')).toBe('IN_KITCHEN');
+  it('moves OPEN to SENT_TO_KITCHEN on sendToKitchen (S3)', () => {
+    expect(orderStatus('OPEN').next('sendToKitchen')).toBe('SENT_TO_KITCHEN');
+  });
+
+  it('moves SENT_TO_KITCHEN to IN_KITCHEN on beginCooking (S3b)', () => {
+    expect(orderStatus('SENT_TO_KITCHEN').next('beginCooking')).toBe('IN_KITCHEN');
   });
 
   it('moves IN_KITCHEN to READY on markReady (S4)', () => {
     expect(orderStatus('IN_KITCHEN').next('markReady')).toBe('READY');
   });
 
-  it('moves OPEN to CANCELLED on cancel (S5)', () => {
-    expect(orderStatus('OPEN').next('cancel')).toBe('CANCELLED');
+  it('rejects markReady before cooking has begun (S4b)', () => {
+    expect(() => orderStatus('SENT_TO_KITCHEN').next('markReady')).toThrow(
+      InvalidOrderTransitionError,
+    );
   });
 
-  it('moves IN_KITCHEN to CANCELLED on cancel (S5)', () => {
-    expect(orderStatus('IN_KITCHEN').next('cancel')).toBe('CANCELLED');
+  it('moves OPEN and SENT_TO_KITCHEN to CANCELLED on cancel (S5)', () => {
+    expect(orderStatus('OPEN').next('cancel')).toBe('CANCELLED');
+    expect(orderStatus('SENT_TO_KITCHEN').next('cancel')).toBe('CANCELLED');
+  });
+
+  it('rejects cancel once cooking has begun (S5b)', () => {
+    expect(() => orderStatus('IN_KITCHEN').next('cancel')).toThrow(InvalidOrderTransitionError);
   });
 
   it('rejects cancel from READY (S6)', () => {
@@ -115,13 +130,17 @@ describe('order status State', () => {
     expect(orderStatus('OPEN').allowedActions(0)).toEqual(['editLines', 'cancel']);
     expect(orderStatus('OPEN').allowedActions(1)).toEqual([
       'editLines',
-      'startCooking',
+      'sendToKitchen',
       'cancel',
     ]);
   });
 
-  it('lists allowed actions for IN_KITCHEN, READY, and CANCELLED', () => {
-    expect(orderStatus('IN_KITCHEN').allowedActions(2)).toEqual(['markReady', 'cancel']);
+  it('lists allowed actions for SENT_TO_KITCHEN, IN_KITCHEN, READY, and CANCELLED', () => {
+    expect(orderStatus('SENT_TO_KITCHEN').allowedActions(2)).toEqual([
+      'beginCooking',
+      'cancel',
+    ]);
+    expect(orderStatus('IN_KITCHEN').allowedActions(2)).toEqual(['markReady']);
     expect(orderStatus('READY').allowedActions(2)).toEqual([]);
     expect(orderStatus('CANCELLED').allowedActions(2)).toEqual([]);
   });
