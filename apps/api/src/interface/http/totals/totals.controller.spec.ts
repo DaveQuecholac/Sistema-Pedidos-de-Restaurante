@@ -454,6 +454,7 @@ describe('totals HTTP', () => {
         version: 0,
         discount: null,
         tip: null,
+        payment: null,
         lines: [
           LineItem.restore({
             id: 'line-huge',

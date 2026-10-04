@@ -102,3 +102,17 @@ export class OrderTotalsNotAdjustableError extends Error {
     this.name = 'OrderTotalsNotAdjustableError';
   }
 }
+
+export class OrderNotClosableError extends Error {
+  constructor() {
+    super('Order can only be closed when READY');
+    this.name = 'OrderNotClosableError';
+  }
+}
+
+export class InvalidOrderPaymentError extends Error {
+  constructor() {
+    super('CLOSED orders require a matching payment and open orders must have none');
+    this.name = 'InvalidOrderPaymentError';
+  }
+}

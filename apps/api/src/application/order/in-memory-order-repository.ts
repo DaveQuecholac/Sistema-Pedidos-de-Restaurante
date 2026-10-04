@@ -77,6 +77,7 @@ function copy(order: Order, version = order.version): Order {
     version,
     discount: order.discount,
     tip: order.tip,
+    payment: order.payment,
   });
 }
 

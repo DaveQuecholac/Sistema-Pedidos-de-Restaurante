@@ -34,6 +34,7 @@ describe('CancelOrder', () => {
         version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
     );
     const useCase = new CancelOrder(orders);
@@ -67,6 +68,7 @@ describe('CancelOrder', () => {
           version: 1,
       discount: null,
       tip: null,
+      payment: null,
     }),
       );
       const seen = watchOrders(orders);

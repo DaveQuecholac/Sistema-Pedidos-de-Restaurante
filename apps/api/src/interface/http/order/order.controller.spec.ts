@@ -575,7 +575,7 @@ describe('orders HTTP', () => {
 
     expect(response.status).toBe(200);
     expect(body.status).toBe('READY');
-    expect(body.allowedActions).toEqual([]);
+    expect(body.allowedActions).toEqual(['close']);
   });
 
   it('cancels SENT_TO_KITCHEN, rejects cancel on IN_KITCHEN and READY (H22)', async () => {

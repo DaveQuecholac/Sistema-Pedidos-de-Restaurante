@@ -19,6 +19,7 @@ const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus 
     beginCooking: null,
     markReady: null,
     cancel: 'CANCELLED',
+    close: null,
   },
   SENT_TO_KITCHEN: {
     editLines: null,
@@ -26,6 +27,7 @@ const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus 
     beginCooking: 'IN_KITCHEN',
     markReady: null,
     cancel: 'CANCELLED',
+    close: null,
   },
   IN_KITCHEN: {
     editLines: null,
@@ -33,6 +35,7 @@ const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus 
     beginCooking: null,
     markReady: 'READY',
     cancel: null,
+    close: null,
   },
   READY: {
     editLines: null,
@@ -40,6 +43,7 @@ const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus 
     beginCooking: null,
     markReady: null,
     cancel: null,
+    close: 'CLOSED',
   },
   CLOSED: {
     editLines: null,
@@ -47,6 +51,7 @@ const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus 
     beginCooking: null,
     markReady: null,
     cancel: null,
+    close: null,
   },
   CANCELLED: {
     editLines: null,
@@ -54,6 +59,7 @@ const NEXT_TABLE: Record<OrderStatus, Record<OrderTransitionAction, OrderStatus 
     beginCooking: null,
     markReady: null,
     cancel: null,
+    close: null,
   },
 };
 
@@ -141,7 +147,7 @@ describe('order status State', () => {
       'cancel',
     ]);
     expect(orderStatus('IN_KITCHEN').allowedActions(2)).toEqual(['markReady']);
-    expect(orderStatus('READY').allowedActions(2)).toEqual([]);
+    expect(orderStatus('READY').allowedActions(2)).toEqual(['close']);
     expect(orderStatus('CANCELLED').allowedActions(2)).toEqual([]);
   });
 
@@ -172,6 +178,62 @@ describe('order status State', () => {
   it('matches the analysis §6 canAdjustTotals table for every status (ST3)', () => {
     for (const status of ORDER_STATUSES) {
       expect(orderStatus(status).canAdjustTotals).toBe(CAN_ADJUST_TOTALS[status]);
+    }
+  });
+
+  const CAN_CLOSE: Record<OrderStatus, boolean> = {
+    OPEN: false,
+    SENT_TO_KITCHEN: false,
+    IN_KITCHEN: false,
+    READY: true,
+    CLOSED: false,
+    CANCELLED: false,
+  };
+
+  it('allows close only while READY (ST4)', () => {
+    for (const status of ORDER_STATUSES) {
+      expect(orderStatus(status).canClose).toBe(CAN_CLOSE[status]);
+    }
+  });
+
+  it('moves READY to CLOSED on close and rejects close elsewhere (ST5)', () => {
+    expect(orderStatus('READY').next('close')).toBe('CLOSED');
+    for (const status of ORDER_STATUSES) {
+      if (status === 'READY') {
+        continue;
+      }
+      expect(() => orderStatus(status).next('close')).toThrow(InvalidOrderTransitionError);
+    }
+  });
+
+  it('lists allowedActions with close only on READY (ST6)', () => {
+    expect(orderStatus('OPEN').allowedActions(0)).toEqual(['editLines', 'cancel']);
+    expect(orderStatus('OPEN').allowedActions(1)).toEqual([
+      'editLines',
+      'sendToKitchen',
+      'cancel',
+    ]);
+    expect(orderStatus('SENT_TO_KITCHEN').allowedActions(2)).toEqual([
+      'beginCooking',
+      'cancel',
+    ]);
+    expect(orderStatus('IN_KITCHEN').allowedActions(2)).toEqual(['markReady']);
+    expect(orderStatus('READY').allowedActions(2)).toEqual(['close']);
+    expect(orderStatus('CLOSED').allowedActions(2)).toEqual([]);
+    expect(orderStatus('CANCELLED').allowedActions(2)).toEqual([]);
+  });
+
+  it('includes close in ORDER_TRANSITION_ACTIONS and keeps S8 complete (ST7)', () => {
+    expect(ORDER_TRANSITION_ACTIONS).toContain('close');
+    for (const status of ORDER_STATUSES) {
+      for (const action of ORDER_TRANSITION_ACTIONS) {
+        const expected = NEXT_TABLE[status][action];
+        if (expected === null) {
+          expect(() => orderStatus(status).next(action)).toThrow(InvalidOrderTransitionError);
+        } else {
+          expect(orderStatus(status).next(action)).toBe(expected);
+        }
+      }
     }
   });
 });

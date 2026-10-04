@@ -3,7 +3,15 @@ import { MenuItem } from '../../domain/menu/menu-item';
 import { Modifier } from '../../domain/menu/modifier';
 import { TaxRate } from '../../domain/menu/tax-rate';
 import { Money } from '../../domain/money/money';
-import type { Order } from '../../domain/order/order';
+import { ChargeRequest } from '../../domain/payment/charge-request';
+import { PaymentDetails } from '../../domain/payment/payment-details';
+import { Payment } from '../../domain/payment/payment';
+import { LineItem } from '../../domain/order/line-item';
+import { Order } from '../../domain/order/order';
+import { OrderOrigin } from '../../domain/order/order-origin';
+import { Quantity } from '../../domain/order/quantity';
+import type { Discount } from '../../domain/totals/discount';
+import type { Tip } from '../../domain/totals/tip';
 import type { OrderRepository } from '../ports/order-repository';
 import { InMemoryMenuRepository } from '../menu/in-memory-menu-repository';
 
@@ -94,6 +102,50 @@ export function idsOf(...values: string[]): () => string {
     }
     return next;
   };
+}
+
+/** Order L in READY: Tacos × 2 with Queso + Agua × 1. Total 16420. */
+export function readyOrderL(
+  adjustments: { discount?: Discount | null; tip?: Tip | null } = {},
+): Order {
+  return Order.restore({
+    id: 'order-1',
+    origin: OrderOrigin.table('5'),
+    status: 'READY',
+    openedAt: FIXED_NOW,
+    version: 0,
+    discount: adjustments.discount ?? null,
+    tip: adjustments.tip ?? null,
+    payment: null,
+    lines: [
+      LineItem.capture({
+        id: 'line-tacos',
+        menuItem: tacosDish(),
+        quantity: Quantity.of(2),
+        modifierIds: [QUESO_ID],
+      }),
+      LineItem.capture({
+        id: 'line-agua',
+        menuItem: aguaDish(),
+        quantity: Quantity.of(1),
+        modifierIds: [],
+      }),
+    ],
+  });
+}
+
+export function closedOrderL(): Order {
+  const payment = Payment.record({
+    id: 'pay-1',
+    request: ChargeRequest.of({
+      orderId: 'order-1',
+      amount: Money.of(16420, 'MXN'),
+      details: PaymentDetails.cash(Money.of(20000, 'MXN')),
+    }),
+    reference: 'cash-1',
+    paidAt: FIXED_NOW,
+  });
+  return readyOrderL().close(payment);
 }
 
 export function watchOrders(orders: OrderRepository) {

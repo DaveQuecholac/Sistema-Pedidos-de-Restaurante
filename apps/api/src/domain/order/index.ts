@@ -26,6 +26,8 @@ export {
   InvalidTableIdError,
   LineItemNotFoundError,
   MenuItemUnavailableError,
+  InvalidOrderPaymentError,
+  OrderNotClosableError,
   OrderNotEditableError,
   OrderTotalsNotAdjustableError,
   UnknownModifierError,

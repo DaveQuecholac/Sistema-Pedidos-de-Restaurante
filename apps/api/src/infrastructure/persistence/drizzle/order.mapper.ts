@@ -58,6 +58,7 @@ export function toOrder(
       }),
       discount: toDiscount(order),
       tip: toTip(order),
+      payment: null,
     });
   } catch (error) {
     if (isOrderRuleError(error)) {
