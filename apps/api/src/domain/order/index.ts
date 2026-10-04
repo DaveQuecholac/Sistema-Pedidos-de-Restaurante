@@ -27,5 +27,6 @@ export {
   LineItemNotFoundError,
   MenuItemUnavailableError,
   OrderNotEditableError,
+  OrderTotalsNotAdjustableError,
   UnknownModifierError,
 } from './order.errors';

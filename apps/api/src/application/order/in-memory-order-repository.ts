@@ -75,6 +75,8 @@ function copy(order: Order, version = order.version): Order {
     openedAt: order.openedAt,
     lines: order.lines.map(copyLine),
     version,
+    discount: order.discount,
+    tip: order.tip,
   });
 }
 

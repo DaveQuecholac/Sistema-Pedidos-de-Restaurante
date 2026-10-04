@@ -45,6 +45,8 @@ export function toOrder(
         const stored = modifiersByLine.get(line.id);
         return toLine(line, stored === undefined ? [] : stored);
       }),
+      discount: null,
+      tip: null,
     });
   } catch (error) {
     if (isOrderRuleError(error)) {

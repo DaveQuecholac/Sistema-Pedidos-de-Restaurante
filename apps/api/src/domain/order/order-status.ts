@@ -21,6 +21,7 @@ export type OrderTransitionAction = OrderAction;
 type OrderStatusBehavior = {
   readonly name: OrderStatus;
   readonly canEditLines: boolean;
+  readonly canAdjustTotals: boolean;
   next(action: OrderTransitionAction): OrderStatus;
   allowedActions(lineCount: number): OrderAction[];
 };
@@ -28,6 +29,7 @@ type OrderStatusBehavior = {
 const openStatus: OrderStatusBehavior = {
   name: 'OPEN',
   canEditLines: true,
+  canAdjustTotals: true,
   next(action) {
     if (action === 'sendToKitchen') {
       return 'SENT_TO_KITCHEN';
@@ -49,6 +51,7 @@ const openStatus: OrderStatusBehavior = {
 const sentToKitchenStatus: OrderStatusBehavior = {
   name: 'SENT_TO_KITCHEN',
   canEditLines: false,
+  canAdjustTotals: true,
   next(action) {
     if (action === 'beginCooking') {
       return 'IN_KITCHEN';
@@ -67,6 +70,7 @@ const sentToKitchenStatus: OrderStatusBehavior = {
 const inKitchenStatus: OrderStatusBehavior = {
   name: 'IN_KITCHEN',
   canEditLines: false,
+  canAdjustTotals: true,
   next(action) {
     if (action === 'markReady') {
       return 'READY';
@@ -81,6 +85,7 @@ const inKitchenStatus: OrderStatusBehavior = {
 const readyStatus: OrderStatusBehavior = {
   name: 'READY',
   canEditLines: false,
+  canAdjustTotals: true,
   next() {
     throw new InvalidOrderTransitionError();
   },
@@ -92,6 +97,7 @@ const readyStatus: OrderStatusBehavior = {
 const closedStatus: OrderStatusBehavior = {
   name: 'CLOSED',
   canEditLines: false,
+  canAdjustTotals: false,
   next() {
     throw new InvalidOrderTransitionError();
   },
@@ -103,6 +109,7 @@ const closedStatus: OrderStatusBehavior = {
 const cancelledStatus: OrderStatusBehavior = {
   name: 'CANCELLED',
   canEditLines: false,
+  canAdjustTotals: false,
   next() {
     throw new InvalidOrderTransitionError();
   },

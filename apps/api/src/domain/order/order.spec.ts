@@ -4,6 +4,10 @@ import { MenuItem } from '../menu/menu-item';
 import { Modifier } from '../menu/modifier';
 import { TaxRate } from '../menu/tax-rate';
 import { Money } from '../money/money';
+import { Discount } from '../totals/discount';
+import { calculateTotals } from '../totals/order-totals';
+import { Percentage } from '../totals/percentage';
+import { Tip } from '../totals/tip';
 import { LineItem } from './line-item';
 import { Order } from './order';
 import { OrderOrigin } from './order-origin';
@@ -14,6 +18,7 @@ import {
   InvalidOrderTransitionError,
   LineItemNotFoundError,
   OrderNotEditableError,
+  OrderTotalsNotAdjustableError,
 } from './order.errors';
 import { Quantity } from './quantity';
 
@@ -54,9 +59,24 @@ function openOrder(): Order {
   });
 }
 
+function agua(): MenuItem {
+  return MenuItem.create({
+    id: 'item-agua',
+    name: 'Agua de jamaica',
+    price: Money.of(2500, 'MXN'),
+    applicableTax: TaxRate.of(0),
+    ingredients: [Ingredient.of({ id: 'ing-azucar', name: 'Azúcar' })],
+    modifiers: [
+      Modifier.extra({ id: 'mod-chia', name: 'Chía', price: Money.of(500, 'MXN') }),
+      Modifier.exclusion({ id: 'mod-azucar', name: 'Azúcar' }),
+    ],
+  });
+}
+
 function withStatus(
-  status: 'SENT_TO_KITCHEN' | 'IN_KITCHEN' | 'READY' | 'CANCELLED',
+  status: 'SENT_TO_KITCHEN' | 'IN_KITCHEN' | 'READY' | 'CLOSED' | 'CANCELLED',
   lines: LineItem[],
+  adjustments: { discount?: Discount | null; tip?: Tip | null } = {},
 ): Order {
   return Order.restore({
     id: 'order-1',
@@ -65,7 +85,25 @@ function withStatus(
     openedAt: OPENED_AT,
     lines,
     version: 2,
+    discount: adjustments.discount ?? null,
+    tip: adjustments.tip ?? null,
   });
+}
+
+function totalsSnapshot(order: Order) {
+  const totals = order.totals();
+  return {
+    subtotal: totals.subtotal.amount,
+    discount: totals.discount?.amount.amount ?? null,
+    tip: totals.tip?.amount.amount ?? null,
+    taxTotal: totals.taxTotal.amount,
+    total: totals.total.amount,
+    lines: totals.lines.map((line) => ({
+      lineId: line.lineId,
+      unitAmount: line.unitAmount.amount,
+      lineSubtotal: line.lineSubtotal.amount,
+    })),
+  };
 }
 
 describe('Order', () => {
@@ -273,6 +311,8 @@ describe('Order', () => {
         openedAt: OPENED_AT,
         lines: [],
         version: 0,
+        discount: null,
+        tip: null,
       }),
     ).toThrow(InvalidOrderStatusError);
   });
@@ -286,7 +326,216 @@ describe('Order', () => {
         openedAt: OPENED_AT,
         lines: [line('line-1'), line('line-1')],
         version: 0,
+        discount: null,
+        tip: null,
       }),
     ).toThrow(DuplicateLineItemIdError);
   });
+
+  it('opens with null discount and tip (OA1)', () => {
+    const order = openOrder();
+    expect(order.discount).toBeNull();
+    expect(order.tip).toBeNull();
+  });
+
+  it('setDiscount returns another order and leaves the original untouched (OA2)', () => {
+    const original = openOrder().addLine(line('line-1'));
+    const discount = Discount.percentage(Percentage.of(1000));
+    const updated = original.setDiscount(discount);
+
+    expect(updated.discount).toBe(discount);
+    expect(original.discount).toBeNull();
+    expect(updated.version).toBe(original.version);
+    expect(updated.status).toBe(original.status);
+    expect(updated.lines.map((item) => item.id)).toEqual(original.lines.map((item) => item.id));
+  });
+
+  it('setTip works in SENT_TO_KITCHEN, IN_KITCHEN and READY (OA3)', () => {
+    const tip = Tip.percentage(Percentage.of(1000));
+    const lines = [line('line-1')];
+
+    for (const status of ['SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const) {
+      const order = withStatus(status, lines).setTip(tip);
+      expect(order.tip).toBe(tip);
+      expect(order.lines.map((item) => item.id)).toEqual(['line-1']);
+      expect(order.status).toBe(status);
+    }
+  });
+
+  it('rejects setDiscount and setTip when CANCELLED or CLOSED (OA4)', () => {
+    for (const status of ['CANCELLED', 'CLOSED'] as const) {
+      const order = withStatus(status, [line('line-1')]);
+      expect(() => order.setDiscount(Discount.percentage(Percentage.of(1000)))).toThrow(
+        OrderTotalsNotAdjustableError,
+      );
+      expect(() => order.setTip(Tip.percentage(Percentage.of(1000)))).toThrow(
+        OrderTotalsNotAdjustableError,
+      );
+    }
+  });
+
+  it('setDiscount(null) and setTip(null) clear the adjustment (OA5)', () => {
+    const order = openOrder()
+      .addLine(line('line-1'))
+      .setDiscount(Discount.percentage(Percentage.of(1000)))
+      .setTip(Tip.fixedAmount(Money.of(2000, 'MXN')));
+
+    expect(order.setDiscount(null).discount).toBeNull();
+    expect(order.setTip(null).tip).toBeNull();
+  });
+
+  it('totals matches calculateTotals on the order lines and adjustments (OA6)', () => {
+    const order = openOrder()
+      .addLine(
+        LineItem.capture({
+          id: 'line-tacos',
+          menuItem: tacos(),
+          quantity: Quantity.of(2),
+          modifierIds: ['mod-queso'],
+        }),
+      )
+      .addLine(
+        LineItem.capture({
+          id: 'line-agua',
+          menuItem: agua(),
+          quantity: Quantity.of(1),
+          modifierIds: [],
+        }),
+      )
+      .setDiscount(Discount.percentage(Percentage.of(1000)))
+      .setTip(Tip.percentage(Percentage.of(1000)));
+
+    const expected = calculateTotals({
+      lines: order.lines.map((item) => ({
+        lineId: item.id,
+        name: item.name,
+        quantity: item.quantity.amount,
+        unitPrice: item.unitPrice,
+        extras: item.modifiers.map(
+          (modifier) => modifier.price ?? Money.zero(item.unitPrice.currency),
+        ),
+        taxRate: item.applicableTax,
+      })),
+      discount: order.discount,
+      tip: order.tip,
+    });
+
+    expect(totalsSnapshot(order)).toEqual({
+      subtotal: expected.subtotal.amount,
+      discount: expected.discount?.amount.amount ?? null,
+      tip: expected.tip?.amount.amount ?? null,
+      taxTotal: expected.taxTotal.amount,
+      total: expected.total.amount,
+      lines: expected.lines.map((item) => ({
+        lineId: item.lineId,
+        unitAmount: item.unitAmount.amount,
+        lineSubtotal: item.lineSubtotal.amount,
+      })),
+    });
+  });
+
+  it('restore keeps discount and tip (OA7)', () => {
+    const discount = Discount.fixedAmount(Money.of(5000, 'MXN'));
+    const tip = Tip.percentage(Percentage.of(1500));
+    const order = Order.restore({
+      id: 'order-1',
+      origin: OrderOrigin.table('5'),
+      status: 'OPEN',
+      openedAt: OPENED_AT,
+      lines: [line('line-1')],
+      version: 3,
+      discount,
+      tip,
+    });
+
+    expect(order.discount).toBe(discount);
+    expect(order.tip).toBe(tip);
+    expect(order.version).toBe(3);
+  });
+
+  it('percentage discount grows with addLine; fixed discount stays capped (OA8)', () => {
+    const percent = openOrder()
+      .addLine(line('line-1'))
+      .setDiscount(Discount.percentage(Percentage.of(1000)));
+    const afterPercent = percent.addLine(line('line-2'));
+    expect(afterPercent.totals().discount!.amount.amount).toBeGreaterThan(
+      percent.totals().discount!.amount.amount,
+    );
+
+    const fixed = openOrder()
+      .addLine(
+        LineItem.capture({
+          id: 'line-tacos',
+          menuItem: tacos(),
+          quantity: Quantity.of(2),
+          modifierIds: ['mod-queso'],
+        }),
+      )
+      .setDiscount(Discount.fixedAmount(Money.of(20000, 'MXN')));
+    expect(fixed.totals().discount!.amount.amount).toBe(fixed.totals().subtotal.amount);
+
+    const afterFixed = fixed.addLine(
+      LineItem.capture({
+        id: 'line-agua',
+        menuItem: agua(),
+        quantity: Quantity.of(1),
+        modifierIds: [],
+      }),
+    );
+    expect(afterFixed.totals().discount!.amount.amount).toBe(afterFixed.totals().subtotal.amount);
+  });
+
+  it('operations preserve discount and tip (OA9)', () => {
+    const discount = Discount.percentage(Percentage.of(1000));
+    const tip = Tip.fixedAmount(Money.of(2000, 'MXN'));
+    const base = openOrder()
+      .addLine(line('line-1'))
+      .addLine(line('line-2'))
+      .setDiscount(discount)
+      .setTip(tip);
+
+    const replaced = base.replaceLine(
+      line('line-1').recapture({
+        menuItem: tacos(),
+        quantity: Quantity.of(2),
+        modifierIds: [],
+      }),
+    );
+    const cancelledLine = base.cancelLine('line-2');
+    const sent = base.sendToKitchen();
+    const cooking = sent.beginCooking();
+    const ready = cooking.markReady();
+    const cancelled = base.cancel();
+
+    for (const order of [replaced, cancelledLine, sent, cooking, ready, cancelled]) {
+      expect(order.discount).toBe(discount);
+      expect(order.tip).toBe(tip);
+    }
+
+    const added = openOrder()
+      .addLine(line('line-1'))
+      .setDiscount(discount)
+      .setTip(tip)
+      .addLine(line('line-2'));
+    expect(added.discount).toBe(discount);
+    expect(added.tip).toBe(tip);
+  });
+
+  it('allowedActions stay the same as Sprint 2 (OA10)', () => {
+    expect(openOrder().allowedActions()).toEqual(['editLines', 'cancel']);
+    expect(openOrder().addLine(line('line-1')).allowedActions()).toEqual([
+      'editLines',
+      'sendToKitchen',
+      'cancel',
+    ]);
+    expect(withStatus('SENT_TO_KITCHEN', [line('line-1')]).allowedActions()).toEqual([
+      'beginCooking',
+      'cancel',
+    ]);
+    expect(withStatus('IN_KITCHEN', [line('line-1')]).allowedActions()).toEqual(['markReady']);
+    expect(withStatus('READY', [line('line-1')]).allowedActions()).toEqual([]);
+    expect(withStatus('CANCELLED', [line('line-1')]).allowedActions()).toEqual([]);
+    expect(withStatus('CLOSED', [line('line-1')]).allowedActions()).toEqual([]);
+  });
 });
+

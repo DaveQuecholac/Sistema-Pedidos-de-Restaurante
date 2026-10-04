@@ -95,3 +95,10 @@ export class InvalidOrderVersionError extends Error {
     this.name = 'InvalidOrderVersionError';
   }
 }
+
+export class OrderTotalsNotAdjustableError extends Error {
+  constructor() {
+    super('Order discount and tip cannot be adjusted in the current status');
+    this.name = 'OrderTotalsNotAdjustableError';
+  }
+}

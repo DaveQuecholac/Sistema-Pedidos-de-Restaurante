@@ -8,6 +8,9 @@ import { LineItem } from '../../domain/order/line-item';
 import { Order } from '../../domain/order/order';
 import { OrderOrigin } from '../../domain/order/order-origin';
 import { Quantity } from '../../domain/order/quantity';
+import { Discount } from '../../domain/totals/discount';
+import { Percentage } from '../../domain/totals/percentage';
+import { Tip } from '../../domain/totals/tip';
 import { InMemoryOrderRepository } from './in-memory-order-repository';
 import {
   OrderAlreadyExistsError,
@@ -116,6 +119,8 @@ describe('InMemoryOrderRepository', () => {
       openedAt: OPENED_AT,
       lines: [line('line-1')],
       version: 3,
+      discount: null,
+      tip: null,
     });
     await repo.add(cancelled);
 
@@ -139,7 +144,9 @@ describe('InMemoryOrderRepository', () => {
         openedAt: later,
         lines: [line('line-b')],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     await repo.add(
       Order.restore({
@@ -149,7 +156,9 @@ describe('InMemoryOrderRepository', () => {
         openedAt: earlier,
         lines: [line('line-a')],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     await repo.add(
       Order.restore({
@@ -159,7 +168,9 @@ describe('InMemoryOrderRepository', () => {
         openedAt: earlier,
         lines: [],
         version: 0,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     await repo.add(
       Order.restore({
@@ -169,7 +180,9 @@ describe('InMemoryOrderRepository', () => {
         openedAt: earlier,
         lines: [line('line-c')],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
 
     const listed = await repo.list({ statuses: ['IN_KITCHEN'] });
@@ -189,4 +202,44 @@ describe('InMemoryOrderRepository', () => {
     expect(stored?.lines).toHaveLength(1);
     expect(await repo.findById('order-fake')).toBeNull();
   });
+
+  it('save keeps discount and tip and increments version (RP9)', async () => {
+    const repo = new InMemoryOrderRepository();
+    await repo.add(openOrder('order-1').addLine(line('line-1')));
+
+    const discount = Discount.percentage(Percentage.of(1000));
+    const tip = Tip.fixedAmount(Money.of(2000, 'MXN'));
+    const read = await repo.findById('order-1');
+    expect(read).not.toBeNull();
+
+    await repo.save(read!.setDiscount(discount).setTip(tip));
+    const saved = await repo.findById('order-1');
+
+    expect(saved?.version).toBe(1);
+    expect(saved?.discount?.kind).toBe('percentage');
+    expect(saved?.discount?.amountFor(Money.of(14500, 'MXN')).amount).toBe(1450);
+    expect(saved?.tip?.kind).toBe('fixedAmount');
+    expect(saved?.tip?.amountFor(Money.zero('MXN')).amount).toBe(2000);
+  });
+
+  it('list returns each order with its adjustments (RP10)', async () => {
+    const repo = new InMemoryOrderRepository();
+    const discount = Discount.fixedAmount(Money.of(5000, 'MXN'));
+    const tip = Tip.percentage(Percentage.of(1500));
+
+    await repo.add(openOrder('order-a').addLine(line('line-a')).setDiscount(discount));
+    await repo.add(openOrder('order-b').addLine(line('line-b')).setTip(tip));
+    await repo.add(openOrder('order-c').addLine(line('line-c')));
+
+    const listed = await repo.list({ statuses: null });
+    const byId = new Map(listed.map((order) => [order.id, order]));
+
+    expect(byId.get('order-a')?.discount?.kind).toBe('fixedAmount');
+    expect(byId.get('order-a')?.tip).toBeNull();
+    expect(byId.get('order-b')?.tip?.kind).toBe('percentage');
+    expect(byId.get('order-b')?.discount).toBeNull();
+    expect(byId.get('order-c')?.discount).toBeNull();
+    expect(byId.get('order-c')?.tip).toBeNull();
+  });
 });
+

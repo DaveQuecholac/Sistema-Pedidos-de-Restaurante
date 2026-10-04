@@ -148,7 +148,9 @@ describe('ModifyLine', () => {
           }),
         ],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     const seen = watchOrders(orders);
     const useCase = new ModifyLine(seen.orders, await seedMenu(tacosDish()));

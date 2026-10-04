@@ -73,7 +73,9 @@ describe('SendToKitchen', () => {
             }),
           ],
           version: 1,
-        }),
+      discount: null,
+      tip: null,
+    }),
       );
       const seen = watchOrders(orders);
       const useCase = new SendToKitchen(seen.orders);

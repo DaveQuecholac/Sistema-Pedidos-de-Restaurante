@@ -144,4 +144,35 @@ describe('order status State', () => {
     expect(orderStatus('READY').allowedActions(2)).toEqual([]);
     expect(orderStatus('CANCELLED').allowedActions(2)).toEqual([]);
   });
+
+  /**
+   * Analysis §6 — when discount/tip may be adjusted (ST3).
+   * Viewing totals is always allowed; that is not a State flag.
+   */
+  const CAN_ADJUST_TOTALS: Record<OrderStatus, boolean> = {
+    OPEN: true,
+    SENT_TO_KITCHEN: true,
+    IN_KITCHEN: true,
+    READY: true,
+    CLOSED: false,
+    CANCELLED: false,
+  };
+
+  it('allows adjusting totals while the order is alive (ST1)', () => {
+    for (const status of ['OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const) {
+      expect(orderStatus(status).canAdjustTotals).toBe(true);
+    }
+  });
+
+  it('rejects adjusting totals when CLOSED or CANCELLED (ST2)', () => {
+    expect(orderStatus('CLOSED').canAdjustTotals).toBe(false);
+    expect(orderStatus('CANCELLED').canAdjustTotals).toBe(false);
+  });
+
+  it('matches the analysis §6 canAdjustTotals table for every status (ST3)', () => {
+    for (const status of ORDER_STATUSES) {
+      expect(orderStatus(status).canAdjustTotals).toBe(CAN_ADJUST_TOTALS[status]);
+    }
+  });
 });
+

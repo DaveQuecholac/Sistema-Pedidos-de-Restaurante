@@ -50,7 +50,9 @@ describe('CancelLine', () => {
           }),
         ],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     const seen = watchOrders(orders);
     const useCase = new CancelLine(seen.orders);
