@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 4 de octubre de 2026.  
-**Alcance de esta corrida:** núcleo de órdenes y cocina (Sprint 2, tarea 1 en `dev/comanda`), sin persistencia ni pantalla. Las corridas anteriores quedan abajo y no se borran.
+**Alcance de esta corrida:** persistencia y API de órdenes y cocina (Sprint 2, tarea 2 en `dev/comanda`). Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -189,4 +189,37 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 1. `pnpm test:db` sin exportar `DATABASE_URL` falla al cargar el spec. Hay que cargar `apps/api/.env` (o exportarla) antes. No es un fallo del menú: con la URL, P1–P8 pasaron.
 2. No hay endpoints ni tablas de órdenes. Es el alcance acordado de la tarea 1; la tarea 2 los construye.
 3. El menú de demo sigue con 5 platos activos. No se tocaron.
+4. No se apagó `postgresql-18` para probar el encendido en frío.
+
+## Corrida — 4 de octubre de 2026, comanda tarea 2 (persistencia y API)
+
+**Alcance:** tablas `orders` / `order_lines` / `order_line_modifiers`, `DrizzleOrderRepository`, HTTP `/orders`, cableado en `AppModule`. Sin pantallas `/orders` ni `/kitchen`.  
+**Plan cerrado:** `docs/dev/comanda/02-persistencia-y-api/plan-de-accion.md` (sección 11).  
+**Bloques de código nuevo de producto (sin specs ni `drizzle/meta`):** 2. Unas **935** líneas (schema, mapper, repo, migración `0004`, Zod/presenter/errors/controller). El cableado en `AppModule` y `OrderMappingError` van aparte y son pequeños.
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 539 | Driven: `schema/order.ts`, mapper, `DrizzleOrderRepository`, SQL `0004_blushing_adam_destine.sql` |
+| 2 | 396 | Driving: schema Zod, presenter, errores HTTP, `OrderController` |
+
+### Hexagonal (revisión de capas)
+
+- Dominio: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de orden: solo puertos y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `new DrizzleOrderRepository` solo en `AppModule.register` (el spec de integración instancia el adaptador a propósito).
+- JSON de `GET /orders/:id`: `id`, `tableId`, `externalOrderId`, `status`, `openedAt`, `allowedActions`, `lines`. Sin `version`, sin nombres de tabla.
+- Web intacta: home con «Administrar menú»; sin UI de comanda.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 28 archivos, **203** pruebas, 22 skipped (P menú + P órdenes). Typecheck API y web limpios. Web: 2 archivos, 14 pruebas. Capas OK. Migración `0004` generada por Drizzle Kit. |
+| T Integración | Pasó | `select 1` = 1. Tablas: menú (3) + `orders`, `order_lines`, `order_line_modifiers`. `test:db`: **22** (8 menú + 14 órdenes P1–P14). Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos. API con `DATABASE_URL` imposible en 3099: «Database connection failed», no escuchó. Smoke S1–S9 del plan ya pasó en el cierre de la tarea. |
+| T Sistema | Pasó | API y web online (Postgres ya encendido). Home `https://restaurante.localhost/` 200 con «Sistema de Pedidos» y «Administrar menú». `/menu` 200. |
+| M Madurez | Nivel 2 para la tarea 2 de comanda | Plan con cierre, fecha, ids de smoke. Núcleo + adaptador testeables sin navegador. RF2–RF3 no llegan a nivel 3 hasta la pantalla (tarea 3). No se adelantó UI. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja P menú y P órdenes en skipped. No es fallo: `test:db` las corre (22 verdes).
+2. Antes del smoke S2, `Agua de jamaica` estaba inactiva; se reactivó con `PATCH` para armar la comanda del plan. El catálogo sigue con 5 platos; al cierre de esta CTTM hay **4 activos** (Consomé sigue inactivo).
+3. Órdenes del smoke quedan en la BD (no son seeds): `3f2325fe-…` READY, `7844ce85-…` OPEN, `af1ee99d-…` CANCELLED, más el intento fallido `3a928775-…` OPEN. Detalle en el plan §11.
 4. No se apagó `postgresql-18` para probar el encendido en frío.

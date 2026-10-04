@@ -56,6 +56,18 @@ Cada paso cierra en verde con `env -u DATABASE_URL pnpm --filter @restaurante/ap
 1. `pnpm dev:status` y `GET /health/database` en 200.
 2. `env -u DATABASE_URL pnpm --filter @restaurante/api test` y `pnpm --filter @restaurante/api test:db`. Anotar cuántas pruebas pasan antes de tocar nada. Ese número no puede bajar.
 
+**Línea base — 4 de octubre de 2026**
+
+| Comando | Resultado |
+|---------|-----------|
+| `pnpm dev:status` | `restaurante-api` y `restaurante-web` online |
+| `GET /health/database` | 200 `{"status":"ok","service":"restaurante-api"}` |
+| `env -u DATABASE_URL pnpm --filter @restaurante/api test` | 27 archivos, **177 pruebas** pasadas; 8 skipped (P menú) |
+| `pnpm --filter @restaurante/api typecheck` | Pasó |
+| `pnpm --filter @restaurante/api test:db` (con `DATABASE_URL` de `.env`) | 1 archivo, **8 pruebas** (P1–P8 menú) |
+
+Piso que no puede bajar: **177** en `pnpm test` (sin contar skipped) y **8** en `test:db`.
+
 ### Paso 1 — Esquema y migración
 
 1. `apps/api/src/infrastructure/persistence/drizzle/schema/order.ts` con las tres tablas, checks, índices y FKs de la sección 4 del análisis.
@@ -71,6 +83,8 @@ Cada paso cierra en verde con `env -u DATABASE_URL pnpm --filter @restaurante/ap
 6. Comprobar en `restaurante`: `\d orders`, `\d order_lines`, `\d order_line_modifiers`.
 
 Si el SQL no cumple, se corrige `schema/order.ts`, se borra **solo** la migración recién generada con Drizzle Kit (`drizzle-kit drop`) y se vuelve a generar. No se edita el SQL a mano. Si no hay Postgres, parar.
+
+**Cierre Paso 1 — 4 de octubre de 2026:** migración `0004_blushing_adam_destine.sql` generada por Drizzle Kit y aplicada. Tablas `orders`, `order_lines`, `order_line_modifiers` en la BD. Único en `external_order_id`; FK a menú `ON DELETE RESTRICT`; sin único en `table_id`; sin `INSERT`. Tests: 177 + 8 `test:db` siguen verdes.
 
 ### Paso 2 — Mapper y repositorio
 
@@ -90,6 +104,8 @@ El spec: `describe.skip` si la variable no es `1`; si es `1` y falta `DATABASE_U
 
 Pruebas P1–P14.
 
+**Cierre Paso 2 — 4 de octubre de 2026:** `OrderMappingError`, `order.mapper.ts`, `DrizzleOrderRepository` y spec P1–P14. `test:db` corre menú + órdenes. Tests: 177 (+ 22 skipped: P menú y P órdenes) en `pnpm test`; **22** en `test:db` (8 menú + 14 órdenes). Typecheck OK. Sin cableado en `AppModule` ni HTTP.
+
 ### Paso 3 — HTTP sin base
 
 Archivos en `apps/api/src/interface/http/order/`:
@@ -102,6 +118,8 @@ Archivos en `apps/api/src/interface/http/order/`:
 
 Spec con `NestFactory` en puerto `0`, logger apagado, `InMemoryOrderRepository`, `InMemoryMenuRepository` con los platos de fixture, `generateId` de secuencia y `now` fijo. Pruebas H1–H24.
 
+**Cierre Paso 3 — 4 de octubre de 2026:** HTTP de órdenes con Zod, presentador, tabla de errores y controller. Spec H1–H25 con dobles en memoria (sin `AppModule` ni Drizzle). Tests: **203** (+ 22 skipped) en `pnpm test`. Typecheck OK. Sin cableado en arranque real.
+
 ### Paso 4 — Cableado
 
 En `AppModule.register`:
@@ -111,6 +129,8 @@ En `AppModule.register`:
 - `OpenOrder`, `AddLine` reciben `() => crypto.randomUUID()`. `OpenOrder` recibe `() => new Date()`.
 - `OrderController` en `controllers`.
 
+**Cierre Paso 4 — 4 de octubre de 2026:** `AppModule.register` cablea `ORDER_REPOSITORY` → `DrizzleOrderRepository(db)`, los nueve casos (`OpenOrder`/`AddLine` con `crypto.randomUUID` y `() => new Date()`) y `OrderController`. Tests: **203** (+ 22 skipped). Typecheck OK. Smoke del sistema queda para el Paso 5.
+
 ### Paso 5 — Cierre
 
 1. `env -u DATABASE_URL pnpm --filter @restaurante/api test`: integración en skipped; el resto pasa. Número de pruebas mayor que el del paso 0.
@@ -118,6 +138,8 @@ En `AppModule.register`:
 3. `pnpm --filter @restaurante/api typecheck`.
 4. `pnpm dev:restart` y smoke de la sección 9.
 5. Anotar la sección 11.
+
+**Cierre Paso 5 — 4 de octubre de 2026:** suite + `test:db` + typecheck verdes; smoke S1–S9 contra API real. Antes de S2 se reactivó `Agua de jamaica` (estaba `active: false`). Detalle en §11.
 
 ## 6. Catálogo con Postgres
 
@@ -208,16 +230,34 @@ curl -sS -X POST http://localhost:3001/orders/$ORDER_ID/start-cooking -H 'Conten
 
 ## 10. Hecho cuando
 
-- [ ] Migración generada por Drizzle Kit, revisada y aplicada; las tres tablas en la base
-- [ ] P1–P14 pasan en `test:db`, junto con P1–P8 del menú
-- [ ] H1–H25 pasan en `pnpm test` sin `DATABASE_URL`
-- [ ] Las pruebas de la tarea 1 y del menú siguen pasando; el número total no bajó
-- [ ] S1–S9 anotados con fecha
-- [ ] Ningún JSON trae nombres de tabla, `version` ni totales
-- [ ] `domain/` no importa Drizzle, Nest, Zod ni HTTP
-- [ ] Solo `AppModule` hace `new DrizzleOrderRepository` en el arranque
-- [ ] `apps/web` no cambió
+- [x] Migración generada por Drizzle Kit, revisada y aplicada; las tres tablas en la base
+- [x] P1–P14 pasan en `test:db`, junto con P1–P8 del menú
+- [x] H1–H25 pasan en `pnpm test` sin `DATABASE_URL`
+- [x] Las pruebas de la tarea 1 y del menú siguen pasando; el número total no bajó
+- [x] S1–S9 anotados con fecha
+- [x] Ningún JSON trae nombres de tabla, `version` ni totales
+- [x] `domain/` no importa Drizzle, Nest, Zod ni HTTP
+- [x] Solo `AppModule` hace `new DrizzleOrderRepository` en el arranque
+- [x] `apps/web` no cambió
 
 ## 11. Cierre
 
-Pendiente. Tabla con familia, comando y resultado; ids de las órdenes del smoke.
+**Fecha:** 4 de octubre de 2026. Tarea 2 (persistencia + API de órdenes y cocina) cerrada.
+
+| Familia | Comando | Resultado |
+|---------|---------|-----------|
+| Unit / HTTP | `env -u DATABASE_URL pnpm --filter @restaurante/api test` | 28 archivos, **203** pruebas; 22 skipped (P menú + P órdenes) |
+| Integración | `pnpm --filter @restaurante/api test:db` (con `DATABASE_URL` de `apps/api/.env`) | 2 archivos, **22** pruebas (8 menú + 14 órdenes) |
+| Typecheck | `pnpm --filter @restaurante/api typecheck` | Pasó |
+| Smoke | `pnpm dev:restart` + S1–S9 contra `http://localhost:3001` | Pasó |
+
+**Nota de smoke:** `Agua de jamaica` estaba inactiva; se reactivó con `PATCH /menu-items/:id` para poder cumplir S2 (Tacos + Agua omitir Azúcar). El menú sigue con 5 platos.
+
+**Ids de órdenes del smoke (quedan en la BD):**
+
+| Id smoke | order id | Origen / estado final |
+|----------|----------|------------------------|
+| S2 / S3–S6 | `3f2325fe-3dfd-4241-8b79-bc05cdcd32f9` | mesa `S2-1` → `READY` |
+| S7 | `7844ce85-fbb7-47ce-88ce-990155347675` | mesa `S2-1` → `OPEN` |
+| S8 | `af1ee99d-36a8-4402-966f-319d5ae5b769` | externo `S2-EXT-1` → `CANCELLED` |
+| Intento S2 fallido (solo Tacos; Agua aún inactiva) | `3a928775-9295-4701-a1f7-4f972b283766` | mesa `S2-1` → `OPEN` |

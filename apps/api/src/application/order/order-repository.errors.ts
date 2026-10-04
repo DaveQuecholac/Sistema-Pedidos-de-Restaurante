@@ -25,3 +25,10 @@ export class ExternalOrderIdInUseError extends Error {
     this.name = 'ExternalOrderIdInUseError';
   }
 }
+
+export class OrderMappingError extends Error {
+  constructor() {
+    super('Stored order does not match the order rules');
+    this.name = 'OrderMappingError';
+  }
+}
