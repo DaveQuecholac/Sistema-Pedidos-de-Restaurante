@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 4 de octubre de 2026.  
-**Alcance de esta corrida:** pantallas de comanda/cocina y ajuste RF3 `SENT_TO_KITCHEN` (Sprint 2, tarea 3 en `dev/comanda`). Las corridas anteriores quedan abajo y no se borran.
+**Alcance de esta corrida:** pantalla de cuenta y demo RF4 (Sprint 3, tarea 3 en `dev/totales`). Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -264,3 +264,36 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 5. No se apagó `postgresql-18` para probar el encendido en frío.
 6. Órdenes de smoke/demo siguen en la BD (no seeds), p. ej. `1fd99515-…` READY (recorrido B) y `0b315ee5-…` READY (CTTM).
 7. Deuda: CSS de comandas/cocina copiado del menú hasta la UI final.
+
+## Corrida — 4 de octubre de 2026, totales tarea 3 (pantalla de cuenta + demo Sprint 3)
+
+**Alcance:** UI `/orders/[id]/totals`, cliente `totals-api` / vista `totals-view`, enlace «Ver cuenta»; cierre demo RF4. No se tocó `apps/api/**` en esta tarea (solo se corrieron sus pruebas).  
+**Planes del sprint:** `docs/dev/totales/01-calculo-en-el-nucleo/`, `02-persistencia-y-api/`, `03-pantalla-cuenta-y-demo/`.  
+**Bloques de código de producto de la tarea 3 (web, sin specs):** 1. Unas **~900** líneas en `orders/[orderId]/totals/*`, CSS de desglose y el enlace en el detalle.
+
+| Bloque | Líneas (aprox.) | Qué se revisó |
+|--------|-----------------|---------------|
+| 1 | 900 | `totals-api`, `totals-view`, `totals-screen`, `page`, CSS breakdown, enlace «Ver cuenta» |
+
+### Hexagonal (revisión de capas)
+
+- Web: fetch a `NEXT_PUBLIC_API_URL`; sin dominio, sin Drizzle, sin Nest.
+- Importes solo con `centavosToLabel` sobre `amount` del servidor (R9 limpio).
+- Formularios condicionados a `totals.adjustable` (R12), no a `order.status`.
+- R8: `rg "@restaurante/api|drizzle" apps/web/app` solo el texto de la home.
+- R10/R11: menú/cocina/`orders-screen`/`order-view` sin diff; detalle solo +1 enlace.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | API sin `DATABASE_URL`: **309** pruebas, 30 skipped. Typecheck API OK. Web: **54** pruebas (36 + W10–W16 + V14–V24), typecheck OK. |
+| T Integración | Pasó | `select 1` = 1. `test:db`: **30**. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. Totales HTTP ya cerrados en la tarea 2 (S1–S8). |
+| T Sistema | Pasó | `pnpm dev:restart`: API y web online. Home/`/menu`/`/orders`/`/kitchen`/`/orders/:id/totals` → 200. |
+| M Madurez | Nivel 3 para RF4 (totales) | Núcleo + API + pantalla + demo B1–B18. Cobro (RF5) sigue fuera. |
+
+### Huecos de esta corrida
+
+1. B13 en navegador: cada `PUT` relee la orden, así que el 409 de concurrencia casi no aparece entre pestañas; quedó tip 20 % + descuento 5 % en la pestaña 2. El 409 estable está en H38 (API).
+2. `pnpm test` deja P* en skipped; `test:db` las corre (30 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío.
+4. Órdenes del recorrido B quedan en la BD (no seeds), p. ej. `4a411348-…` / `6fe5217d-…` (`D3-1`) y `9ada84d4-…` / `d74f9286-…` (`D3-2`).
+5. `cierre-del-modulo.md` de totales no se escribió: el plan lo deja solo si Hector lo pide.

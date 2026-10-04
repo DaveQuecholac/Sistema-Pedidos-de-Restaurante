@@ -220,6 +220,7 @@ export function OrderDetailScreen({ orderId }: Props) {
           </p>
         </div>
         <nav className={styles.nav} aria-label="Secciones">
+          <Link href={`/orders/${encodeURIComponent(orderId)}/totals`}>Ver cuenta</Link>
           <Link href="/orders">Comandas</Link>
         </nav>
       </header>

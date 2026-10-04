@@ -136,9 +136,9 @@ export function cancelOrder(orderId: string): Promise<OrderJson> {
   return request(`/orders/${encodeURIComponent(orderId)}/cancel`, 'POST', {}, asOrder);
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown,
   accept: (value: unknown, status: number) => T,
 ): Promise<T> {
@@ -163,7 +163,7 @@ function requireApiUrl(): string {
 
 async function callApi(
   url: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body: unknown,
 ): Promise<Response> {
   const init: RequestInit = { method };
