@@ -1,0 +1,56 @@
+import { LineItemNotFoundError, OrderNotEditableError } from '../../domain/order/order.errors';
+import { Order } from '../../domain/order/order';
+import { orderStatus } from '../../domain/order/order-status';
+import { Quantity } from '../../domain/order/quantity';
+import { MenuItemNotFoundError } from '../menu/menu-item-repository.errors';
+import type { MenuRepository } from '../ports/menu-repository';
+import type { OrderRepository } from '../ports/order-repository';
+import { OrderNotFoundError } from './order-repository.errors';
+
+export type ModifyLineCommand = {
+  orderId: string;
+  lineId: string;
+  quantity: number;
+  modifierIds: string[];
+};
+
+export class ModifyLine {
+  constructor(
+    private readonly orders: OrderRepository,
+    private readonly menu: MenuRepository,
+  ) {}
+
+  async execute(command: ModifyLineCommand): Promise<Order> {
+    const order = await this.orders.findById(command.orderId);
+    if (order === null) {
+      throw new OrderNotFoundError();
+    }
+    if (!orderStatus(order.status).canEditLines) {
+      throw new OrderNotEditableError();
+    }
+
+    const existing = order.lines.find((line) => line.id === command.lineId);
+    if (existing === undefined) {
+      throw new LineItemNotFoundError();
+    }
+
+    const menuItem = await this.menu.findById(existing.menuItemId);
+    if (menuItem === null) {
+      throw new MenuItemNotFoundError();
+    }
+
+    const recaptured = existing.recapture({
+      menuItem,
+      quantity: Quantity.of(command.quantity),
+      modifierIds: command.modifierIds,
+    });
+
+    const updated = order.replaceLine(recaptured);
+    await this.orders.save(updated);
+    const saved = await this.orders.findById(updated.id);
+    if (saved === null) {
+      throw new OrderNotFoundError();
+    }
+    return saved;
+  }
+}

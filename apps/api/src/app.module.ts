@@ -4,25 +4,44 @@ import { CreateMenuItem } from './application/menu/create-menu-item';
 import { DeactivateMenuItem } from './application/menu/deactivate-menu-item';
 import { ListMenuItems } from './application/menu/list-menu-items';
 import { UpdateMenuItem } from './application/menu/update-menu-item';
+import { AddLine } from './application/order/add-line';
+import { CancelLine } from './application/order/cancel-line';
+import { CancelOrder } from './application/order/cancel-order';
+import { GetOrder } from './application/order/get-order';
+import { ListOrders } from './application/order/list-orders';
+import { BeginCooking } from './application/order/begin-cooking';
+import { MarkOrderReady } from './application/order/mark-order-ready';
+import { ModifyLine } from './application/order/modify-line';
+import { OpenOrder } from './application/order/open-order';
+import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import { MenuRepository } from './application/ports/menu-repository';
+import { OrderRepository } from './application/ports/order-repository';
 import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
 import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
+import { DrizzleOrderRepository } from './infrastructure/persistence/drizzle/drizzle-order-repository';
 import { DatabaseHealthController } from './interface/http/controllers/database-health.controller';
 import { HealthController } from './interface/http/controllers/health.controller';
 import { MenuItemController } from './interface/http/menu/menu-item.controller';
+import { OrderController } from './interface/http/order/order.controller';
 
 export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
 export const MENU_REPOSITORY = Symbol('MENU_REPOSITORY');
+export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
 
-/** Composition root: health, and the menu catalog through DrizzleMenuRepository. */
+/** Composition root: health, menu, and orders through Drizzle repositories. */
 @Module({})
 export class AppModule {
   static register(db: AppDatabase): DynamicModule {
     return {
       module: AppModule,
-      controllers: [HealthController, DatabaseHealthController, MenuItemController],
+      controllers: [
+        HealthController,
+        DatabaseHealthController,
+        MenuItemController,
+        OrderController,
+      ],
       providers: [
         {
           provide: DATABASE_HEALTH_PORT,
@@ -36,6 +55,10 @@ export class AppModule {
         {
           provide: MENU_REPOSITORY,
           useValue: new DrizzleMenuRepository(db),
+        },
+        {
+          provide: ORDER_REPOSITORY,
+          useValue: new DrizzleOrderRepository(db),
         },
         {
           provide: ListMenuItems,
@@ -56,6 +79,59 @@ export class AppModule {
           provide: UpdateMenuItem,
           inject: [MENU_REPOSITORY],
           useFactory: (menu: MenuRepository) => new UpdateMenuItem(menu, () => crypto.randomUUID()),
+        },
+        {
+          provide: OpenOrder,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) =>
+            new OpenOrder(orders, () => crypto.randomUUID(), () => new Date()),
+        },
+        {
+          provide: ListOrders,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new ListOrders(orders),
+        },
+        {
+          provide: GetOrder,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new GetOrder(orders),
+        },
+        {
+          provide: AddLine,
+          inject: [ORDER_REPOSITORY, MENU_REPOSITORY],
+          useFactory: (orders: OrderRepository, menu: MenuRepository) =>
+            new AddLine(orders, menu, () => crypto.randomUUID()),
+        },
+        {
+          provide: ModifyLine,
+          inject: [ORDER_REPOSITORY, MENU_REPOSITORY],
+          useFactory: (orders: OrderRepository, menu: MenuRepository) =>
+            new ModifyLine(orders, menu),
+        },
+        {
+          provide: CancelLine,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new CancelLine(orders),
+        },
+        {
+          provide: SendToKitchen,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new SendToKitchen(orders),
+        },
+        {
+          provide: BeginCooking,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new BeginCooking(orders),
+        },
+        {
+          provide: MarkOrderReady,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new MarkOrderReady(orders),
+        },
+        {
+          provide: CancelOrder,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new CancelOrder(orders),
         },
       ],
     };

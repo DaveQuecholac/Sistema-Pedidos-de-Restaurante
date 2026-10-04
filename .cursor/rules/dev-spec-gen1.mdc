@@ -63,13 +63,14 @@ Sistema de pedidos: menú, comanda (mesa o ID externo), estado de cocina, totale
 Estados:
 
 ```text
-OPEN → IN_KITCHEN → READY → CLOSED
-  │         │
-  └─────────┴──→ CANCELLED (según reglas)
+OPEN → SENT_TO_KITCHEN → IN_KITCHEN → READY → CLOSED
+  │            │
+  └────────────┴──→ CANCELLED
 ```
 
-- `OPEN`: se agregan, modifican o cancelan líneas.  
-- Desde `IN_KITCHEN`: líneas no editables (RF3).  
+- `OPEN`: se agregan, modifican o cancelan líneas; «enviar a cocina» (`sendToKitchen`).  
+- `SENT_TO_KITCHEN`: líneas no editables; aún se puede cancelar; cocina hace `beginCooking`.  
+- Desde `IN_KITCHEN` (cocción iniciada): no editable ni cancelable (RF3); cocina hace `markReady`.  
 - `CLOSED`: cobro exitoso (RF5); sin más cambios de negocio.  
 
 Pedido con ID externo = mismo flujo que mesa; cambia el dato de origen.
@@ -81,7 +82,7 @@ Pedido con ID externo = mismo flujo que mesa; cambia el dato de origen.
 | CRUD menú y modificadores | RF1 |
 | `OpenOrder` | RF2 |
 | `AddLine` / `ModifyLine` / `CancelLine` | RF3 |
-| `StartCooking` (o transición equivalente) | RF3 |
+| `SendToKitchen` / `BeginCooking` / `MarkOrderReady` | RF3 |
 | `CalculateTotals` | RF4 |
 | `CloseOrder` | RF5 |
 

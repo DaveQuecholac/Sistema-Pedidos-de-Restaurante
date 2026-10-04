@@ -11,6 +11,10 @@ export default function HomePage() {
       <p>Adaptador web (Next.js). El núcleo hexagonal vive en @restaurante/api.</p>
       <p>
         <Link href="/menu">Administrar menú</Link>
+        {' · '}
+        <Link href="/orders">Comandas</Link>
+        {' · '}
+        <Link href="/kitchen">Cocina</Link>
       </p>
     </main>
   );
