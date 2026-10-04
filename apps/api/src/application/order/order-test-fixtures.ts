@@ -9,9 +9,12 @@ import { InMemoryMenuRepository } from '../menu/in-memory-menu-repository';
 
 export const TACOS_ID = 'item-tacos';
 export const FLAN_ID = 'item-flan';
+export const AGUA_ID = 'item-agua-jamaica';
 export const QUESO_ID = 'mod-queso';
 export const CILANTRO_ID = 'mod-cilantro';
 export const OTHER_EXTRA_ID = 'mod-chia';
+export const CHIA_ID = 'mod-chia-agua';
+export const AZUCAR_ID = 'mod-azucar';
 export const FIXED_NOW = new Date('2026-10-04T18:00:00.000Z');
 
 /** Active tacos: 4500 MXN, tax 1600, Queso extra, Cilantro exclusion. */
@@ -54,6 +57,21 @@ export function otherDishWithExtra(): MenuItem {
     applicableTax: TaxRate.of(1600),
     ingredients: [],
     modifiers: [Modifier.extra({ id: OTHER_EXTRA_ID, name: 'Chia', price: Money.of(500, 'MXN') })],
+  });
+}
+
+/** Agua de jamaica: 2500 MXN, tax 0, Chía extra, Azúcar exclusion. Order L fixture. */
+export function aguaDish(): MenuItem {
+  return MenuItem.create({
+    id: AGUA_ID,
+    name: 'Agua de jamaica',
+    price: Money.of(2500, 'MXN'),
+    applicableTax: TaxRate.of(0),
+    ingredients: [Ingredient.of({ id: 'ing-azucar', name: 'Azúcar' })],
+    modifiers: [
+      Modifier.extra({ id: CHIA_ID, name: 'Chía', price: Money.of(500, 'MXN') }),
+      Modifier.exclusion({ id: AZUCAR_ID, name: 'Azúcar' }),
+    ],
   });
 }
 

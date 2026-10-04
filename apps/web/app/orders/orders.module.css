@@ -440,6 +440,90 @@
   margin: 0;
 }
 
+.breakdown {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.breakdown th,
+.breakdown td {
+  padding: 0.45rem 0;
+  border-bottom: 2px solid #111;
+  text-align: left;
+  font-weight: 600;
+  vertical-align: top;
+}
+
+.breakdown td {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 1rem;
+}
+
+.breakdown tr:last-child th,
+.breakdown tr:last-child td {
+  border-bottom: none;
+}
+
+.breakdownTotal th,
+.breakdownTotal td {
+  font-size: 1.15rem;
+  font-weight: 800;
+  padding-top: 0.75rem;
+}
+
+.formsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.segmented,
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+
+.page .segment,
+.page .segmentActive {
+  width: auto;
+  flex: 1 1 auto;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 2px solid #111;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page .segment:hover:not(:disabled),
+.page .segment:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+.page .segmentActive {
+  background: #111;
+  color: #fff;
+}
+
+.page .segment:disabled,
+.page .segmentActive:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.page .presetRow .segment,
+.page .presetRow .segmentActive {
+  flex: 0 1 auto;
+  min-width: 4.5rem;
+}
+
 @media (min-width: 40rem) {
   .catalog {
     grid-template-columns: repeat(2, minmax(0, 1fr));

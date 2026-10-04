@@ -1,4 +1,8 @@
 import { BlankIdError } from '../menu/menu-item.errors';
+import { Money } from '../money/money';
+import type { Discount } from '../totals/discount';
+import { calculateTotals, type OrderTotals } from '../totals/order-totals';
+import type { Tip } from '../totals/tip';
 import type { LineItem } from './line-item';
 import type { OrderOrigin } from './order-origin';
 import {
@@ -8,6 +12,7 @@ import {
   InvalidOrderVersionError,
   LineItemNotFoundError,
   OrderNotEditableError,
+  OrderTotalsNotAdjustableError,
 } from './order.errors';
 import {
   isOrderStatus,
@@ -23,9 +28,11 @@ export type OrderRestoreInput = {
   openedAt: Date;
   lines: readonly LineItem[];
   version: number;
+  discount: Discount | null;
+  tip: Tip | null;
 };
 
-/** Aggregate root: origin, lines, kitchen state. Does not change version. */
+/** Aggregate root: origin, lines, kitchen state, discount and tip. Does not change version. */
 export class Order {
   private constructor(
     private readonly idValue: string,
@@ -34,10 +41,12 @@ export class Order {
     private readonly openedAtValue: Date,
     private readonly linesValue: readonly LineItem[],
     private readonly versionValue: number,
+    private readonly discountValue: Discount | null,
+    private readonly tipValue: Tip | null,
   ) {}
 
   static open(input: { id: string; origin: OrderOrigin; openedAt: Date }): Order {
-    return new Order(requireId(input.id), input.origin, 'OPEN', input.openedAt, [], 0);
+    return new Order(requireId(input.id), input.origin, 'OPEN', input.openedAt, [], 0, null, null);
   }
 
   static restore(input: OrderRestoreInput): Order {
@@ -56,6 +65,8 @@ export class Order {
       input.openedAt,
       lines,
       input.version,
+      input.discount,
+      input.tip,
     );
   }
 
@@ -112,6 +123,37 @@ export class Order {
     return this.copy({ status: orderStatus(this.statusValue).next('cancel') });
   }
 
+  setDiscount(discount: Discount | null): Order {
+    this.requireAdjustableTotals();
+    return this.copy({ discount });
+  }
+
+  setTip(tip: Tip | null): Order {
+    this.requireAdjustableTotals();
+    return this.copy({ tip });
+  }
+
+  totals(): OrderTotals {
+    return calculateTotals({
+      lines: this.linesValue.map((line) => ({
+        lineId: line.id,
+        name: line.name,
+        quantity: line.quantity.amount,
+        unitPrice: line.unitPrice,
+        extras: line.modifiers.map(
+          (modifier) => modifier.price ?? Money.zero(line.unitPrice.currency),
+        ),
+        taxRate: line.applicableTax,
+      })),
+      discount: this.discountValue,
+      tip: this.tipValue,
+    });
+  }
+
+  canAdjustTotals(): boolean {
+    return orderStatus(this.statusValue).canAdjustTotals;
+  }
+
   allowedActions(): OrderAction[] {
     return orderStatus(this.statusValue).allowedActions(this.linesValue.length);
   }
@@ -140,15 +182,31 @@ export class Order {
     return this.versionValue;
   }
 
+  get discount(): Discount | null {
+    return this.discountValue;
+  }
+
+  get tip(): Tip | null {
+    return this.tipValue;
+  }
+
   private requireEditable(): void {
     if (!orderStatus(this.statusValue).canEditLines) {
       throw new OrderNotEditableError();
     }
   }
 
+  private requireAdjustableTotals(): void {
+    if (!this.canAdjustTotals()) {
+      throw new OrderTotalsNotAdjustableError();
+    }
+  }
+
   private copy(patch: {
     status?: OrderStatus;
     lines?: readonly LineItem[];
+    discount?: Discount | null;
+    tip?: Tip | null;
   }): Order {
     return new Order(
       this.idValue,
@@ -157,6 +215,8 @@ export class Order {
       this.openedAtValue,
       patch.lines ?? this.linesValue,
       this.versionValue,
+      patch.discount !== undefined ? patch.discount : this.discountValue,
+      patch.tip !== undefined ? patch.tip : this.tipValue,
     );
   }
 }

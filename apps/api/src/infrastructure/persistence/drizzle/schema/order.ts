@@ -20,6 +20,14 @@ export const orders = pgTable(
     status: text('status').notNull(),
     openedAt: timestamp('opened_at', { withTimezone: true }).notNull(),
     version: integer('version').notNull().default(0),
+    discountKind: text('discount_kind'),
+    discountBasisPoints: integer('discount_basis_points'),
+    discountAmount: integer('discount_amount'),
+    discountCurrency: text('discount_currency'),
+    tipKind: text('tip_kind'),
+    tipBasisPoints: integer('tip_basis_points'),
+    tipAmount: integer('tip_amount'),
+    tipCurrency: text('tip_currency'),
   },
   (table) => [
     check(
@@ -39,6 +47,68 @@ export const orders = pgTable(
       sql`${table.status} in ('OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY', 'CLOSED', 'CANCELLED')`,
     ),
     check('orders_version_gte_0', sql`${table.version} >= 0`),
+    check(
+      'orders_discount_kind',
+      sql`${table.discountKind} is null or ${table.discountKind} in ('percentage', 'fixedAmount')`,
+    ),
+    check(
+      'orders_discount_shape',
+      sql`(
+        (
+          ${table.discountKind} is null
+          and ${table.discountBasisPoints} is null
+          and ${table.discountAmount} is null
+          and ${table.discountCurrency} is null
+        )
+        or
+        (
+          ${table.discountKind} = 'percentage'
+          and ${table.discountBasisPoints} between 1 and 10000
+          and ${table.discountAmount} is null
+          and ${table.discountCurrency} is null
+        )
+        or
+        (
+          ${table.discountKind} = 'fixedAmount'
+          and ${table.discountBasisPoints} is null
+          and ${table.discountAmount} is not null
+          and ${table.discountAmount} > 0
+          and ${table.discountCurrency} is not null
+          and length(${table.discountCurrency}) = 3
+        )
+      )`,
+    ),
+    check(
+      'orders_tip_kind',
+      sql`${table.tipKind} is null or ${table.tipKind} in ('percentage', 'fixedAmount')`,
+    ),
+    check(
+      'orders_tip_shape',
+      sql`(
+        (
+          ${table.tipKind} is null
+          and ${table.tipBasisPoints} is null
+          and ${table.tipAmount} is null
+          and ${table.tipCurrency} is null
+        )
+        or
+        (
+          ${table.tipKind} = 'percentage'
+          and ${table.tipBasisPoints} between 1 and 10000
+          and ${table.tipAmount} is null
+          and ${table.tipCurrency} is null
+        )
+        or
+        (
+          ${table.tipKind} = 'fixedAmount'
+          and ${table.tipBasisPoints} is null
+          and ${table.tipAmount} is not null
+          and ${table.tipAmount} > 0
+          and ${table.tipCurrency} is not null
+          and length(${table.tipCurrency}) = 3
+        )
+      )`,
+    ),
     unique('orders_external_order_id_unique').on(table.externalOrderId),
     index('orders_status_opened_at_idx').on(table.status, table.openedAt),
   ],

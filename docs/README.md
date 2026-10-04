@@ -28,6 +28,9 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 | [`dev/comanda/02-persistencia-y-api/`](./dev/comanda/02-persistencia-y-api/) | Sprint 2, tarea 2: tablas de órdenes, repositorio Drizzle y API REST |
 | [`dev/comanda/03-pantalla-comanda-y-demo/`](./dev/comanda/03-pantalla-comanda-y-demo/) | Sprint 2, tarea 3: pantallas de comandas y cocina con el estilo del menú, y demo |
 | [`dev/comanda/cierre-del-modulo.md`](./dev/comanda/cierre-del-modulo.md) | Cierre del módulo de comanda/cocina, en lenguaje del local |
+| [`dev/totales/01-calculo-en-el-nucleo/`](./dev/totales/01-calculo-en-el-nucleo/) | Sprint 3, tarea 1: dinero, descuento, propina, impuestos y cálculo de totales en el núcleo |
+| [`dev/totales/02-persistencia-y-api/`](./dev/totales/02-persistencia-y-api/) | Sprint 3, tarea 2: descuento y propina guardados en la orden y API REST de totales |
+| [`dev/totales/03-pantalla-cuenta-y-demo/`](./dev/totales/03-pantalla-cuenta-y-demo/) | Sprint 3, tarea 3: pantalla de cuenta con el desglose, y demo |
 
 ## Docs de trabajo por tarea
 

@@ -25,7 +25,9 @@ function sentOrder(): Order {
       }),
     ],
     version: 1,
-  });
+      discount: null,
+      tip: null,
+    });
 }
 
 describe('BeginCooking', () => {
@@ -78,7 +80,9 @@ describe('BeginCooking', () => {
           }),
         ],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     const seen = watchOrders(orders);
     const useCase = new BeginCooking(seen.orders);

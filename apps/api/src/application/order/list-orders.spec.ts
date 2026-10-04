@@ -17,7 +17,9 @@ describe('ListOrders', () => {
         openedAt: FIXED_NOW,
         lines: [],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     await repo.add(
       Order.open({ id: 'order-open', origin: OrderOrigin.table('2'), openedAt: earlier }),
@@ -30,7 +32,9 @@ describe('ListOrders', () => {
         openedAt: FIXED_NOW,
         lines: [],
         version: 2,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
 
     const useCase = new ListOrders(repo);

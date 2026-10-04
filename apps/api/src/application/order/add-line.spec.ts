@@ -94,7 +94,9 @@ describe('AddLine', () => {
           }),
         ],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     const seen = watchOrders(orders);
     const useCase = new AddLine(seen.orders, await seedMenu(), idsOf('line-2'));

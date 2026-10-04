@@ -63,7 +63,9 @@ describe('OpenOrder', () => {
           }),
         ],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
 
     const useCase = new OpenOrder(repo, idsOf('order-c'), () => FIXED_NOW);
@@ -101,7 +103,9 @@ describe('OpenOrder', () => {
         openedAt: FIXED_NOW,
         lines: [],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     const useCase = new OpenOrder(seen.orders, idsOf('order-b'), () => FIXED_NOW);
 

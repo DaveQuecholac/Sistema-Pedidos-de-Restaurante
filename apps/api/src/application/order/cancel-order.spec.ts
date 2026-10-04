@@ -32,7 +32,9 @@ describe('CancelOrder', () => {
         openedAt: FIXED_NOW,
         lines: [line],
         version: 1,
-      }),
+      discount: null,
+      tip: null,
+    }),
     );
     const useCase = new CancelOrder(orders);
 
@@ -63,7 +65,9 @@ describe('CancelOrder', () => {
             }),
           ],
           version: 1,
-        }),
+      discount: null,
+      tip: null,
+    }),
       );
       const seen = watchOrders(orders);
       const useCase = new CancelOrder(seen.orders);
