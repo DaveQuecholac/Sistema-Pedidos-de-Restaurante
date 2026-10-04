@@ -1,8 +1,8 @@
 # Guía de pruebas CTTM
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
-**Fecha de esta corrida:** 30 de septiembre de 2026, por la tarde.  
-**Alcance de esta corrida:** menú con ingredientes y pantalla admin, más el arranque con portless. Las corridas anteriores quedan abajo y no se borran.
+**Fecha de esta corrida:** 4 de octubre de 2026.  
+**Alcance de esta corrida:** núcleo de órdenes y cocina (Sprint 2, tarea 1 en `dev/comanda`), sin persistencia ni pantalla. Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -157,3 +157,36 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 2. `0003_unknown_rick_jones.sql` liga cada exclusión al ingrediente del mismo plato. La columna `ingredient_id` es nula en el extra y obligatoria en el omitir. La llave `menu_item_modifiers_same_item_ingredient_fk` rechaza el ingrediente de otro plato (`23503`). El check `menu_item_modifiers_price_by_kind` rechaza el omitir sin ingrediente (`23514`). El `UPDATE` de esa migración rellena los cinco platos que ya estaban, para que el check no los tire. Al leer, si el nombre no coincide con ese ingrediente, el mapper no arma el plato.
 3. El plato `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` no se restaura. El catálogo pedido son los cinco platos de la demo.
 4. No se apaga `postgresql-18`. Es el servicio del sistema, y `scripts/ensure-postgres.mjs` solo lo enciende si está apagado.
+
+## Corrida — 4 de octubre de 2026, comanda tarea 1 (núcleo)
+
+**Alcance:** `Order`, `LineItem`, estados de cocina, puerto `OrderRepository`, doble en memoria y nueve casos de uso (RF2–RF3). Sin Drizzle de órdenes, sin HTTP de órdenes, sin pantallas `/orders` ni `/kitchen`.  
+**Plan cerrado:** `docs/dev/comanda/01-orden-y-cocina/plan-de-accion.md` (sección 11).  
+**Bloques de código nuevo de producto (sin specs ni fixtures):** 2. Unas **1150** líneas en `domain/order`, `application/order` y `ports/order-repository.ts`.
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 575 | Dominio: origen, cantidad, línea, estados, agregado, errores |
+| 2 | 575 | Application: puerto, doble, errores de repo, nueve casos de uso |
+
+### Hexagonal (revisión de capas)
+
+- Dominio de orden: sin Nest, Next, Drizzle, postgres, Zod ni `infrastructure/`.
+- Casos de uso: solo `OrderRepository` / `MenuRepository` y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `AppModule` **no** cablea órdenes (correcto para esta tarea; el composition root llega en la tarea 2).
+- No hay adaptador HTTP ni tablas `order*` en Postgres.
+- Web intacta: home con «Administrar menú»; sin enlaces de comanda todavía.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 27 archivos, **177 pruebas**, 8 skipped (P1–P8 menú). Typecheck API y web limpios. Web: 2 archivos, 14 pruebas. Capas hexagonales OK. |
+| T Integración | Pasó (regresión menú/plataforma) | `select 1` = 1. Tablas: `menu_items`, `menu_item_modifiers`, `menu_item_ingredients`. **Cero** tablas `order*`. `test:db` con `DATABASE_URL` de `.env`: 8 pruebas P1–P8. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos. API con `DATABASE_URL` imposible no escuchó el puerto 3099. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó API y web online; Postgres ya estaba encendido. Home en `https://restaurante.localhost/` muestra «Sistema de Pedidos» y «Administrar menú». `/menu` responde 200. |
+| M Madurez | Nivel 2 para la tarea 1 de comanda | Plan con cierre y fecha. Núcleo testeable sin navegador ni Postgres. RF2–RF3 no llegan a nivel 3 hasta API + pantalla (tareas 2 y 3). No se adelantó persistencia ni UI. |
+
+### Huecos de esta corrida
+
+1. `pnpm test:db` sin exportar `DATABASE_URL` falla al cargar el spec. Hay que cargar `apps/api/.env` (o exportarla) antes. No es un fallo del menú: con la URL, P1–P8 pasaron.
+2. No hay endpoints ni tablas de órdenes. Es el alcance acordado de la tarea 1; la tarea 2 los construye.
+3. El menú de demo sigue con 5 platos activos. No se tocaron.
+4. No se apagó `postgresql-18` para probar el encendido en frío.

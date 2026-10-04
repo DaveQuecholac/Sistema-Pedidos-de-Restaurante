@@ -24,6 +24,9 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 | [`dev/menu/02-persistencia-y-api/`](./dev/menu/02-persistencia-y-api/) | Tarea 2 de la épica Menú: análisis y plan de persistencia y API |
 | [`dev/menu/03-pantalla-admin-y-demo/`](./dev/menu/03-pantalla-admin-y-demo/) | Tarea 3 de la épica Menú: análisis y plan de la pantalla admin y la demo |
 | [`dev/menu/cierre-del-modulo.md`](./dev/menu/cierre-del-modulo.md) | Cierre del módulo de menú, en lenguaje del local |
+| [`dev/comanda/01-orden-y-cocina/`](./dev/comanda/01-orden-y-cocina/) | Sprint 2, tarea 1: orden, líneas, estados de cocina y casos de uso en el núcleo |
+| [`dev/comanda/02-persistencia-y-api/`](./dev/comanda/02-persistencia-y-api/) | Sprint 2, tarea 2: tablas de órdenes, repositorio Drizzle y API REST |
+| [`dev/comanda/03-pantalla-comanda-y-demo/`](./dev/comanda/03-pantalla-comanda-y-demo/) | Sprint 2, tarea 3: pantallas de comandas y cocina con el estilo del menú, y demo |
 
 ## Docs de trabajo por tarea
 
