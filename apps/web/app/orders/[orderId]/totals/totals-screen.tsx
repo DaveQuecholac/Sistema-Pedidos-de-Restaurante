@@ -6,7 +6,11 @@ import { basisPointsToPercentLabel, centavosToLabel } from '../../../menu/menu-a
 import { getOrder, OrderApiError } from '../../order-api';
 import { can, originLabel, statusLabel } from '../../order-view';
 import styles from '../../orders.module.css';
-import { acceptAccount, isAccountAccepted } from './account-accepted';
+import {
+  acceptAccount,
+  clearAccountAccepted,
+  isAccountAccepted,
+} from './account-accepted';
 import {
   getOrderTotals,
   setOrderDiscount,
@@ -121,8 +125,20 @@ export function TotalsScreen({ orderId }: Props) {
 
   const { order, totals } = status;
   const capNotice = discountCapNotice(totals);
-  const readyToCharge = can(order, 'close');
+  const readyToCharge = can(order, 'close') || order.status === 'READY';
   const showAdjustmentForms = totals.adjustable && !accountLocked;
+
+  function lockAccount() {
+    acceptAccount(orderId);
+    setAccountLocked(true);
+    setNotice(null);
+  }
+
+  function unlockAccount() {
+    clearAccountAccepted(orderId);
+    setAccountLocked(false);
+    setNotice(null);
+  }
 
   async function runAdjustment(action: () => Promise<OrderTotalsJson>) {
     setSending(true);
@@ -261,6 +277,24 @@ export function TotalsScreen({ orderId }: Props) {
 
         {showAdjustmentForms ? (
           <div className={styles.formsStack}>
+            {readyToCharge ? (
+              <div className={styles.confirmPanel}>
+                <p className={styles.hint}>
+                  Aplica descuento y propina. Cuando esté lista, acepta la cuenta para cobrar.
+                </p>
+                <div className={styles.confirmActions}>
+                  <button
+                    type="button"
+                    className={styles.primary}
+                    disabled={sending}
+                    onClick={lockAccount}
+                  >
+                    Aceptar cuenta
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <form
               className={styles.form}
               onSubmit={(event) => {
@@ -392,28 +426,6 @@ export function TotalsScreen({ orderId }: Props) {
                 Aplicar
               </button>
             </form>
-
-            {readyToCharge ? (
-              <div className={styles.confirmPanel}>
-                <p className={styles.hint}>
-                  Cuando el descuento y la propina estén listos, acepta la cuenta para cobrar.
-                </p>
-                <div className={styles.confirmActions}>
-                  <button
-                    type="button"
-                    className={styles.primary}
-                    disabled={sending}
-                    onClick={() => {
-                      acceptAccount(orderId);
-                      setAccountLocked(true);
-                      setNotice(null);
-                    }}
-                  >
-                    Aceptar cuenta
-                  </button>
-                </div>
-              </div>
-            ) : null}
           </div>
         ) : (
           <div className={styles.confirmPanel}>
@@ -426,6 +438,11 @@ export function TotalsScreen({ orderId }: Props) {
             </p>
             {readyToCharge || order.status === 'CLOSED' ? (
               <div className={styles.confirmActions}>
+                {accountLocked && order.status !== 'CLOSED' ? (
+                  <button type="button" disabled={sending} onClick={unlockAccount}>
+                    Editar
+                  </button>
+                ) : null}
                 <Link
                   className={styles.primary}
                   href={`/orders/${encodeURIComponent(orderId)}/payment`}
