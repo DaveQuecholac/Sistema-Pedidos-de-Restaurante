@@ -17,9 +17,17 @@ import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import { MenuRepository } from './application/ports/menu-repository';
 import { OrderRepository } from './application/ports/order-repository';
+import { CloseOrder } from './application/payment/close-order';
+import { GetOrderPayment } from './application/payment/get-order-payment';
+import type { PaymentPort } from './application/ports/payment-port';
 import { CalculateTotals } from './application/totals/calculate-totals';
 import { SetOrderDiscount } from './application/totals/set-order-discount';
 import { SetOrderTip } from './application/totals/set-order-tip';
+import {
+  CardPaymentAdapter,
+  CashPaymentAdapter,
+  DigitalGatewayFakeAdapter,
+} from './infrastructure/payment';
 import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
 import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
@@ -28,13 +36,15 @@ import { DatabaseHealthController } from './interface/http/controllers/database-
 import { HealthController } from './interface/http/controllers/health.controller';
 import { MenuItemController } from './interface/http/menu/menu-item.controller';
 import { OrderController } from './interface/http/order/order.controller';
+import { PaymentController } from './interface/http/payment/payment.controller';
 import { TotalsController } from './interface/http/totals/totals.controller';
 
 export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
 export const MENU_REPOSITORY = Symbol('MENU_REPOSITORY');
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
+export const PAYMENT_PORTS = Symbol('PAYMENT_PORTS');
 
-/** Composition root: health, menu, and orders through Drizzle repositories. */
+/** Composition root: health, menu, orders, and payments through driven adapters. */
 @Module({})
 export class AppModule {
   static register(db: AppDatabase): DynamicModule {
@@ -46,6 +56,7 @@ export class AppModule {
         MenuItemController,
         OrderController,
         TotalsController,
+        PaymentController,
       ],
       providers: [
         {
@@ -152,6 +163,25 @@ export class AppModule {
           provide: SetOrderTip,
           inject: [ORDER_REPOSITORY],
           useFactory: (orders: OrderRepository) => new SetOrderTip(orders),
+        },
+        {
+          provide: PAYMENT_PORTS,
+          useValue: [
+            new CashPaymentAdapter(() => crypto.randomUUID()),
+            new CardPaymentAdapter(() => crypto.randomUUID()),
+            new DigitalGatewayFakeAdapter(() => crypto.randomUUID()),
+          ] satisfies PaymentPort[],
+        },
+        {
+          provide: CloseOrder,
+          inject: [ORDER_REPOSITORY, PAYMENT_PORTS],
+          useFactory: (orders: OrderRepository, payments: PaymentPort[]) =>
+            new CloseOrder(orders, payments, () => crypto.randomUUID(), () => new Date()),
+        },
+        {
+          provide: GetOrderPayment,
+          inject: [ORDER_REPOSITORY],
+          useFactory: (orders: OrderRepository) => new GetOrderPayment(orders),
         },
       ],
     };

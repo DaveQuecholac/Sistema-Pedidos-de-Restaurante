@@ -3,7 +3,7 @@
 **Rama:** `dev/pagos`  
 **Sprint:** 4 (RF5). Tarea 2 de 3. Solo esta.  
 **Fecha:** 4 de octubre de 2026  
-**Estado:** propuesta. Empieza cuando la tarea 1 esté cerrada.  
+**Estado:** cerrada el 4 de octubre de 2026 (ver plan §11).  
 **Plan:** `plan-de-accion.md` en esta carpeta.  
 **Reglas de cobro:** `../01-cobro-en-el-nucleo/analisis.md`. Aquí no se repiten ni se cambian.  
 **Maestro:** `.cursor/rules/dev-spec-gen1.mdc`.

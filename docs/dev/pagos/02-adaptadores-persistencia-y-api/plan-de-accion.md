@@ -3,7 +3,7 @@
 **Rama:** `dev/pagos`  
 **Sprint:** 4 (RF5). Tarea 2 de 3. Solo esta.  
 **Fecha:** 4 de octubre de 2026  
-**Estado:** propuesta. Empieza cuando la tarea 1 esté cerrada.  
+**Estado:** cerrada el 4 de octubre de 2026 (Pasos 0–6 + S1–S10).  
 **Análisis:** `analisis.md` en esta carpeta.  
 **Reglas de trabajo:** sección 5 de `../01-cobro-en-el-nucleo/plan-de-accion.md`.  
 **Maestro:** `.cursor/rules/dev-spec-gen1.mdc`.
@@ -130,6 +130,15 @@ Nada más cambia en el módulo. Sonda: `POST /orders/no-existe/close` con cuerpo
 3. S1–S10 contra `http://localhost:3001`.
 4. Anotar la sección 10.
 
+**Hecho — 4 de octubre de 2026**
+
+| Chequeo | Resultado |
+|---------|-----------|
+| API test | **408** + 41 skipped |
+| `test:db` | **41** |
+| Typecheck | OK |
+| S1–S10 | todos PASS (ids en §11) |
+
 ## 6. Catálogo de simuladores (sin Postgres)
 
 Generador fijo que devuelve `r1`, `r2`, …
@@ -227,25 +236,47 @@ PGPASSWORD=postgres /usr/pgsql-18/bin/psql -h localhost -U postgres -d restauran
 
 ## 10. Hecho cuando
 
-- [ ] A1–A10 pasan; el control del paso 1 falló al romper y pasó al restaurar
-- [ ] Migración `0008` generada por Drizzle Kit, revisada y aplicada; filas previas intactas; cero `CLOSED` antes de migrar
-- [ ] P23–P33 pasan junto con P1–P22 de órdenes y P1–P8 del menú
-- [ ] H45–H68 pasan; H1–H44 sin cambio
-- [ ] Los controles de los pasos 3 y 4 fallaron al romper y pasaron al restaurar
-- [ ] S1–S10 anotados con ids
-- [ ] Ningún JSON trae nombres de tabla ni `version`
-- [ ] `domain/` y `application/` no importan Drizzle, Nest, Zod, HTTP ni `infrastructure/`
-- [ ] `infrastructure/payment/` no usa `setTimeout`, `Math.random`, `Date` ni `process.env` (R9)
-- [ ] Solo `AppModule` instancia adaptadores en el arranque
-- [ ] `apps/web` no cambió
+- [x] A1–A10 pasan; el control del paso 1 falló al romper y pasó al restaurar
+- [x] Migración `0008` generada por Drizzle Kit, revisada y aplicada; filas previas intactas; cero `CLOSED` antes de migrar
+- [x] P23–P33 pasan junto con P1–P22 de órdenes y P1–P8 del menú
+- [x] H45–H68 pasan; H1–H44 sin cambio
+- [x] Los controles de los pasos 3 y 4 fallaron al romper y pasaron al restaurar
+- [x] S1–S10 anotados con ids
+- [x] Ningún JSON trae nombres de tabla ni `version`
+- [x] `domain/` y `application/` no importan Drizzle, Nest, Zod, HTTP ni `infrastructure/`
+- [x] `infrastructure/payment/` no usa `setTimeout`, `Math.random`, `Date` ni `process.env` (R9)
+- [x] Solo `AppModule` instancia adaptadores en el arranque
+- [x] `apps/web` no cambió
 
 ```bash
 rg "setTimeout|Math\.random|new Date\(|Date\.now|process\.env" apps/api/src/infrastructure/payment --glob '!*.spec.ts'
 rg "new (Cash|Card)PaymentAdapter|new DigitalGatewayFakeAdapter" apps/api/src --glob '!*.spec.ts'
 ```
 
-Esperado: el primero vacío; el segundo solo en `app.module.ts`.
+Esperado: el primero vacío; el segundo solo en `app.module.ts`. Verificado en el cierre: primer `rg` vacío; segundo solo `app.module.ts`.
 
 ## 11. Cierre
 
-Pendiente.
+**Fecha:** 4 de octubre de 2026. Tarea 2 (adaptadores de cobro, persistencia y API) cerrada.
+
+| Familia | Comando | Resultado |
+|---------|---------|-----------|
+| Unit / HTTP | `pnpm --filter @restaurante/api test` | **408** passed + **41** skipped |
+| Integración | `pnpm --filter @restaurante/api test:db` | **41** (P1–P33 órdenes + P1–P8 menú) |
+| Typecheck | `pnpm --filter @restaurante/api typecheck` | OK |
+| Smoke | `pnpm dev:restart` + S1–S10 contra `http://localhost:3001` | todos PASS |
+
+**Ids de órdenes del smoke (quedan en la BD; no son seeds):**
+
+| Id smoke | order id | Origen / estado final |
+|----------|----------|------------------------|
+| S1 | — | health/DB/carta OK (Tacos 4500/1600, Queso 1500; Agua 2500/0) |
+| S2–S4 | `e5cb2586-0db1-4945-800e-53f62694a01c` | mesa `D4-API-1` → `CLOSED` efectivo; change 3580; sobrevive reinicio |
+| S5 | `6aab2d9c-2946-4f79-aa6e-e847c2674d7c` | mesa `D4-API-2` → 402 `0002` luego `CLOSED` tarjeta `4242` |
+| S6 | `29b17bae-8c98-4c0c-a981-fb38d41117bf` | externo `D4-API-EXT-1` → 503 luego `CLOSED` pasarela |
+| S7 | `a19aa096-35f3-44f2-8c6f-2ae4bcc828d8` | mesa `D4-API-3` → tip 10 %; 409 mismatch; `CLOSED` total 17870 change 2130 |
+| S8 | `1709dfda-3017-4756-bec8-9b28be11df5e` / `ffcf43e1-ee6a-463c-b7a5-bafbfc5183d6` | mesas `D4-API-4` `OPEN` / `D4-API-5` `CANCELLED` → 409 |
+| S9 | filas de S3/S5/S6/S7 | cuatro `order_payments`; forma por medio; sin columna de cambio |
+| S10 | — | cerradas fuera de cocina; `/menu`, `/orders`, `/kitchen` 200 |
+
+Siguiente tarea del sprint: `docs/dev/pagos/03-pantalla-cobro-y-demo/`.

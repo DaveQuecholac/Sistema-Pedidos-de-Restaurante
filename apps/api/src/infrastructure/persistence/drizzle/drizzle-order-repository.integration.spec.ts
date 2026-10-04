@@ -17,13 +17,16 @@ import { LineItem } from '../../../domain/order/line-item';
 import { Order } from '../../../domain/order/order';
 import { OrderOrigin } from '../../../domain/order/order-origin';
 import { Quantity } from '../../../domain/order/quantity';
+import { ChargeRequest } from '../../../domain/payment/charge-request';
+import { PaymentDetails } from '../../../domain/payment/payment-details';
+import { Payment } from '../../../domain/payment/payment';
 import { Discount } from '../../../domain/totals/discount';
 import { Percentage } from '../../../domain/totals/percentage';
 import { Tip } from '../../../domain/totals/tip';
 import { type AppDatabase, createDatabase } from './client';
 import { DrizzleMenuRepository, type MenuDatabase } from './drizzle-menu-repository';
 import { DrizzleOrderRepository, type OrderDatabase } from './drizzle-order-repository';
-import { orderLineModifiers, orderLines, orders } from './schema/order';
+import { orderLineModifiers, orderLines, orderPayments, orders } from './schema/order';
 
 const integrationOn = process.env.ORDER_REPOSITORY_INTEGRATION === '1';
 
@@ -864,6 +867,356 @@ describeIntegration('DrizzleOrderRepository', () => {
       await expect(ordersRepo.findById(orderId)).rejects.toBeInstanceOf(OrderMappingError);
     });
   });
+
+  it('adds a new order without a payment row (P23)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, _menu, tx) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table('30'), openedAt: OPENED_AT }),
+      );
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.payment).toBeNull();
+
+      const rows = await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId));
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  it('saves a closed cash payment and reads it back (P24)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+      const payment = cashPayment(orderId);
+      await ordersRepo.save(ready.close(payment));
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.status).toBe('CLOSED');
+      expect(found?.payment?.id).toBe(payment.id);
+      expect(found?.payment?.method).toBe('cash');
+      expect(found?.payment?.amount.amount).toBe(16420);
+      expect(found?.payment?.details).toEqual(payment.details);
+      expect(found?.payment?.reference).toBe(payment.reference);
+      expect(found?.payment?.paidAt.getTime()).toBe(OPENED_AT.getTime());
+      expect(found?.payment?.change?.amount).toBe(3580);
+
+      const rows = await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.tenderedAmount).toBe(20000);
+      expect(rows[0]?.cardLast4).toBeNull();
+      expect(rows[0]?.payerReference).toBeNull();
+    });
+  });
+
+  it('saves a closed card payment (P25)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+      const payment = cardPayment(orderId, '4242');
+      await ordersRepo.save(ready.close(payment));
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.payment?.method).toBe('card');
+      if (found?.payment?.details.method === 'card') {
+        expect(found.payment.details.cardLast4).toBe('4242');
+      }
+
+      const rows = await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId));
+      expect(rows[0]?.cardLast4).toBe('4242');
+      expect(rows[0]?.tenderedAmount).toBeNull();
+      expect(rows[0]?.payerReference).toBeNull();
+    });
+  });
+
+  it('saves a closed gateway payment (P26)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+      const payment = gatewayPayment(orderId, 'cliente@correo.mx');
+      await ordersRepo.save(ready.close(payment));
+
+      const found = await ordersRepo.findById(orderId);
+      if (found?.payment?.details.method === 'digitalGateway') {
+        expect(found.payment.details.payerReference).toBe('cliente@correo.mx');
+      }
+
+      const rows = await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId));
+      expect(rows[0]?.payerReference).toBe('cliente@correo.mx');
+      expect(rows[0]?.tenderedAmount).toBeNull();
+      expect(rows[0]?.cardLast4).toBeNull();
+    });
+  });
+
+  it('rejects a concurrent close and keeps the cash payment (P27)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+      const first = await ordersRepo.findById(orderId);
+      const second = await ordersRepo.findById(orderId);
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+
+      await ordersRepo.save(first!.close(cashPayment(orderId, 16420, 20000, 'pay-cash')));
+      await expect(
+        ordersRepo.save(second!.close(cardPayment(orderId, '4242', 'pay-card'))),
+      ).rejects.toBeInstanceOf(OrderConcurrencyError);
+
+      const rows = await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.method).toBe('cash');
+      expect(rows[0]?.paymentId).toBe('pay-cash');
+    });
+  });
+
+  it('rolls back close when payment_id already exists (P28)', async () => {
+    const orderId = id();
+    const otherId = id();
+    const sharedPaymentId = id();
+
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+      const other = await seedReadyOrderL(ordersRepo, menuRepo, otherId);
+      await ordersRepo.save(other.close(cashPayment(otherId, 16420, 20000, sharedPaymentId)));
+
+      const versionBefore = ready.version;
+      await expect(
+        ordersRepo.save(ready.close(cashPayment(orderId, 16420, 20000, sharedPaymentId))),
+      ).rejects.toBeTruthy();
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.status).toBe('READY');
+      expect(found?.payment).toBeNull();
+      expect(found?.version).toBe(versionBefore);
+      expect(found?.lines).toHaveLength(2);
+
+      const rows = await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId));
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  it('rejects invalid payment shapes by check (P29)', async () => {
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const orderId = id();
+      await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+
+      const base = {
+        orderId,
+        paymentId: id(),
+        amount: 16420,
+        currency: 'MXN',
+        reference: 'ref-1',
+        paidAt: OPENED_AT,
+      };
+
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({ ...base, method: 'coupon' });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'cash',
+          tenderedAmount: null,
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'cash',
+          tenderedAmount: 16000,
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'card',
+          cardLast4: null,
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'card',
+          cardLast4: '12a4',
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'card',
+          cardLast4: '4242',
+          tenderedAmount: 20000,
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'digitalGateway',
+          payerReference: null,
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'digitalGateway',
+          payerReference: 'ab',
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'digitalGateway',
+          payerReference: 'cliente@correo.mx',
+          cardLast4: '4242',
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'cash',
+          tenderedAmount: 20000,
+          reference: '',
+        });
+      });
+      await expectCheckViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          ...base,
+          paymentId: id(),
+          method: 'cash',
+          tenderedAmount: 0,
+          amount: -1,
+        });
+      });
+    });
+  });
+
+  it('enforces payment FK and cascades delete (P30)', async () => {
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const orderId = id();
+      await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+
+      await expectFkViolation(tx, async () => {
+        await tx.insert(orderPayments).values({
+          orderId: id(),
+          paymentId: id(),
+          method: 'cash',
+          amount: 16420,
+          currency: 'MXN',
+          tenderedAmount: 20000,
+          reference: 'ref-1',
+          paidAt: OPENED_AT,
+        });
+      });
+
+      const ready = await ordersRepo.findById(orderId);
+      expect(ready).not.toBeNull();
+      await ordersRepo.save(ready!.close(cashPayment(orderId)));
+      expect(
+        (await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId))).length,
+      ).toBe(1);
+
+      await tx.delete(orders).where(eq(orders.id, orderId));
+      expect(
+        (await tx.select().from(orderPayments).where(eq(orderPayments.orderId, orderId))).length,
+      ).toBe(0);
+    });
+  });
+
+  it('rejects broken CLOSED/payment invariants on read (P31)', async () => {
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const closedId = id();
+      await seedReadyOrderL(ordersRepo, menuRepo, closedId);
+      await tx
+        .update(orders)
+        .set({ status: 'CLOSED', version: 10 })
+        .where(eq(orders.id, closedId));
+      await expect(ordersRepo.findById(closedId)).rejects.toBeInstanceOf(OrderMappingError);
+
+      const readyId = id();
+      await seedReadyOrderL(ordersRepo, menuRepo, readyId);
+      await tx.insert(orderPayments).values({
+        orderId: readyId,
+        paymentId: id(),
+        method: 'cash',
+        amount: 16420,
+        currency: 'MXN',
+        tenderedAmount: 20000,
+        reference: 'ref-ready',
+        paidAt: OPENED_AT,
+      });
+      await expect(ordersRepo.findById(readyId)).rejects.toBeInstanceOf(OrderMappingError);
+
+      const mismatchId = id();
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, mismatchId);
+      await ordersRepo.save(ready.close(cashPayment(mismatchId)));
+      await tx
+        .update(orderPayments)
+        .set({ amount: 16000, tenderedAmount: 20000 })
+        .where(eq(orderPayments.orderId, mismatchId));
+      await expect(ordersRepo.findById(mismatchId)).rejects.toBeInstanceOf(OrderMappingError);
+    });
+  });
+
+  it('lists closed orders with their payments in one batch (P32)', async () => {
+    await inTransaction(db, async (ordersRepo, menuRepo) => {
+      const firstId = id();
+      const secondId = id();
+      const thirdId = id();
+
+      await ordersRepo.save(
+        (await seedReadyOrderL(ordersRepo, menuRepo, firstId)).close(
+          cashPayment(firstId, 16420, 20000, 'pay-1'),
+        ),
+      );
+      await ordersRepo.save(
+        (await seedReadyOrderL(ordersRepo, menuRepo, secondId)).close(
+          cardPayment(secondId, '4242', 'pay-2'),
+        ),
+      );
+      await ordersRepo.save(
+        (await seedReadyOrderL(ordersRepo, menuRepo, thirdId)).close(
+          gatewayPayment(thirdId, 'cliente@correo.mx', 'pay-3'),
+        ),
+      );
+
+      const listed = await ordersRepo.list({ statuses: ['CLOSED'] });
+      const byId = new Map(listed.map((order) => [order.id, order]));
+
+      expect(byId.get(firstId)?.payment?.id).toBe('pay-1');
+      expect(byId.get(secondId)?.payment?.id).toBe('pay-2');
+      expect(byId.get(thirdId)?.payment?.id).toBe('pay-3');
+      expect(byId.get(firstId)?.payment?.method).toBe('cash');
+      expect(byId.get(secondId)?.payment?.method).toBe('card');
+      expect(byId.get(thirdId)?.payment?.method).toBe('digitalGateway');
+    });
+  });
+
+  it('rejects USD payment currency on read (P33)', async () => {
+    await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
+      const orderId = id();
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, orderId);
+      await ordersRepo.save(ready.close(cashPayment(orderId)));
+      await tx
+        .update(orderPayments)
+        .set({ currency: 'USD' })
+        .where(eq(orderPayments.orderId, orderId));
+
+      await expect(ordersRepo.findById(orderId)).rejects.toBeInstanceOf(OrderMappingError);
+    });
+  });
 });
 
 
@@ -926,6 +1279,110 @@ function tacosDish(
   });
 }
 
+function aguaDish(menuItemId: string): MenuItem {
+  return MenuItem.create({
+    id: menuItemId,
+    name: 'Agua de jamaica',
+    price: Money.of(2500, 'MXN'),
+    applicableTax: TaxRate.of(0),
+    ingredients: [Ingredient.of({ id: `ing-azucar-${menuItemId}`, name: 'Azúcar' })],
+    modifiers: [],
+  });
+}
+
+async function seedReadyOrderL(
+  ordersRepo: DrizzleOrderRepository,
+  menuRepo: DrizzleMenuRepository,
+  orderId: string,
+): Promise<Order> {
+  const tacosId = id();
+  const quesoId = id();
+  const cilantroId = id();
+  const aguaId = id();
+  const tacos = tacosDish(tacosId, quesoId, cilantroId);
+  const agua = aguaDish(aguaId);
+  await menuRepo.add(tacos);
+  await menuRepo.add(agua);
+
+  await ordersRepo.add(
+    Order.open({ id: orderId, origin: OrderOrigin.table('5'), openedAt: OPENED_AT }),
+  );
+  let order = (await ordersRepo.findById(orderId))!;
+  order = order
+    .addLine(
+      LineItem.capture({
+        id: id(),
+        menuItem: tacos,
+        quantity: Quantity.of(2),
+        modifierIds: [quesoId],
+      }),
+    )
+    .addLine(
+      LineItem.capture({
+        id: id(),
+        menuItem: agua,
+        quantity: Quantity.of(1),
+        modifierIds: [],
+      }),
+    );
+  await ordersRepo.save(order);
+  order = (await ordersRepo.findById(orderId))!;
+  await ordersRepo.save(order.sendToKitchen());
+  order = (await ordersRepo.findById(orderId))!;
+  await ordersRepo.save(order.beginCooking());
+  order = (await ordersRepo.findById(orderId))!;
+  await ordersRepo.save(order.markReady());
+  return (await ordersRepo.findById(orderId))!;
+}
+
+function cashPayment(
+  orderId: string,
+  amount = 16420,
+  tendered = 20000,
+  paymentId = id(),
+): Payment {
+  return Payment.record({
+    id: paymentId,
+    request: ChargeRequest.of({
+      orderId,
+      amount: Money.of(amount, 'MXN'),
+      details: PaymentDetails.cash(Money.of(tendered, 'MXN')),
+    }),
+    reference: 'cash-1',
+    paidAt: OPENED_AT,
+  });
+}
+
+function cardPayment(orderId: string, cardLast4: string, paymentId = id()): Payment {
+  return Payment.record({
+    id: paymentId,
+    request: ChargeRequest.of({
+      orderId,
+      amount: Money.of(16420, 'MXN'),
+      details: PaymentDetails.card(cardLast4),
+    }),
+    reference: 'card-1',
+    paidAt: OPENED_AT,
+  });
+}
+
+function gatewayPayment(
+  orderId: string,
+  payerReference: string,
+  paymentId = id(),
+): Payment {
+  return Payment.record({
+    id: paymentId,
+    request: ChargeRequest.of({
+      orderId,
+      amount: Money.of(16420, 'MXN'),
+      details: PaymentDetails.digitalGateway(payerReference),
+    }),
+    reference: 'gw-1',
+    paidAt: OPENED_AT,
+  });
+}
+
 function id(): string {
   return crypto.randomUUID();
 }
@@ -934,17 +1391,32 @@ async function expectCheckViolation(
   tx: OrderDatabase,
   run: () => Promise<void>,
 ): Promise<void> {
+  await expectPostgresCode(tx, run, '23514');
+}
+
+async function expectFkViolation(
+  tx: OrderDatabase,
+  run: () => Promise<void>,
+): Promise<void> {
+  await expectPostgresCode(tx, run, '23503');
+}
+
+async function expectPostgresCode(
+  tx: OrderDatabase,
+  run: () => Promise<void>,
+  code: string,
+): Promise<void> {
   const savepoint = `sp_${id().replaceAll('-', '')}`;
   await tx.execute(sql.raw(`savepoint ${savepoint}`));
 
   try {
     await run();
-    throw new Error('expected check violation');
+    throw new Error(`expected postgres code ${code}`);
   } catch (error) {
-    if (error instanceof Error && error.message === 'expected check violation') {
+    if (error instanceof Error && error.message === `expected postgres code ${code}`) {
       throw error;
     }
-    expect(postgresCode(error)).toBe('23514');
+    expect(postgresCode(error)).toBe(code);
     await tx.execute(sql.raw(`rollback to savepoint ${savepoint}`));
   }
 }
