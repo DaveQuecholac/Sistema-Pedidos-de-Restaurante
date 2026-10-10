@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { orderCuentaPath, orderDetailPath } from '../../../components/app-shell/order-routes';
+import { useShell } from '../../../components/app-shell/shell-context';
 import { centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
 import { originLabel, statusLabel } from '../../order-view';
 import styles from '../../orders.module.css';
-import { isAccountAccepted } from '../totals/account-accepted';
-import { getOrderTotals } from '../totals/totals-api';
+import { isAccountAccepted } from '../cuenta/account-accepted';
+import { getOrderTotals } from '../cuenta/totals-api';
 import {
   closeOrder,
   getOrderPayment,
@@ -32,6 +34,7 @@ type Props = {
 };
 
 export function PaymentScreen({ orderId }: Props) {
+  const { bumpRefresh, setSelectedOrderId } = useShell();
   const [status, setStatus] = useState<PaymentStatus>({ kind: 'loading' });
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -42,35 +45,36 @@ export function PaymentScreen({ orderId }: Props) {
   const [receipt, setReceipt] = useState<PaymentJson | null>(null);
 
   useEffect(() => {
+    setSelectedOrderId(orderId);
     void loadPayment(orderId, setStatus, setNotice, setReceipt, setStep);
-  }, [orderId]);
+  }, [orderId, setSelectedOrderId]);
 
   const view = paymentView(status);
 
   if (view === 'loading') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <p>Cargando cobro…</p>
-      </main>
+      </div>
     );
   }
 
   if (view === 'missing') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <p className={styles.notice} role="alert">
           Esa comanda no existe
         </p>
         <p>
-          <Link href="/orders">Comandas</Link>
+          <Link href="/ordenes">Órdenes</Link>
         </p>
-      </main>
+      </div>
     );
   }
 
   if (view === 'error' && status.kind === 'error') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <div className={styles.error} role="alert">
           <p>{paymentErrorText(status.error)}</p>
           <button
@@ -84,9 +88,9 @@ export function PaymentScreen({ orderId }: Props) {
           </button>
         </div>
         <p>
-          <Link href="/orders">Comandas</Link>
+          <Link href="/ordenes">Órdenes</Link>
         </p>
-      </main>
+      </div>
     );
   }
 
@@ -131,6 +135,7 @@ export function PaymentScreen({ orderId }: Props) {
       });
       setStep('capture');
       setPendingPayment(null);
+      bumpRefresh();
     } catch (error) {
       setNotice(paymentErrorText(error));
       setStep('capture');
@@ -161,7 +166,7 @@ export function PaymentScreen({ orderId }: Props) {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
         <div>
           <h1>
@@ -171,10 +176,10 @@ export function PaymentScreen({ orderId }: Props) {
             <span className={styles.statusBadge}>{statusLabel(order.status)}</span>
           </p>
         </div>
-        <nav className={styles.nav} aria-label="Secciones">
-          <Link href={`/orders/${encodeURIComponent(orderId)}`}>Comanda</Link>
-          <Link href={`/orders/${encodeURIComponent(orderId)}/totals`}>Cuenta</Link>
-          <Link href="/orders">Comandas</Link>
+        <nav className={styles.nav} aria-label="Acciones de cobro">
+          <Link href={orderDetailPath(orderId)}>Comanda</Link>
+          <Link href={orderCuentaPath(orderId)}>Cuenta</Link>
+          <Link href="/pago">Cola de pago</Link>
         </nav>
       </header>
 
@@ -208,7 +213,7 @@ export function PaymentScreen({ orderId }: Props) {
         <div className={styles.lockNotice} role="status">
           <p>Se cobra cuando cocina marca la orden como lista.</p>
           <p>
-            <Link href={`/orders/${encodeURIComponent(orderId)}`}>Ir a la comanda</Link>
+            <Link href={orderDetailPath(orderId)}>Ir a la comanda</Link>
           </p>
         </div>
       ) : null}
@@ -217,7 +222,7 @@ export function PaymentScreen({ orderId }: Props) {
         <div className={styles.lockNotice} role="status">
           <p>Primero acepta la cuenta (descuento y propina) para poder cobrar.</p>
           <p>
-            <Link href={`/orders/${encodeURIComponent(orderId)}/totals`}>Ir a la cuenta</Link>
+            <Link href={orderCuentaPath(orderId)}>Ir a la cuenta</Link>
           </p>
         </div>
       ) : null}
@@ -322,7 +327,7 @@ export function PaymentScreen({ orderId }: Props) {
               <div className={styles.confirmActions}>
                 <button
                   type="button"
-                  className={styles.primary}
+                  className={styles.danger}
                   disabled={sending}
                   onClick={() => void confirmClose()}
                 >
@@ -343,7 +348,7 @@ export function PaymentScreen({ orderId }: Props) {
           ) : null}
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 

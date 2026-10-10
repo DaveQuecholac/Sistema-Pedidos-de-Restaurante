@@ -1,17 +1,10 @@
 .page {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: 1.25rem;
-  overflow-x: clip;
-  color: #111;
-  font-family: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 72rem;
+  color: var(--color-text);
   line-height: 1.35;
-}
-
-.page * {
-  box-sizing: border-box;
 }
 
 .header {
@@ -20,70 +13,59 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1.25rem;
 }
 
 .header h1 {
   margin: 0;
+  font-family: var(--font-display);
   font-size: 1.75rem;
 }
 
 .workspace {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 1.25rem;
   min-width: 0;
 }
 
-.monitor {
+.panel {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.panel[open] {
+  padding-bottom: 0.75rem;
+}
+
+.panel summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.panel[open] summary {
+  margin-bottom: 0.65rem;
+}
+
+.panelBody {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 0.75rem;
   min-width: 0;
 }
 
-.bezel {
-  width: 100%;
-  padding: 0.7rem 0.7rem 0.45rem;
-  border: 3px solid #111;
-  background: transparent;
-}
-
-.screen {
+.catalogPanel {
   min-width: 0;
-  padding: 0.7rem;
-  border: 2px solid #111;
-  background: transparent;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
   overflow: auto;
-}
-
-.chin {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  height: 1.15rem;
-  margin-top: 0.4rem;
-}
-
-.power {
-  width: 0.7rem;
-  height: 0.7rem;
-  border: 2px solid #111;
-  border-radius: 50%;
-}
-
-.neck {
-  width: 3.25rem;
-  height: 1rem;
-  border-right: 3px solid #111;
-  border-left: 3px solid #111;
-}
-
-.base {
-  width: 7.5rem;
-  height: 0.45rem;
-  border: 3px solid #111;
-  border-top: none;
 }
 
 .catalog {
@@ -102,15 +84,18 @@
   flex-direction: column;
   margin: 0;
   padding: 0.65rem;
-  border: 2px solid #111;
-  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-secondary);
 }
 
 .rowInactive {
   border-style: dashed;
+  opacity: 0.85;
 }
 
-.row h2 {
+.row h2,
+.rowInactive h2 {
   margin: 0 0 0.3rem;
   font-size: 1rem;
 }
@@ -121,12 +106,14 @@
   gap: 0.25rem 0.6rem;
   margin: 0;
   font-size: 0.9rem;
+  color: var(--color-text-muted);
 }
 
 .modifiers {
   margin: 0.45rem 0 0.6rem;
   padding-left: 1.1rem;
   font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 .form {
@@ -135,41 +122,16 @@
   gap: 0.75rem;
   min-width: 0;
   padding: 0.9rem;
-  border: 2px solid #111;
-  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .form h2 {
   margin: 0;
   font-size: 1.15rem;
-}
-
-.panelBody {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.panel {
-  margin: 0;
-  min-width: 0;
-  border: 2px solid #111;
-  padding: 0.55rem 0.75rem;
-  background: transparent;
-}
-
-.panel[open] {
-  padding-bottom: 0.75rem;
-}
-
-.panel summary {
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.panel[open] summary {
-  margin-bottom: 0.65rem;
+  font-family: var(--font-display);
 }
 
 .page label {
@@ -183,7 +145,7 @@
 .page select,
 .page button {
   font: inherit;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
 }
 
 .page input,
@@ -191,8 +153,10 @@
   width: 100%;
   max-width: 100%;
   padding: 0.45rem 0.6rem;
-  border: 2px solid #111;
-  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-secondary);
+  color: var(--color-text);
 }
 
 .modifier {
@@ -201,8 +165,9 @@
   gap: 0.5rem;
   margin: 0;
   padding: 0.75rem;
-  border: 2px solid #111;
-  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-secondary);
 }
 
 .actions {
@@ -219,9 +184,10 @@
   gap: 0.45rem;
   width: 100%;
   padding: 0.5rem 0.9rem;
-  border: 2px solid #111;
-  background: transparent;
-  color: #111;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
 }
 
@@ -231,10 +197,25 @@
 }
 
 .page button.primary {
-  border-width: 3px;
-  background: transparent;
-  color: #111;
+  border: 0;
+  background: var(--color-primary);
+  color: #fff;
   font-weight: 700;
+}
+
+.page button.primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.page button.danger {
+  border: 0;
+  background: var(--color-destructive);
+  color: #fff;
+  font-weight: 700;
+}
+
+.page button.danger:hover:not(:disabled) {
+  background: var(--color-destructive-hover);
 }
 
 .row .actions button,
@@ -247,26 +228,23 @@
 .hint {
   margin: 0;
   font-weight: 400;
-  color: #111;
+  color: var(--color-text-muted);
 }
 
 .notice,
 .error {
   margin: 0;
-  color: #9f1239;
+  color: var(--color-destructive);
 }
 
 .empty {
   margin: 0;
+  color: var(--color-text-muted);
 }
 
 @media (min-width: 40rem) {
   .catalog {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .screen {
-    max-height: 44rem;
   }
 }
 

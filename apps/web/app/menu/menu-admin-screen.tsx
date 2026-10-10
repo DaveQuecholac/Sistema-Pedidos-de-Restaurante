@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import shellStyles from '../components/app-shell/app-shell.module.css';
+import { useShell } from '../components/app-shell/shell-context';
 import {
   basisPointsToPercentLabel,
   catalogView,
@@ -57,6 +58,7 @@ type Draft =
   | { ok: false; message: string };
 
 export function MenuAdminScreen() {
+  const { selection, selectMenuItem } = useShell();
   const [catalog, setCatalog] = useState<CatalogState>({ kind: 'loading' });
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -203,10 +205,9 @@ export function MenuAdminScreen() {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
         <h1>Menú</h1>
-        <Link href="/">Inicio</Link>
       </header>
 
       {view === 'loading' ? <p>Cargando el menú…</p> : null}
@@ -224,16 +225,37 @@ export function MenuAdminScreen() {
 
       {view === 'empty' || view === 'list' ? (
         <div className={styles.workspace}>
-          <section className={styles.monitor} aria-label="Platos">
-            <div className={styles.bezel}>
-              <div className={styles.screen}>
+          <section className={styles.catalogPanel} aria-label="Platos">
             {view === 'empty' ? (
               <p className={styles.empty}>Todavía no hay platos. Crea el primero.</p>
             ) : (
               <ul className={styles.catalog}>
                 {catalog.kind === 'ready'
                   ? catalog.items.map((item) => (
-                      <li key={item.id} className={item.active ? styles.row : styles.rowInactive}>
+                      <li
+                        key={item.id}
+                        className={[
+                          item.active ? styles.row : styles.rowInactive,
+                          shellStyles.selectable,
+                          selection.kind === 'menuItem' && selection.menuItemId === item.id
+                            ? shellStyles.selectableSelected
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={
+                          selection.kind === 'menuItem' && selection.menuItemId === item.id
+                        }
+                        onClick={() => selectMenuItem(item.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectMenuItem(item.id);
+                          }
+                        }}
+                      >
                         <h2>{item.name}</h2>
                         {item.ingredients.length > 0 ? (
                           <p>Lleva {item.ingredients.map((ingredient) => ingredient.name).join(', ')}</p>
@@ -259,17 +281,22 @@ export function MenuAdminScreen() {
                           </ul>
                         ) : null}
                         <div className={styles.actions}>
-                          <button type="button" disabled={sending} onClick={() => startEdit(item)}>
+                          <button type="button" disabled={sending} onClick={(event) => { event.stopPropagation(); startEdit(item); }}>
                             <Icon name="pencil" />
                             Editar plato
                           </button>
                           {item.active ? (
-                            <button type="button" disabled={sending} onClick={() => void onDeactivate(item.id)}>
+                            <button
+                              type="button"
+                              className={styles.danger}
+                              disabled={sending}
+                              onClick={(event) => { event.stopPropagation(); void onDeactivate(item.id); }}
+                            >
                               <Icon name="ban" />
                               Desactivar plato
                             </button>
                           ) : (
-                            <button type="button" disabled={sending} onClick={() => void onActivate(item)}>
+                            <button type="button" disabled={sending} onClick={(event) => { event.stopPropagation(); void onActivate(item); }}>
                               <Icon name="check" />
                               Activar plato
                             </button>
@@ -280,13 +307,6 @@ export function MenuAdminScreen() {
                   : null}
               </ul>
             )}
-              </div>
-              <div className={styles.chin} aria-hidden="true">
-                <span className={styles.power} />
-              </div>
-            </div>
-            <div className={styles.neck} aria-hidden="true" />
-            <div className={styles.base} aria-hidden="true" />
           </section>
 
           <form
@@ -334,7 +354,12 @@ export function MenuAdminScreen() {
                       onChange={(event) => renameIngredient(ingredient.key, event.target.value)}
                     />
                   </label>
-                  <button type="button" disabled={sending} onClick={() => removeIngredient(ingredient.key)}>
+                  <button
+                    type="button"
+                    className={styles.danger}
+                    disabled={sending}
+                    onClick={() => removeIngredient(ingredient.key)}
+                  >
                     <Icon name="x" />
                     Quitar ingrediente
                   </button>
@@ -415,7 +440,12 @@ export function MenuAdminScreen() {
                       />
                     </label>
                   ) : null}
-                  <button type="button" disabled={sending} onClick={() => removeModifier(modifier.key)}>
+                  <button
+                    type="button"
+                    className={styles.danger}
+                    disabled={sending}
+                    onClick={() => removeModifier(modifier.key)}
+                  >
                     <Icon name="x" />
                     Quitar modificador
                   </button>
@@ -460,7 +490,7 @@ export function MenuAdminScreen() {
           </form>
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 

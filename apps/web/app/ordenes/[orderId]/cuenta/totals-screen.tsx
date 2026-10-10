@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { orderCobroPath, orderDetailPath } from '../../../components/app-shell/order-routes';
+import { useShell } from '../../../components/app-shell/shell-context';
 import { basisPointsToPercentLabel, centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
 import { can, originLabel, statusLabel } from '../../order-view';
@@ -36,6 +38,7 @@ type Props = {
 };
 
 export function TotalsScreen({ orderId }: Props) {
+  const { bumpRefresh, setSelectedOrderId } = useShell();
   const [status, setStatus] = useState<TotalsStatus>({ kind: 'loading' });
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -72,36 +75,37 @@ export function TotalsScreen({ orderId }: Props) {
   }
 
   useEffect(() => {
+    setSelectedOrderId(orderId);
     setAccountLocked(isAccountAccepted(orderId));
     void loadAccount(orderId, setStatus, setNotice, syncForms);
-  }, [orderId]);
+  }, [orderId, setSelectedOrderId]);
 
   const view = totalsView(status);
 
   if (view === 'loading') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <p>Cargando cuenta…</p>
-      </main>
+      </div>
     );
   }
 
   if (view === 'missing') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <p className={styles.notice} role="alert">
           Esa comanda no existe
         </p>
         <p>
-          <Link href="/orders">Comandas</Link>
+          <Link href="/ordenes">Órdenes</Link>
         </p>
-      </main>
+      </div>
     );
   }
 
   if (view === 'error' && status.kind === 'error') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <div className={styles.error} role="alert">
           <p>{totalsErrorText(status.error)}</p>
           <button
@@ -113,9 +117,9 @@ export function TotalsScreen({ orderId }: Props) {
           </button>
         </div>
         <p>
-          <Link href="/orders">Comandas</Link>
+          <Link href="/ordenes">Órdenes</Link>
         </p>
-      </main>
+      </div>
     );
   }
 
@@ -147,10 +151,12 @@ export function TotalsScreen({ orderId }: Props) {
       const next = await action();
       setStatus({ kind: 'ready', order, totals: next });
       syncForms(next);
+      bumpRefresh();
     } catch (error) {
       setNotice(totalsErrorText(error));
       if (error instanceof OrderApiError && error.status === 409) {
         await loadAccount(orderId, setStatus, setNotice, syncForms, false);
+        bumpRefresh();
       }
     } finally {
       setSending(false);
@@ -196,7 +202,7 @@ export function TotalsScreen({ orderId }: Props) {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
         <div>
           <h1>
@@ -206,9 +212,9 @@ export function TotalsScreen({ orderId }: Props) {
             <span className={styles.statusBadge}>{statusLabel(order.status)}</span>
           </p>
         </div>
-        <nav className={styles.nav} aria-label="Secciones">
-          <Link href={`/orders/${encodeURIComponent(orderId)}`}>Comanda</Link>
-          <Link href="/orders">Comandas</Link>
+        <nav className={styles.nav} aria-label="Acciones de cuenta">
+          <Link href="/pago">Cola de pago</Link>
+          <Link href={orderDetailPath(orderId)}>Comanda</Link>
         </nav>
       </header>
 
@@ -219,9 +225,7 @@ export function TotalsScreen({ orderId }: Props) {
       ) : null}
 
       <div className={styles.workspace}>
-        <section className={styles.monitor} aria-label="Desglose de la cuenta">
-          <div className={styles.bezel}>
-            <div className={styles.screen}>
+        <section className={styles.panel} aria-label="Desglose de la cuenta">
               <table className={styles.breakdown}>
                 <tbody>
                   {totals.lines.map((line) => (
@@ -266,13 +270,6 @@ export function TotalsScreen({ orderId }: Props) {
                   {capNotice}
                 </p>
               ) : null}
-            </div>
-            <div className={styles.chin} aria-hidden="true">
-              <span className={styles.power} />
-            </div>
-          </div>
-          <div className={styles.neck} aria-hidden="true" />
-          <div className={styles.base} aria-hidden="true" />
         </section>
 
         {showAdjustmentForms ? (
@@ -445,7 +442,7 @@ export function TotalsScreen({ orderId }: Props) {
                 ) : null}
                 <Link
                   className={styles.primary}
-                  href={`/orders/${encodeURIComponent(orderId)}/payment`}
+                  href={orderCobroPath(orderId)}
                 >
                   {order.status === 'CLOSED' ? 'Ver cobro' : 'Ir a cobrar'}
                 </Link>
@@ -454,7 +451,7 @@ export function TotalsScreen({ orderId }: Props) {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 

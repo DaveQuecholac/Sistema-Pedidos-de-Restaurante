@@ -1,0 +1,62 @@
+:root {
+  --color-primary: #0f4c5c;
+  --color-primary-hover: #0a3a46;
+  --color-primary-muted: #1a6b7c;
+  --color-secondary: #eef1f2;
+  --color-surface: #ffffff;
+  --color-sidebar: #e6eaec;
+  --color-destructive: #e85d4c;
+  --color-destructive-hover: #d14a3a;
+  --color-text: #1a1d1f;
+  --color-text-muted: #4a5258;
+  --color-accent-sand: #c4a574;
+  --color-accent-sand-soft: #e8d9c0;
+  --color-border: #d0d5d8;
+  --color-focus: #0f4c5c;
+  --shadow-soft: 0 1px 2px rgb(15 76 92 / 6%), 0 8px 24px rgb(15 76 92 / 8%);
+  --radius-sm: 0.35rem;
+  --radius-md: 0.55rem;
+  --sidebar-width: 5.5rem;
+  --summary-width: 20rem;
+  --header-height: 4rem;
+  --font-sans: var(--font-body), 'Segoe UI', sans-serif;
+  --font-display: var(--font-title), Georgia, serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgb(26 107 124 / 14%), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgb(196 165 116 / 12%), transparent 50%),
+    linear-gradient(180deg, #f7f8f9 0%, #eef1f2 100%);
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

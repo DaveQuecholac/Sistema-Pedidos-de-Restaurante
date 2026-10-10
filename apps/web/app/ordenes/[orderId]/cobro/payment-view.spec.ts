@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OrderApiError, type OrderJson } from '../../order-api';
-import type { OrderTotalsJson } from '../totals/totals-api';
+import type { OrderTotalsJson } from '../cuenta/totals-api';
 import type { PaymentJson } from './payment-api';
 import {
   PAYMENT_METHODS,

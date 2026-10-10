@@ -1,13 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useShell } from '../components/app-shell/shell-context';
 import {
   beginCooking,
   listOrders,
   markOrderReady,
   type OrderJson,
-} from '../orders/order-api';
+} from '../ordenes/order-api';
 import {
   can,
   errorText,
@@ -15,8 +15,8 @@ import {
   openedAtLabel,
   originLabel,
   statusLabel,
-} from '../orders/order-view';
-import styles from '../orders/orders.module.css';
+} from '../ordenes/order-view';
+import styles from '../ordenes/orders.module.css';
 
 type BoardState =
   | { kind: 'loading' }
@@ -24,6 +24,8 @@ type BoardState =
   | { kind: 'ready'; orders: OrderJson[] };
 
 export function KitchenScreen() {
+  const { searchQuery, selectedOrderId, setSelectedOrderId, refreshToken, bumpRefresh } =
+    useShell();
   const [board, setBoard] = useState<BoardState>({ kind: 'loading' });
   const [notice, setNotice] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -33,20 +35,26 @@ export function KitchenScreen() {
 
   useEffect(() => {
     void refreshBoard(setBoard);
-  }, []);
+  }, [refreshToken]);
+
+  const query = searchQuery.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    const source = board.kind === 'ready' ? board.orders : [];
+    if (query === '') {
+      return source;
+    }
+    return source.filter((order) => {
+      const origin = originLabel(order).toLowerCase();
+      return origin.includes(query) || order.id.toLowerCase().includes(query);
+    });
+  }, [board, query]);
 
   const pending = useMemo(
-    () => sortByArrival(board.kind === 'ready' ? board.orders : [], 'SENT_TO_KITCHEN'),
-    [board],
+    () => sortByArrival(filtered, 'SENT_TO_KITCHEN'),
+    [filtered],
   );
-  const cooking = useMemo(
-    () => sortByArrival(board.kind === 'ready' ? board.orders : [], 'IN_KITCHEN'),
-    [board],
-  );
-  const ready = useMemo(
-    () => sortByArrival(board.kind === 'ready' ? board.orders : [], 'READY'),
-    [board],
-  );
+  const cooking = useMemo(() => sortByArrival(filtered, 'IN_KITCHEN'), [filtered]);
+  const ready = useMemo(() => sortByArrival(filtered, 'READY'), [filtered]);
 
   async function onRefresh() {
     setNotice(null);
@@ -72,6 +80,8 @@ export function KitchenScreen() {
         }
         return { kind: 'ready', orders: replaceOrder(current.orders, updated) };
       });
+      setSelectedOrderId(updated.id);
+      bumpRefresh();
     } catch (error) {
       setNotice(errorText(error));
     } finally {
@@ -80,24 +90,20 @@ export function KitchenScreen() {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
         <div>
           <h1>Cocina</h1>
           <p className={styles.meta}>Pendientes → cocción → listas</p>
         </div>
-        <nav className={styles.nav} aria-label="Secciones">
-          <Link href="/">Inicio</Link>
-          <Link href="/orders">Comandas</Link>
-          <button
-            type="button"
-            className={styles.navButton}
-            disabled={busy}
-            onClick={() => void onRefresh()}
-          >
-            Actualizar
-          </button>
-        </nav>
+        <button
+          type="button"
+          className={styles.navButton}
+          disabled={busy}
+          onClick={() => void onRefresh()}
+        >
+          Actualizar
+        </button>
       </header>
 
       {notice ? (
@@ -125,13 +131,18 @@ export function KitchenScreen() {
             empty="Nada por cocinar todavía."
             orders={pending}
             timeZone={timeZone}
+            selectedOrderId={selectedOrderId}
+            onSelect={setSelectedOrderId}
             action={(order) =>
               can(order, 'beginCooking') ? (
                 <button
                   type="button"
                   className={styles.primary}
                   disabled={busy}
-                  onClick={() => void runKitchenAction(order.id, () => beginCooking(order.id))}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void runKitchenAction(order.id, () => beginCooking(order.id));
+                  }}
                 >
                   Poner en cocción
                 </button>
@@ -144,13 +155,18 @@ export function KitchenScreen() {
             empty="Nada en el fuego."
             orders={cooking}
             timeZone={timeZone}
+            selectedOrderId={selectedOrderId}
+            onSelect={setSelectedOrderId}
             action={(order) =>
               can(order, 'markReady') ? (
                 <button
                   type="button"
                   className={styles.primary}
                   disabled={busy}
-                  onClick={() => void runKitchenAction(order.id, () => markOrderReady(order.id))}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void runKitchenAction(order.id, () => markOrderReady(order.id));
+                  }}
                 >
                   Marcar lista
                 </button>
@@ -163,11 +179,13 @@ export function KitchenScreen() {
             empty="Aún no hay órdenes listas."
             orders={ready}
             timeZone={timeZone}
+            selectedOrderId={selectedOrderId}
+            onSelect={setSelectedOrderId}
             action={() => null}
           />
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }
 
@@ -177,6 +195,8 @@ function KitchenColumn({
   empty,
   orders,
   timeZone,
+  selectedOrderId,
+  onSelect,
   action,
 }: {
   title: string;
@@ -184,6 +204,8 @@ function KitchenColumn({
   empty: string;
   orders: OrderJson[];
   timeZone: string;
+  selectedOrderId: string | null;
+  onSelect: (orderId: string) => void;
   action: (order: OrderJson) => ReactNode;
 }) {
   return (
@@ -197,7 +219,23 @@ function KitchenColumn({
       ) : (
         <ul className={styles.ticketList}>
           {orders.map((order) => (
-            <li key={order.id} className={styles.ticket}>
+            <li
+              key={order.id}
+              className={
+                selectedOrderId === order.id
+                  ? `${styles.ticket} ${styles.ticketSelected}`
+                  : styles.ticket
+              }
+              onClick={() => onSelect(order.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelect(order.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
               <div className={styles.ticketHead}>
                 <h3>{originLabel(order)}</h3>
                 <p className={styles.meta}>

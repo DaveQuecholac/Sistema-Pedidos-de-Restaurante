@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { orderCobroPath, orderCuentaPath } from '../../components/app-shell/order-routes';
+import { useShell } from '../../components/app-shell/shell-context';
 import { listMenuItems, type MenuItemJson } from '../../menu/menu-api';
 import { centavosToLabel } from '../../menu/menu-amount';
 import {
@@ -43,6 +45,7 @@ type Props = {
 };
 
 export function OrderDetailScreen({ orderId }: Props) {
+  const { bumpRefresh, setSelectedOrderId } = useShell();
   const [orderState, setOrderState] = useState<OrderState>({ kind: 'loading' });
   const [menuState, setMenuState] = useState<MenuState>({ kind: 'loading' });
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -55,8 +58,9 @@ export function OrderDetailScreen({ orderId }: Props) {
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
+    setSelectedOrderId(orderId);
     void loadAll(orderId, setOrderState, setMenuState);
-  }, [orderId]);
+  }, [orderId, setSelectedOrderId]);
 
   const order = orderState.kind === 'ready' ? orderState.order : null;
   const editable = order !== null && can(order, 'editLines');
@@ -127,6 +131,7 @@ export function OrderDetailScreen({ orderId }: Props) {
       setOrderState({ kind: 'ready', order: updated });
       setConfirmCancel(false);
       resetLineForm();
+      bumpRefresh();
     } catch (error) {
       setNotice(errorText(error));
       if (error instanceof OrderApiError && error.status === 409) {
@@ -134,6 +139,7 @@ export function OrderDetailScreen({ orderId }: Props) {
         setEditingLineId(null);
         setMissingModifiers(false);
         setConfirmCancel(false);
+        bumpRefresh();
       }
     } finally {
       setSending(false);
@@ -168,28 +174,28 @@ export function OrderDetailScreen({ orderId }: Props) {
 
   if (orderState.kind === 'loading') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <p>Cargando comanda…</p>
-      </main>
+      </div>
     );
   }
 
   if (orderState.kind === 'missing') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <p className={styles.notice} role="alert">
           Esa comanda no existe
         </p>
         <p>
-          <Link href="/orders">Comandas</Link>
+          <Link href="/ordenes">Órdenes</Link>
         </p>
-      </main>
+      </div>
     );
   }
 
   if (orderState.kind === 'error') {
     return (
-      <main className={styles.page}>
+      <div className={styles.page}>
         <div className={styles.error} role="alert">
           <p>{orderState.message}</p>
           <button
@@ -201,9 +207,9 @@ export function OrderDetailScreen({ orderId }: Props) {
           </button>
         </div>
         <p>
-          <Link href="/orders">Comandas</Link>
+          <Link href="/ordenes">Órdenes</Link>
         </p>
-      </main>
+      </div>
     );
   }
 
@@ -211,7 +217,7 @@ export function OrderDetailScreen({ orderId }: Props) {
   const lock = lockNotice(current);
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
         <div>
           <h1>{originLabel(current)}</h1>
@@ -219,12 +225,11 @@ export function OrderDetailScreen({ orderId }: Props) {
             <span className={styles.statusBadge}>{statusLabel(current.status)}</span>
           </p>
         </div>
-        <nav className={styles.nav} aria-label="Secciones">
-          <Link href={`/orders/${encodeURIComponent(orderId)}/totals`}>Cuenta</Link>
+        <nav className={styles.nav} aria-label="Acciones de comanda">
+          <Link href={orderCuentaPath(orderId)}>Cuenta</Link>
           {current.status === 'CLOSED' ? (
-            <Link href={`/orders/${encodeURIComponent(orderId)}/payment`}>Ver cobro</Link>
+            <Link href={orderCobroPath(orderId)}>Ver cobro</Link>
           ) : null}
-          <Link href="/orders">Comandas</Link>
         </nav>
       </header>
 
@@ -235,9 +240,7 @@ export function OrderDetailScreen({ orderId }: Props) {
       ) : null}
 
       <div className={styles.workspace}>
-        <section className={styles.monitor} aria-label="Líneas de la comanda">
-          <div className={styles.bezel}>
-            <div className={styles.screen}>
+        <section className={styles.panel} aria-label="Líneas de la comanda">
               {current.lines.length === 0 ? (
                 <p className={styles.empty}>Todavía no hay platos en esta comanda.</p>
               ) : (
@@ -269,6 +272,7 @@ export function OrderDetailScreen({ orderId }: Props) {
                           </button>
                           <button
                             type="button"
+                            className={styles.danger}
                             disabled={sending}
                             onClick={() =>
                               void runMutation(() => cancelLine(current.id, line.id))
@@ -282,13 +286,6 @@ export function OrderDetailScreen({ orderId }: Props) {
                   ))}
                 </ul>
               )}
-            </div>
-            <div className={styles.chin} aria-hidden="true">
-              <span className={styles.power} />
-            </div>
-          </div>
-          <div className={styles.neck} aria-hidden="true" />
-          <div className={styles.base} aria-hidden="true" />
 
           <div className={styles.actionBar}>
             {can(current, 'sendToKitchen') ? (
@@ -304,6 +301,7 @@ export function OrderDetailScreen({ orderId }: Props) {
             {can(current, 'cancel') && !confirmCancel ? (
               <button
                 type="button"
+                className={styles.danger}
                 disabled={sending}
                 onClick={() => {
                   setNotice(null);
@@ -453,7 +451,7 @@ export function OrderDetailScreen({ orderId }: Props) {
           </form>
         ) : null}
       </div>
-    </main>
+    </div>
   );
 }
 

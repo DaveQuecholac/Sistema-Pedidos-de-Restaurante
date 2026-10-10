@@ -5,8 +5,8 @@ import {
 } from '../../../menu/menu-amount';
 import { OrderApiError, type OrderJson, type OrderMoneyJson } from '../../order-api';
 import { can } from '../../order-view';
-import { totalsErrorText } from '../totals/totals-view';
-import type { OrderTotalsJson } from '../totals/totals-api';
+import { totalsErrorText } from '../cuenta/totals-view';
+import type { OrderTotalsJson } from '../cuenta/totals-api';
 import type { PaymentBody, PaymentJson, PaymentMethodJson } from './payment-api';
 
 export type PaymentStatus =
