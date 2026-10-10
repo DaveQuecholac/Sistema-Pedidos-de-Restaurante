@@ -1,173 +1,294 @@
-# Plan de acción — Catálogo de mesas y Home con sentido
+# Plan de acción — Catálogo de mesas (núcleo → API → Home + admin)
 
-**Rama:** `dev/mesas` (acordar nombre de rama git al implementar)  
+**Rama:** `dev/mesas` (acordar nombre git al implementar)  
 **Fecha:** 10 de octubre de 2026  
-**Estado:** acordado el 10 de octubre de 2026 (análisis §11). Listo para implementar cuando Hector lo pida.  
+**Estado:** Hecho (tareas 1–3 + docs/cierre). Checklist §10 en verde.  
 **Análisis:** `analisis.md` en esta carpeta.  
-**Maestro:** `.cursor/rules/dev-spec-gen1.mdc`.
+**Maestro:** `.cursor/rules/dev-spec-gen1.mdc`.  
+**Regla de ritmo:** **un paso → pruebas de ese paso → OK → siguiente.** No saltar pruebas. Si una prueba falla, no se avanza.
 
-## 1. Resultado deseado
+## 1. Resultado final (las 3 tareas)
 
-En el local se entienden dos cosas distintas:
+1. El local tiene un **catálogo real de mesas** (alta, edición de etiqueta/zona, desactivar/activar).  
+2. `OpenOrder` con mesa exige: mesa existente, activa, y **sin** otra orden activa en esa mesa.  
+3. Home Mesas lee la API (libre/ocupada/lista); el admin permite sumar o quitar mesas del piso.  
+4. Pedido externo sigue igual. RF3–RF5 intactos.
 
-1. **Mesas** — lugares del restaurante (catálogo).
-2. **Órdenes** — comandas que pueden estar ligadas a una mesa.
+Seed: **6 mesas** iniciales (`"1"`…`"6"`, zona `"Salón"`). Después el usuario decide el resto.
 
-La pestaña principal **Mesas** muestra el catálogo real. Una mesa libre abre comanda; una ocupada entra a la orden activa. El flujo de siempre sigue igual: líneas → cocina → cuenta → cobro.
+## 2. No se toca
 
-Se prueba el núcleo sin browser; la API sin UI; el Home con `pnpm dev:restart` y recorrido en `https://restaurante.localhost`.
+- Lógica de cocina, totales y cobro (salvo validación en `OpenOrder`).  
+- Auth, microservicios, pasarelas reales.  
+- Hard-delete de mesas con historial.  
+- Redesign global del shell (solo Home + admin mesas + cliente API).
 
-## 2. No se toca (salvo el ajuste explícito de OpenOrder)
+Archivo fuera de las secciones 5–6 → listar y acordar antes.
 
-- Reglas RF3/RF4/RF5 de cocina, totales y cobro (salvo validación de mesa al abrir).
-- Pasarelas reales, auth, microservicios.
-- Redesign completo del shell (solo sustituir datos del Home / admin mesas).
-- Pedidos externos: siguen sin catálogo de mesas.
-
-Si al implementar hace falta un archivo fuera de las secciones 5–6, se lista y se acuerda antes.
-
-## 3. Decisiones cerradas para implementar
-
-Valen las del análisis §11 (10 oct 2026):
+## 3. Decisiones cerradas
 
 | Tema | Decisión |
 |------|----------|
-| Entidad | `Table`: `id` `"1"`…`"6"`, `label` acorde, `zone` fija un piso (ej. `"Salón"`), `active` |
-| Cantidad | **6 mesas** fijas vía seed/ops — no UI para generar N mesas |
-| Puerto | `TableRepository` — sin SQL |
-| Ocupación | Derivada de órdenes activas; no columna `occupied` |
-| Activa | `OPEN`, `SENT_TO_KITCHEN`, `IN_KITCHEN`, `READY` |
-| Una activa por mesa | Sí. Segunda apertura → `TableAlreadyHasActiveOrderError` |
-| `OpenOrder` mesa | Exige mesa existente y `active`; luego regla de una activa |
-| Externo | Sin cambio (`ExternalOrderIdInUseError` como hoy) |
-| Home | Solo API; sin grid hardcodeado 1–12 |
-| Admin UI | **No** en v1 |
-| Errores | Clases `name` propio; mensaje dominio en inglés; HTTP/Zod en el borde |
-| Drizzle | Solo `db:generate` / `db:migrate`; sin SQL a mano |
+| Entidad | `Table`: `id`, `label`, `zone`, `active` |
+| Id | Negocio 1–40, trim, único; lo elige el usuario al crear |
+| Quitar | `DeactivateTable` (como menú). Bloqueado si hay orden activa |
+| Agregar | `CreateTable` vía API + UI admin |
+| Ocupación | Derivada de órdenes activas; sin columna `occupied` |
+| Una activa | Sí → `TableAlreadyHasActiveOrderError` |
+| Seed | 6 mesas; idempotente (no duplicar si ya existen) |
+| Errores | Clases `name` propio; mensaje dominio en inglés; HTTP mapea código |
+| Drizzle | Solo `db:generate` / `db:migrate` |
+| Pruebas | Obligatorias tras **cada** paso de este plan |
 
-## 4. Contrato (borrador)
+## 4. Contrato
 
-### 4.1 Dominio / aplicación
+### 4.1 Dominio / puerto
 
 ```ts
 class Table {
-  static create(input: { id: string; label: string; zone: string | null }): Table;
+  static create(input: { id: string; label: string; zone: string }): Table; // active true
   static restore(input: { id; label; zone; active }): Table;
   rename(label: string): Table;
-  setZone(zone: string | null): Table;
+  setZone(zone: string): Table;
   deactivate(): Table;
   activate(): Table;
-  // getters: id, label, zone, active
 }
 
 interface TableRepository {
+  add(table: Table): Promise<void>;
+  save(table: Table): Promise<void>;
   findById(id: string): Promise<Table | null>;
   list(): Promise<Table[]>;
-  save(table: Table): Promise<void>;
 }
 
-// Casos: ListTables, GetTable
-// Seed/ops escribe las 6 filas (fuera de casos de uso de producto)
-// OpenOrder(tableId): load Table → not found / inactive → error;
-//   list active orders for tableId → if any → error; else open as today
+// OrderRepository: añadir findActiveByTableId(tableId) → Order | null
+//   (activa = OPEN | SENT_TO_KITCHEN | IN_KITCHEN | READY)
 ```
 
-### 4.2 HTTP (vocabulario producto)
+### 4.2 Casos de uso
+
+| Caso | Comportamiento clave |
+|------|----------------------|
+| `CreateTable` | Valida → `add`; id duplicado → `TableAlreadyExistsError` |
+| `UpdateTable` | Label/zone; not found → error |
+| `DeactivateTable` | Si `findActiveByTableId` → `TableHasActiveOrderError`; si ya inactiva, no-op seguro |
+| `ActivateTable` | `active: true` |
+| `ListTables` / `GetTable` | Listado / uno |
+| `OpenOrder` | Si `tableId`: load table → not found / inactive → error; si hay activa → `TableAlreadyHasActiveOrderError`; si no, abrir como hoy. Externo sin cambios |
+
+### 4.3 HTTP (producto)
 
 | Método | Ruta | Notas |
 |--------|------|-------|
-| `GET` | `/tables` | Lista las 6 mesas del catálogo |
-| `POST` | `/orders` | Body `{ tableId }` o `{ externalOrderId }`; errores nuevos si mesa inválida / ya tiene orden activa |
+| `GET` | `/tables` | Lista (activas e inactivas; UI filtra piso vs admin) |
+| `GET` | `/tables/:tableId` | Una |
+| `POST` | `/tables` | Body `{ id, label, zone? }` — zone default `"Salón"` |
+| `PATCH` | `/tables/:tableId` | `{ label?, zone?, active? }` o rutas dedicadas deactivate |
+| `POST` | `/tables/:tableId/deactivate` | Como menú |
+| `POST` | `/orders` | Códigos nuevos: `TableNotFoundError`, `TableInactiveError`, `TableAlreadyHasActiveOrderError` |
 
-Sin `POST/PATCH /tables` en v1 (el catálogo no se administra por API de producto).
+UI:
 
-UI web: `/` consume `GET /tables` + `GET /orders?status=…`. API en inglés de dominio (`Table`, `/tables`); UI en español.
+- `/` — Home servicio (solo activas + ocupación).  
+- `/mesas/admin` (o sección en Mesas) — CRUD lite: alta, editar, desactivar/activar.
 
-### 4.3 Home (comportamiento)
-
-| Estado mesa | Acción del clic |
-|-------------|-----------------|
-| Sin orden activa | `OpenOrder({ tableId })` → `/ordenes/:id` |
-| Con orden activa (A) | Navegar a esa orden |
-| Inactiva | No debería ocurrir en v1 (seed las deja activas); si aparece, no clicable |
-
-Búsqueda del header: filtra por `label` / `id` (una sola zona).
-
-## 5. Capas y archivos (orientativo)
-
-### Tarea 1 — Núcleo
+## 5. Archivos orientativos
 
 ```text
 apps/api/src/domain/table/
 apps/api/src/application/table/
-apps/api/src/application/order/open-order.ts   # solo inyección TableRepository + reglas nuevas
+apps/api/src/application/ports/table-repository.ts
+apps/api/src/application/order/open-order.ts          # ajuste
+apps/api/src/application/ports/order-repository.ts    # findActiveByTableId
+apps/api/src/infrastructure/.../drizzle-table-repository.ts
+apps/api/src/infrastructure/persistence/drizzle/schema/… tables
+apps/api/src/interface/http/... table controller + Zod
+scripts/… o ensure seed mesas (ops, no en casos de uso)
+apps/web/app/mesas/mesas-api.ts
+apps/web/app/mesas/mesas-screen.tsx                   # Home real
+apps/web/app/mesas/mesas-admin-screen.tsx             # admin
 ```
 
-Tests Vitest con `InMemoryTableRepository` + fake de órdenes para “una activa”.
+---
 
-### Tarea 2 — Persistencia y API
+## 6. Pasos — Tarea 1 (núcleo). Probar tras cada paso
 
-```text
-apps/api/src/infrastructure/persistence/drizzle/… tables schema
-apps/api/src/infrastructure/…/drizzle-table-repository.ts
-apps/api/src/interface/http/… table controller + Zod
-apps/api/src/app.module.ts                    # composition root
-```
+> Criterio Gen 1: todo con fake, **sin** Postgres ni browser.
 
-Migración Kit. Seeds opcionales en `scripts/` (no en casos de uso).
+### Paso 1.1 — Dominio `Table` + errores
 
-### Tarea 3 — Web
+- Crear `Table`, validaciones id/label/zone, `create` / `restore` / `deactivate` / `activate` / rename / setZone.  
+- Errores de dominio de la §5 del análisis (los de entidad).
 
-```text
-apps/web/app/mesas/mesas-screen.tsx           # datos reales (6 mesas)
-apps/web/app/mesas/mesas-api.ts               # cliente HTTP
-```
+**Prueba (obligatoria):** Vitest dominio — id inválido, label vacío, deactivate/activate, restore fiel.  
+**OK →** 1.2.
 
-Quitar literales hardcodeados del Home. Mantener shell actual. Sin pantalla admin de mesas.
+### Paso 1.2 — Puerto + `InMemoryTableRepository`
 
-## 6. Pasos de implementación (cuando esté acordado)
+- Interface `TableRepository`; doble en memoria (copias, `add`/`save` como menú).
 
-1. Actualizar drift en `docs/dev/comanda/01-orden-y-cocina/` (ya no “varias activas por mesa”).  
-2. Tarea 1: dominio + `ListTables` + ajuste `OpenOrder` + tests.  
-3. Tarea 2: schema → migrate → seed 6 mesas → `GET /tables` → validación en `POST /orders`.  
-4. Tarea 3: Home real → `pnpm typecheck` → `pnpm dev:restart` → smoke browser.  
-5. Demo: mesas 1–6 → libre → orden → (flujo) → cerrar → mesa libre.  
-6. Cierre del módulo (`docs/dev/mesas/cierre-del-modulo.md`) en lenguaje del local.
+**Prueba:** add duplicado falla; save inexistente falla; list/find.  
+**OK →** 1.3.
 
-## 7. Catálogo de pruebas (mínimo)
+### Paso 1.3 — Casos de catálogo
 
-| ID | Qué |
-|----|-----|
-| T1 | Seed/list: exactamente 6 mesas, zona única |
-| T2 | `OpenOrder` con mesa inexistente → error |
-| T3 | Segunda orden activa misma mesa → error |
-| T4 | Tras `CLOSED`/`CANCELLED`, se puede abrir otra en esa mesa |
-| T5 | Externo sigue igual |
-| T6 | Home muestra las 6 de API; sin hardcode inventado |
-| T7 | Smoke UI: mesa libre → comanda → mesa ocupada → cerrar → libre |
+- `CreateTable`, `UpdateTable`, `DeactivateTable`, `ActivateTable`, `ListTables`, `GetTable`.
 
-## 8. Hecho cuando
+**Prueba:** matriz de errores de aplicación (`TableAlreadyExists`, `TableNotFound`, …) sin HTTP.  
+**OK →** 1.4.
 
-- [x] Análisis §11 acordado (Hector, 10 oct 2026).  
-- [ ] Núcleo testeable con fake, sin Postgres/browser.  
-- [ ] Cero imports de Nest/Drizzle/Next en `domain/`.  
-- [ ] Home Mesas refleja 6 mesas + ocupación derivada.  
-- [ ] Docs de comanda actualizados (una activa por mesa).  
-- [x] `docs/README.md` enlaza esta carpeta.  
-- [ ] Demo del resultado de la sección 1.
+### Paso 1.4 — `findActiveByTableId` en puerto de órdenes + fake
 
-## 9. Por qué esto hace sentido la pestaña Mesas
+- Extender `OrderRepository` e implementación en memoria de tests.
 
-| Sin catálogo (hoy) | Con este plan |
-|--------------------|---------------|
-| Mesas = botones inventados en React | Mesas = datos del negocio |
-| Orden “parece” la mesa | Mesa es el lugar; orden es la cuenta de ese lugar |
-| No hay alta/baja de mesas del local | El local administra su plano (aunque sea simple) |
-| Ocupación ambigua si hay varias órdenes | (A) Libre/Ocupada es una sola verdad usable en un clic |
+**Prueba:** fake devuelve la activa correcta / null.  
+**OK →** 1.5.
 
-## 10. Riesgos / stop-the-line
+### Paso 1.5 — Ajuste `OpenOrder`
 
-- Implementar sin cerrar A vs B → Home contradictorio.  
-- Guardar `occupied` en BD además de órdenes → drift de estado.  
-- Validar mesa solo en React → se bypasea por API.  
-- Copiar fallbacks del grid mock al path real → viola mock→real.
+- Inyectar `TableRepository` (+ uso de `findActiveByTableId`).  
+- Mesa inexistente / inactiva / ya ocupada → errores.  
+- Externo sin cambios (specs previos siguen verdes).
+
+**Prueba:** suite `OpenOrder` ampliada + regresión externo; `pnpm --filter @restaurante/api test` (o el scope de order/table) en verde.  
+**OK →** documentar cierre tarea 1; pasar a tarea 2 (nueva carpeta `02-…` con su plan, o continuar aquí si se acuerda un solo doc).
+
+---
+
+## 7. Pasos — Tarea 2 (persistencia + API). Probar tras cada paso
+
+### Paso 2.1 — Schema Drizzle `tables`
+
+- Columnas: `id` PK text, `label`, `zone`, `active`, timestamps si el resto del schema los usa.  
+- `db:generate` → `db:migrate` → verificar tabla en Postgres.
+
+**Prueba:** `\d tables` / query SQL; journal Kit intacto (no editar a mano).  
+**OK →** 2.2.
+
+### Paso 2.2 — `DrizzleTableRepository` + mapper
+
+**Prueba:** test de integración en transacción (mismo estilo menú/comanda): add/list/save/deactivate.  
+**OK →** 2.3.
+
+### Paso 2.3 — `findActiveByTableId` en `DrizzleOrderRepository`
+
+**Prueba:** integración: orden OPEN en mesa X se encuentra; CLOSED no.  
+**OK →** 2.4.
+
+### Paso 2.4 — Seed idempotente 6 mesas
+
+- Script ops o ensure en arranque documentado; **no** dentro del caso de uso.
+- Hecho: `scripts/ensure-salon-tables.mjs` (`pnpm db:ensure-tables`); también en `pnpm dev` / `dev:restart`.
+
+**Prueba:** correr seed dos veces → siguen 6 filas, sin duplicar.  
+**OK →** 2.5.
+
+### Paso 2.5 — HTTP Zod + `TableController` + cableado Nest
+
+- Composition root elige `DrizzleTableRepository`.  
+- Endpoints §4.3.
+
+**Prueba curl / integración HTTP:**
+
+| ID | Llamada | Esperado |
+|----|---------|----------|
+| H1 | `GET /tables` | 200, ≥ 6 tras seed |
+| H2 | `POST /tables` `{ id:"7", label:"7" }` | 201 |
+| H3 | `POST /tables` id duplicado | 409 `TableAlreadyExistsError` |
+| H4 | `POST /tables/:id/deactivate` con orden activa | 409 `TableHasActiveOrderError` |
+| H5 | `POST /orders` `{ tableId:"999" }` | 404/409 `TableNotFoundError` |
+| H6 | Dos `POST /orders` misma mesa activa | segunda → `TableAlreadyHasActiveOrderError` |
+| H7 | `POST /orders` `{ externalOrderId:"PL-1" }` | 201 (sin Table) |
+
+**OK →** tarea 3.
+
+---
+
+## 8. Pasos — Tarea 3 (web Home + admin). Probar tras cada paso
+
+### Paso 3.1 — `mesas-api.ts` (cliente real, sin fallbacks mock)
+
+**Prueba:** Vitest del cliente (mismo estilo `order-api.spec`) o typecheck + llamada real en smoke.  
+**OK →** 3.2.
+
+### Paso 3.2 — Home Mesas desde API
+
+- Quitar `FLOORS` hardcodeado.  
+- Solo mesas `active`; ocupación vía `listOrders`.  
+- Inspector: Abrir / Ver comanda (comportamiento actual).
+
+**Prueba:** `pnpm --filter @restaurante/web typecheck` + `pnpm dev:restart` + smoke: se ven las del seed; Abrir mesa 1 crea orden y pasa a ocupada.  
+**OK →** 3.3.
+
+### Paso 3.3 — Admin UI mesas
+
+- Alta (id, label, zone).  
+- Editar label/zone.  
+- Desactivar (error visible si hay orden activa).  
+- Activar.  
+- Inspector a la derecha al seleccionar (mismo patrón shell).
+
+**Prueba browser:**
+
+| ID | Flujo |
+|----|--------|
+| U1 | Crear mesa `8` → aparece en Home |
+| U2 | Desactivar mesa libre → desaparece del piso de servicio |
+| U3 | Desactivar con orden activa → mensaje de error; mesa sigue |
+| U4 | Activar de nuevo → vuelve al Home |
+| U5 | Flujo salón: libre → orden → cocina → lista → pago → cerrar → libre |
+| U6 | Pedido externo desde Nueva orden sigue OK |
+
+**OK →** 3.4.
+
+### Paso 3.4 — Docs y cierre
+
+- Actualizar `docs/dev/comanda/01-orden-y-cocina/` (una activa).  
+- `docs/dev/mesas/cierre-del-modulo.md` en lenguaje del local.  
+- Marcar hecho en este plan.
+
+**Prueba:** checklist §10 en verde.
+
+---
+
+## 9. Catálogo de pruebas (resumen cruzado)
+
+| ID | Capa | Qué |
+|----|------|-----|
+| D1–Dn | Dominio | Validación Table |
+| A1–An | Application | CRUD + OpenOrder + errores |
+| P1–Pn | Persistencia | Repo + findActiveByTableId + seed |
+| H1–H7 | HTTP | §7 paso 2.5 |
+| U1–U6 | UI | §8 paso 3.3 |
+
+Comando habitual tras pasos de API: tests del package api.  
+Tras web: `pnpm --filter @restaurante/web typecheck && pnpm --filter @restaurante/web test` + smoke con `pnpm dev:restart` (refresh solo no basta — Gen 1).
+
+## 10. Hecho cuando
+
+- [x] Análisis §11 con admin UI acordado.  
+- [x] Tarea 1: Vitest núcleo en verde; cero Nest/Drizzle/Next en `domain/`.  
+- [x] Tarea 2: migrate aplicada; H1–H7 OK.  
+- [x] Tarea 3: U1–U6 OK; Home sin hardcode.  
+- [x] Docs comanda sin drift “varias activas”.  
+- [x] Cierre del módulo escrito.  
+- [x] `docs/README.md` enlaza esta carpeta.
+
+## 11. Riesgos / stop-the-line
+
+| Riesgo | Parada |
+|--------|--------|
+| Avanzar sin prueba del paso | Prohibido por este plan |
+| Columna `occupied` | No; ocupación = órdenes |
+| Validar mesa solo en React | No; `OpenOrder` manda |
+| Hardcode 1–6 en Home tras API real | Viola mock→real |
+| Desactivar con comanda abierta | Debe fallar con error claro |
+| Editar SQL/journal a mano | Viola Drizzle Gen 1 |
+
+## 12. Orden de ejecución al implementar
+
+1. Pedir OK de Hector para **empezar código** (docs ya acordados).  
+2. Ejecutar §6 paso a paso.  
+3. Abrir `docs/dev/mesas/02-persistencia-y-api/` (analisis+plan cortos que **enlazan** este contrato; no duplicar párrafos).  
+4. Idem `03-pantalla-home-y-admin/`.  
+5. Demo final del resultado §1.

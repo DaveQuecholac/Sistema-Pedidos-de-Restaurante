@@ -6,22 +6,26 @@ import { useShell } from './shell-context';
 
 export function Header() {
   const { searchQuery, setSearchQuery, openAddOrder } = useShell();
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const clockLabel = new Intl.DateTimeFormat('es-MX', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).format(now);
+  const clockLabel =
+    now === null
+      ? '\u00a0'
+      : new Intl.DateTimeFormat('es-MX', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+        }).format(now);
 
   return (
     <header className={styles.header}>
@@ -38,7 +42,7 @@ export function Header() {
           onChange={(event) => setSearchQuery(event.target.value)}
         />
       </label>
-      <p className={styles.clock} aria-live="polite">
+      <p className={styles.clock} aria-live="polite" suppressHydrationWarning>
         {clockLabel}
       </p>
       <button type="button" className={styles.addOrder} onClick={openAddOrder}>

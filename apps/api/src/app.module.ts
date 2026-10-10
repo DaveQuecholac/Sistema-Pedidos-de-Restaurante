@@ -17,9 +17,16 @@ import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import { MenuRepository } from './application/ports/menu-repository';
 import { OrderRepository } from './application/ports/order-repository';
+import type { TableRepository } from './application/ports/table-repository';
 import { CloseOrder } from './application/payment/close-order';
 import { GetOrderPayment } from './application/payment/get-order-payment';
 import type { PaymentPort } from './application/ports/payment-port';
+import { ActivateTable } from './application/table/activate-table';
+import { CreateTable } from './application/table/create-table';
+import { DeactivateTable } from './application/table/deactivate-table';
+import { GetTable } from './application/table/get-table';
+import { ListTables } from './application/table/list-tables';
+import { UpdateTable } from './application/table/update-table';
 import { CalculateTotals } from './application/totals/calculate-totals';
 import { SetOrderDiscount } from './application/totals/set-order-discount';
 import { SetOrderTip } from './application/totals/set-order-tip';
@@ -32,16 +39,19 @@ import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
 import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
 import { DrizzleOrderRepository } from './infrastructure/persistence/drizzle/drizzle-order-repository';
+import { DrizzleTableRepository } from './infrastructure/persistence/drizzle/drizzle-table-repository';
 import { DatabaseHealthController } from './interface/http/controllers/database-health.controller';
 import { HealthController } from './interface/http/controllers/health.controller';
 import { MenuItemController } from './interface/http/menu/menu-item.controller';
 import { OrderController } from './interface/http/order/order.controller';
 import { PaymentController } from './interface/http/payment/payment.controller';
+import { TableController } from './interface/http/table/table.controller';
 import { TotalsController } from './interface/http/totals/totals.controller';
 
 export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
 export const MENU_REPOSITORY = Symbol('MENU_REPOSITORY');
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
+export const TABLE_REPOSITORY = Symbol('TABLE_REPOSITORY');
 export const PAYMENT_PORTS = Symbol('PAYMENT_PORTS');
 
 /** Composition root: health, menu, orders, and payments through driven adapters. */
@@ -54,6 +64,7 @@ export class AppModule {
         HealthController,
         DatabaseHealthController,
         MenuItemController,
+        TableController,
         OrderController,
         TotalsController,
         PaymentController,
@@ -77,6 +88,10 @@ export class AppModule {
           useValue: new DrizzleOrderRepository(db),
         },
         {
+          provide: TABLE_REPOSITORY,
+          useValue: new DrizzleTableRepository(db),
+        },
+        {
           provide: ListMenuItems,
           inject: [MENU_REPOSITORY],
           useFactory: (menu: MenuRepository) => new ListMenuItems(menu),
@@ -97,10 +112,41 @@ export class AppModule {
           useFactory: (menu: MenuRepository) => new UpdateMenuItem(menu, () => crypto.randomUUID()),
         },
         {
+          provide: ListTables,
+          inject: [TABLE_REPOSITORY],
+          useFactory: (tables: TableRepository) => new ListTables(tables),
+        },
+        {
+          provide: GetTable,
+          inject: [TABLE_REPOSITORY],
+          useFactory: (tables: TableRepository) => new GetTable(tables),
+        },
+        {
+          provide: CreateTable,
+          inject: [TABLE_REPOSITORY],
+          useFactory: (tables: TableRepository) => new CreateTable(tables),
+        },
+        {
+          provide: UpdateTable,
+          inject: [TABLE_REPOSITORY],
+          useFactory: (tables: TableRepository) => new UpdateTable(tables),
+        },
+        {
+          provide: DeactivateTable,
+          inject: [TABLE_REPOSITORY, ORDER_REPOSITORY],
+          useFactory: (tables: TableRepository, orders: OrderRepository) =>
+            new DeactivateTable(tables, orders),
+        },
+        {
+          provide: ActivateTable,
+          inject: [TABLE_REPOSITORY],
+          useFactory: (tables: TableRepository) => new ActivateTable(tables),
+        },
+        {
           provide: OpenOrder,
-          inject: [ORDER_REPOSITORY],
-          useFactory: (orders: OrderRepository) =>
-            new OpenOrder(orders, () => crypto.randomUUID(), () => new Date()),
+          inject: [ORDER_REPOSITORY, TABLE_REPOSITORY],
+          useFactory: (orders: OrderRepository, tables: TableRepository) =>
+            new OpenOrder(orders, tables, () => crypto.randomUUID(), () => new Date()),
         },
         {
           provide: ListOrders,

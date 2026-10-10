@@ -54,7 +54,11 @@ export function AddOrderDialog() {
       router.push(orderDetailPath(created.id));
     } catch (error) {
       setNotice(errorText(error));
-      if (error instanceof OrderApiError && error.code === 'ExternalOrderIdInUseError') {
+      if (
+        error instanceof OrderApiError &&
+        (error.code === 'ExternalOrderIdInUseError' ||
+          error.code === 'TableAlreadyHasActiveOrderError')
+      ) {
         bumpRefresh();
       }
     } finally {

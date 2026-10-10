@@ -12,6 +12,11 @@ import { ListOrders } from '../../../application/order/list-orders';
 import { MarkOrderReady } from '../../../application/order/mark-order-ready';
 import { ModifyLine } from '../../../application/order/modify-line';
 import { OpenOrder } from '../../../application/order/open-order';
+import type { TableRepository } from '../../../application/ports/table-repository';
+import {
+  DEMO_SALON_TABLE_IDS,
+  salonTables,
+} from '../../../application/table/salon-tables';
 import {
   AGUA_ID,
   FIXED_NOW,
@@ -95,6 +100,7 @@ function testModule(
   orders: OrderRepository,
   menu: MenuRepository,
   payments: readonly PaymentPort[],
+  tables: TableRepository = salonTables(...DEMO_SALON_TABLE_IDS),
   generateOrderId: () => string = orderIds(),
   generateLineId: () => string = lineIds(),
   generatePaymentId: () => string = paymentIds(),
@@ -102,7 +108,10 @@ function testModule(
   @Module({
     controllers: [OrderController, TotalsController, PaymentController],
     providers: [
-      { provide: OpenOrder, useValue: new OpenOrder(orders, generateOrderId, () => FIXED_NOW) },
+      {
+        provide: OpenOrder,
+        useValue: new OpenOrder(orders, tables, generateOrderId, () => FIXED_NOW),
+      },
       { provide: ListOrders, useValue: new ListOrders(orders) },
       { provide: GetOrder, useValue: new GetOrder(orders) },
       { provide: AddLine, useValue: new AddLine(orders, menu, generateLineId) },
@@ -162,7 +171,15 @@ describe('payment HTTP', () => {
     const payments = options?.payments ?? realPorts();
 
     app = await NestFactory.create(
-      testModule(seen.orders, menu, payments, orderIds(), lineIds(), options?.paymentIds ?? paymentIds()),
+      testModule(
+        seen.orders,
+        menu,
+        payments,
+        salonTables(...DEMO_SALON_TABLE_IDS),
+        orderIds(),
+        lineIds(),
+        options?.paymentIds ?? paymentIds(),
+      ),
       { logger: false },
     );
     await app.listen(0);
@@ -187,8 +204,8 @@ describe('payment HTTP', () => {
     });
   }
 
-  async function readyOrderLViaHttp(base: string): Promise<string> {
-    const opened = await send(`${base}/orders`, 'POST', { tableId: '5' });
+  async function readyOrderLViaHttp(base: string, tableId = '5'): Promise<string> {
+    const opened = await send(`${base}/orders`, 'POST', { tableId });
     expect(opened.status).toBe(201);
     const order = await opened.json();
 
@@ -322,7 +339,7 @@ describe('payment HTTP', () => {
 
   it('maps gateway decline and outage (H50)', async () => {
     const { base } = await listen();
-    const declinedId = await readyOrderLViaHttp(base);
+    const declinedId = await readyOrderLViaHttp(base, '5');
     const declined = await send(`${base}/orders/${declinedId}/close`, 'POST', {
       expectedTotal: 16420,
       payment: { method: 'digitalGateway', payerReference: 'rechazo@pasarela.test' },
@@ -330,7 +347,7 @@ describe('payment HTTP', () => {
     expect(declined.status).toBe(402);
     expect(await declined.json()).toMatchObject({ code: 'PaymentDeclinedError' });
 
-    const outageId = await readyOrderLViaHttp(base);
+    const outageId = await readyOrderLViaHttp(base, '6');
     const outage = await send(`${base}/orders/${outageId}/close`, 'POST', {
       expectedTotal: 16420,
       payment: { method: 'digitalGateway', payerReference: 'caida@pasarela.test' },
@@ -616,6 +633,7 @@ describe('payment HTTP', () => {
       add: (order) => tracked.add(order),
       findById: (id) => tracked.findById(id),
       findByExternalOrderId: (id) => tracked.findByExternalOrderId(id),
+      findActiveByTableId: (tableId) => tracked.findActiveByTableId(tableId),
       list: (filter) => tracked.list(filter),
       async save() {
         throw boom;
@@ -720,6 +738,7 @@ describe('payment HTTP', () => {
         throw new Error('unexpected');
       },
       findByExternalOrderId: (id) => tracked.findByExternalOrderId(id),
+      findActiveByTableId: (tableId) => tracked.findActiveByTableId(tableId),
       list: (filter) => tracked.list(filter),
       save: (order) => tracked.save(order),
     };

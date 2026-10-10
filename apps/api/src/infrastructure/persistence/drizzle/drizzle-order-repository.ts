@@ -11,7 +11,7 @@ import {
 import type { OrderRepository } from '../../../application/ports/order-repository';
 import type { LineItem } from '../../../domain/order/line-item';
 import type { Order } from '../../../domain/order/order';
-import type { OrderStatus } from '../../../domain/order/order-status';
+import { ACTIVE_ORDER_STATUSES, type OrderStatus } from '../../../domain/order/order-status';
 import type { AppDatabase } from './client';
 import {
   toDiscountColumns,
@@ -101,6 +101,21 @@ export class DrizzleOrderRepository implements OrderRepository {
       .select()
       .from(orders)
       .where(eq(orders.externalOrderId, externalOrderId));
+    const stored = rows[0];
+    if (stored === undefined) {
+      return null;
+    }
+
+    const hydrated = await this.hydrate([stored]);
+    return hydrated[0] ?? null;
+  }
+
+  async findActiveByTableId(tableId: string): Promise<Order | null> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.tableId, tableId), inArray(orders.status, [...ACTIVE_ORDER_STATUSES])))
+      .limit(1);
     const stored = rows[0];
     if (stored === undefined) {
       return null;

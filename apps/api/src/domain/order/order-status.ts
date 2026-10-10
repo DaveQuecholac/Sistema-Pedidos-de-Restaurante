@@ -158,6 +158,14 @@ export function isOrderStatus(value: string): value is OrderStatus {
 
 export const ORDER_STATUSES = ALL_STATUSES;
 
+/** Statuses that still occupy a dining table (not CLOSED / CANCELLED). */
+export const ACTIVE_ORDER_STATUSES: readonly OrderStatus[] = [
+  'OPEN',
+  'SENT_TO_KITCHEN',
+  'IN_KITCHEN',
+  'READY',
+];
+
 export const ORDER_TRANSITION_ACTIONS: readonly OrderTransitionAction[] = [
   'editLines',
   'sendToKitchen',

@@ -9,10 +9,18 @@ import {
 } from '../../menu/menu-amount';
 import { listMenuItems, type MenuItemJson } from '../../menu/menu-api';
 import {
+  activateTable,
+  deactivateTable,
+  getTable,
+  TablesApiError,
+  type TableJson,
+} from '../../mesas/mesas-api';
+import {
   cancelOrder,
   getOrder,
   listOrders,
   openOrder,
+  OrderApiError,
   sendToKitchen,
   type OrderJson,
 } from '../../ordenes/order-api';
@@ -59,7 +67,13 @@ export function SelectionInspector() {
   }
 
   if (selection.kind === 'table') {
-    return <TableInspector tableId={selection.tableId} refreshToken={refreshToken} />;
+    return (
+      <TableInspector
+        tableId={selection.tableId}
+        refreshToken={refreshToken}
+        adminMode={pathname.startsWith('/mesas/admin')}
+      />
+    );
   }
 
   if (selection.kind === 'menuItem') {
@@ -85,12 +99,15 @@ export function SelectionInspector() {
 function TableInspector({
   tableId,
   refreshToken,
+  adminMode,
 }: {
   tableId: string;
   refreshToken: number;
+  adminMode: boolean;
 }) {
   const router = useRouter();
   const { bumpRefresh, selectOrder } = useShell();
+  const [table, setTable] = useState<TableJson | null>(null);
   const [order, setOrder] = useState<OrderJson | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
@@ -100,20 +117,21 @@ function TableInspector({
     let cancelled = false;
     setLoading(true);
     setNotice(null);
-    void listOrders(ACTIVE_STATUSES)
-      .then((orders) => {
+    void Promise.all([getTable(tableId), listOrders(ACTIVE_STATUSES)])
+      .then(([loaded, orders]) => {
         if (cancelled) {
           return;
         }
         const match = orders
           .filter((item) => item.tableId === tableId)
           .sort((a, b) => b.openedAt.localeCompare(a.openedAt))[0];
+        setTable(loaded);
         setOrder(match ?? null);
         setLoading(false);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setNotice(errorText(error));
+          setNotice(tableInspectorError(error));
           setLoading(false);
         }
       });
@@ -131,22 +149,60 @@ function TableInspector({
       selectOrder(created.id);
       router.push(orderDetailPath(created.id));
     } catch (error) {
-      setNotice(errorText(error));
+      setNotice(tableInspectorError(error));
     } finally {
       setSending(false);
     }
   }
 
+  async function onDeactivate() {
+    setSending(true);
+    setNotice(null);
+    try {
+      const updated = await deactivateTable(tableId);
+      setTable(updated);
+      bumpRefresh();
+    } catch (error) {
+      setNotice(tableInspectorError(error));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function onActivate() {
+    setSending(true);
+    setNotice(null);
+    try {
+      const updated = await activateTable(tableId);
+      setTable(updated);
+      bumpRefresh();
+    } catch (error) {
+      setNotice(tableInspectorError(error));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const title = table?.label ?? tableId;
+  const occupancy =
+    loading ? '…' : order === null ? 'Libre' : statusLabel(order.status);
+  const activeLabel = table === null ? '…' : table.active ? 'Activa' : 'Inactiva';
+
   return (
     <aside className={styles.summary} aria-label="Detalle de mesa">
       <div className={styles.summaryHead}>
-        <h2>Mesa {tableId}</h2>
+        <h2>Mesa {title}</h2>
         <p className={styles.summaryMeta}>
-          <span className={styles.badge}>
-            {loading ? '…' : order === null ? 'Libre' : statusLabel(order.status)}
-          </span>
+          <span className={styles.badge}>{adminMode ? activeLabel : occupancy}</span>
         </p>
       </div>
+
+      {table !== null ? (
+        <p className={styles.summaryMeta}>
+          Id {table.id} · {table.zone}
+          {!adminMode ? ` · ${occupancy}` : null}
+        </p>
+      ) : null}
 
       {notice ? (
         <p className={styles.summaryNotice} role="alert">
@@ -156,14 +212,44 @@ function TableInspector({
 
       {loading ? <p>Cargando mesa…</p> : null}
 
-      {!loading && order === null ? (
+      {adminMode && !loading && table !== null ? (
+        <div className={styles.ctaStack}>
+          {table.active ? (
+            <button
+              type="button"
+              className={styles.ctaSecondary}
+              disabled={sending}
+              onClick={() => void onDeactivate()}
+            >
+              Desactivar mesa
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={styles.ctaPrimary}
+              disabled={sending}
+              onClick={() => void onActivate()}
+            >
+              Activar mesa
+            </button>
+          )}
+          {order !== null ? (
+            <p className={styles.summaryMeta}>
+              Comanda activa: {statusLabel(order.status)}. No se puede desactivar hasta cerrarla o
+              cancelarla.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!adminMode && !loading && order === null ? (
         <>
           <p className={styles.summaryEmpty}>Sin comanda activa en esta mesa.</p>
           <div className={styles.ctaStack}>
             <button
               type="button"
               className={styles.ctaPrimary}
-              disabled={sending}
+              disabled={sending || table?.active === false}
               onClick={() => void onOpen()}
             >
               Abrir comanda
@@ -172,7 +258,7 @@ function TableInspector({
         </>
       ) : null}
 
-      {!loading && order !== null ? (
+      {!adminMode && !loading && order !== null ? (
         <>
           <p className={styles.summaryMeta}>
             Orden #{shortOrderLabel(order.id)} · {order.lines.length}{' '}
@@ -198,6 +284,13 @@ function TableInspector({
       ) : null}
     </aside>
   );
+}
+
+function tableInspectorError(error: unknown): string {
+  if (error instanceof TablesApiError) {
+    return errorText(new OrderApiError(error.status, error.message, error.code));
+  }
+  return errorText(error);
 }
 
 function MenuItemInspector({

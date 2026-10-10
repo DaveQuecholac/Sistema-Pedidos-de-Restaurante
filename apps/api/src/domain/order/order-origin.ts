@@ -1,7 +1,7 @@
+import { InvalidTableIdError } from '../table/table.errors';
 import {
   InvalidExternalOrderIdError,
   InvalidOrderOriginError,
-  InvalidTableIdError,
 } from './order.errors';
 
 const MAX_TABLE_ID_LENGTH = 40;

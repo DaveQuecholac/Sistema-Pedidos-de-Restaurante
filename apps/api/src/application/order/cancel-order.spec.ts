@@ -4,6 +4,7 @@ import { Order } from '../../domain/order/order';
 import { OrderOrigin } from '../../domain/order/order-origin';
 import { InvalidOrderTransitionError } from '../../domain/order/order.errors';
 import { Quantity } from '../../domain/order/quantity';
+import { salonTables } from '../table/salon-tables';
 import { CancelOrder } from './cancel-order';
 import { InMemoryOrderRepository } from './in-memory-order-repository';
 import { OpenOrder } from './open-order';
@@ -90,7 +91,7 @@ describe('CancelOrder', () => {
     );
     await new CancelOrder(orders).execute('order-1');
 
-    const open = new OpenOrder(orders, idsOf('order-2'), () => FIXED_NOW);
+    const open = new OpenOrder(orders, salonTables(), idsOf('order-2'), () => FIXED_NOW);
 
     await expect(open.execute({ externalOrderId: 'UBER-1' })).rejects.toBeInstanceOf(
       ExternalOrderIdInUseError,

@@ -1,9 +1,4 @@
-export class InvalidTableIdError extends Error {
-  constructor() {
-    super('Table id must be 1 to 40 characters after trim');
-    this.name = 'InvalidTableIdError';
-  }
-}
+export { InvalidTableIdError } from '../table/table.errors';
 
 export class InvalidExternalOrderIdError extends Error {
   constructor() {

@@ -1,7 +1,7 @@
 import { LineItem } from '../../domain/order/line-item';
 import { Order } from '../../domain/order/order';
 import { OrderOrigin } from '../../domain/order/order-origin';
-import type { OrderStatus } from '../../domain/order/order-status';
+import { ACTIVE_ORDER_STATUSES, type OrderStatus } from '../../domain/order/order-status';
 import type { OrderRepository } from '../ports/order-repository';
 import {
   OrderAlreadyExistsError,
@@ -41,6 +41,16 @@ export class InMemoryOrderRepository implements OrderRepository {
   async findByExternalOrderId(externalOrderId: string): Promise<Order | null> {
     for (const order of this.orders.values()) {
       if (order.origin.externalOrderId === externalOrderId) {
+        return copy(order);
+      }
+    }
+    return null;
+  }
+
+  async findActiveByTableId(tableId: string): Promise<Order | null> {
+    const active = new Set<OrderStatus>(ACTIVE_ORDER_STATUSES);
+    for (const order of this.orders.values()) {
+      if (order.origin.tableId === tableId && active.has(order.status)) {
         return copy(order);
       }
     }

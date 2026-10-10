@@ -183,6 +183,21 @@ describe('order view', () => {
         new OrderApiError(409, 'External order id is already in use', 'ExternalOrderIdInUseError'),
       ),
     ).toBe('Ese pedido externo ya se registró.');
+    expect(
+      errorText(
+        new OrderApiError(
+          409,
+          'Table already has an active order',
+          'TableAlreadyHasActiveOrderError',
+        ),
+      ),
+    ).toBe('Esta mesa ya tiene una comanda abierta.');
+    expect(
+      errorText(new OrderApiError(404, 'Table was not found', 'TableNotFoundError')),
+    ).toBe('Esa mesa no está registrada.');
+    expect(
+      errorText(new OrderApiError(409, 'Table is inactive', 'TableInactiveError')),
+    ).toBe('Esa mesa está desactivada.');
   });
 
   it('falls back to code: message for unknown codes (V10)', () => {

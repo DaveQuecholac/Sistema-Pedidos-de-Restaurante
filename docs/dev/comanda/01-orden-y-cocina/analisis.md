@@ -78,7 +78,8 @@ Inmutables, como el menú. Cada operación devuelve otra `Order`. Las listas que
 
 ### 5.1 Origen
 
-- `tableId`: texto. Se recorta. No puede quedar vacío. Máximo 40 caracteres. Ejemplos: `"5"`, `"Terraza 2"`. No hay catálogo de mesas: la mesa es un dato del canal.
+- `tableId`: texto. Se recorta. No puede quedar vacío. Máximo 40 caracteres. Ejemplos: `"5"`, `"Terraza 2"`.  
+  **Actualización (10 oct 2026):** el id debe existir en el catálogo de mesas (`docs/dev/mesas/`). Ver sección 6.
 - `externalOrderId`: texto. Se recorta. No puede quedar vacío. Máximo 64 caracteres.
 - Los dos a la vez, o ninguno, es un error. El caso de uso es uno solo (`OpenOrder`). El origen no cambia ninguna otra regla.
 - El origen no se edita después de abrir.
@@ -142,13 +143,13 @@ Consecuencia: mientras la orden está en `OPEN`, el precio de la línea es el de
 
 ## 6. Unicidad del origen
 
-**Mesa:** una mesa puede tener varias comandas vivas a la vez (por ejemplo, cuentas separadas). Abrir otra en la misma mesa no es un error. Cada comanda se distingue por su id y por la hora en que se abrió (`openedAt`). No hay consulta de «mesa ocupada».
+**Mesa (vigente desde 10 oct 2026):** como mucho **una orden activa** por mesa (`OPEN`, `SENT_TO_KITCHEN`, `IN_KITCHEN`, `READY`). Abrir otra mientras hay una activa responde `TableAlreadyHasActiveOrderError`. La mesa debe existir en el catálogo y estar activa (`TableNotFoundError` / `TableInactiveError`). Detalle: `docs/dev/mesas/01-catalogo-y-home/`.
+
+> Texto anterior (4 oct 2026, decisión §11 #1): «varias comandas vivas por mesa; sin mesa ocupada». **Reabierta y sustituida** por el módulo de mesas.
 
 **Pedido externo:** un `externalOrderId` identifica un pedido del canal. No se repite nunca, aunque la orden anterior esté cancelada: si el canal manda el mismo id otra vez, es un duplicado y responde `ExternalOrderIdInUseError`.
 
-Dónde vive: `OpenOrder` consulta `findByExternalOrderId` antes de crear. La tarea 2 añade el respaldo en la base (único sobre `external_order_id`) para dos aperturas simultáneas, y traduce esa violación al mismo error.
-
-Decisiones confirmadas por Hector el 4 de octubre de 2026 (sección 11).
+Dónde vive: `OpenOrder` consulta el catálogo de mesas, `findActiveByTableId` y `findByExternalOrderId` antes de crear. La persistencia respalda el único sobre `external_order_id`.
 
 ## 7. Concurrencia y la regla de cocina
 
@@ -180,6 +181,9 @@ Errores de dominio, sin status HTTP y sin texto de SQL. El nombre de clase es el
 | Orden que no existe | `OrderNotFoundError` | Aplicación |
 | Plato que no existe | `MenuItemNotFoundError` (ya existe) | Aplicación |
 | `externalOrderId` ya usado por otra orden | `ExternalOrderIdInUseError` | Aplicación |
+| Mesa inexistente en el catálogo | `TableNotFoundError` | Aplicación (`OpenOrder`) |
+| Mesa desactivada | `TableInactiveError` | Aplicación (`OpenOrder`) |
+| Segunda orden activa en la misma mesa | `TableAlreadyHasActiveOrderError` | Aplicación (`OpenOrder`) |
 | Versión distinta al guardar | `OrderConcurrencyError` | Aplicación (puerto) |
 | Id de orden repetido en `add` | `OrderAlreadyExistsError` | Aplicación (puerto) |
 
@@ -214,11 +218,11 @@ Cada caso que escribe sigue la misma forma: `findById` → operación del agrega
 
 ## 11. Decisiones confirmadas
 
-Hector las confirmó el 4 de octubre de 2026. La 1 se apartó de la propuesta inicial (una sola orden viva por mesa).
+Hector las confirmó el 4 de octubre de 2026. La decisión #1 se **reabrió el 10 de octubre de 2026** con el módulo de mesas (vuelve a una orden activa por mesa + catálogo).
 
 | # | Tema | Decisión |
 |---|------|----------|
-| 1 | Mesa | Puede tener varias comandas vivas. Sin regla de mesa ocupada |
+| 1 | Mesa | **Vigente (10 oct 2026):** una orden activa por mesa; mesa del catálogo y activa. Ver `docs/dev/mesas/`. *(Antes, 4 oct: varias vivas; ya no aplica.)* |
 | 2 | Externo repetido | Nunca se repite, aunque la anterior esté cancelada |
 | 3 | Cancelar línea | Se quita de la orden |
 | 4 | Modificar línea | Recaptura precio y modificadores de la carta actual |
@@ -226,14 +230,14 @@ Hector las confirmó el 4 de octubre de 2026. La 1 se apartó de la propuesta in
 | 6 | `READY` en este sprint | Entra: `MarkOrderReady` y la vista de cocina |
 | 7 | Cantidad | 1 a 99 |
 
-Cambiar alguna de estas obliga a corregir este análisis y los tres planes antes de tocar código.
+Cambiar alguna de estas obliga a corregir este análisis (y el de mesas, si toca #1) antes de tocar código.
 
 ## 12. Qué hereda la tarea 2
 
 Sin cambiar estas reglas, la persistencia tendrá que:
 
 - Guardar el origen con un check de «exactamente uno».
-- Respaldar la sección 6 con un único sobre `external_order_id` y traducir la violación a `ExternalOrderIdInUseError`. Sin índice único sobre la mesa.
+- Respaldar la sección 6 con un único sobre `external_order_id` y traducir la violación a `ExternalOrderIdInUseError`. La «una activa por mesa» se valida en `OpenOrder` (consulta de órdenes activas), no con índice único sobre mesa.
 - Implementar `save` con `where version = ?` y escribir `version + 1`.
 - Guardar la copia de la línea y de sus modificadores sin FK a `menu_item_modifiers` (sus ids cambian al editar el plato).
 - Leer con `Order.restore`, nunca con `open`, y fallar con un error de mapeo si una fila rompe el dominio.

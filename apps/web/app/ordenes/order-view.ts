@@ -30,6 +30,14 @@ const ERROR_TEXTS: Record<string, string> = {
   EmptyOrderError: 'Agrega al menos un plato antes de enviar a cocina.',
   InvalidQuantityError: 'La cantidad tiene que ser de 1 a 99.',
   MenuItemUnavailableError: 'Ese plato ya no está a la venta.',
+  TableAlreadyHasActiveOrderError: 'Esta mesa ya tiene una comanda abierta.',
+  TableHasActiveOrderError: 'No se puede quitar: esta mesa tiene una comanda abierta.',
+  TableAlreadyExistsError: 'Ya existe una mesa con ese número.',
+  TableNotFoundError: 'Esa mesa no está registrada.',
+  TableInactiveError: 'Esa mesa está desactivada.',
+  InvalidTableIdError: 'El número o nombre de la mesa no es válido.',
+  InvalidTableLabelError: 'La etiqueta de la mesa no puede quedar vacía.',
+  InvalidTableZoneError: 'La zona de la mesa no puede quedar vacía.',
 };
 
 export function statusLabel(status: OrderStatusJson): string {

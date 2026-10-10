@@ -34,7 +34,8 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 | [`dev/pagos/01-cobro-en-el-nucleo/`](./dev/pagos/01-cobro-en-el-nucleo/) | Sprint 4, tarea 1: pago, cierre `READY → CLOSED`, puerto de cobro y `CloseOrder` en el núcleo |
 | [`dev/pagos/02-adaptadores-persistencia-y-api/`](./dev/pagos/02-adaptadores-persistencia-y-api/) | Sprint 4, tarea 2: simuladores de efectivo, tarjeta y pasarela; tabla de pagos y API de cierre |
 | [`dev/pagos/03-pantalla-cobro-y-demo/`](./dev/pagos/03-pantalla-cobro-y-demo/) | Sprint 4, tarea 3: pantalla de cobro, pulido del recorrido y demo del MVP |
-| [`dev/mesas/01-catalogo-y-home/`](./dev/mesas/01-catalogo-y-home/) | Ampliación Gen 1: catálogo de 6 mesas + Home (acordado 10 oct 2026) |
+| [`dev/mesas/01-catalogo-y-home/`](./dev/mesas/01-catalogo-y-home/) | Ampliación Gen 1: catálogo de mesas, una activa, Home + **admin** alta/baja; plan por pasos con pruebas (acordado 10 oct 2026) |
+| [`dev/mesas/cierre-del-modulo.md`](./dev/mesas/cierre-del-modulo.md) | Cierre del módulo de mesas, en lenguaje del local |
 
 ## Docs de trabajo por tarea
 

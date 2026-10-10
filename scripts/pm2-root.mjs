@@ -57,6 +57,21 @@ function ensurePostgres() {
   }
 }
 
+function ensureSalonTables() {
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-salon-tables.mjs")], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
 function printUrls() {
   console.log("API  http://localhost:3001");
   console.log("Web  https://restaurante.localhost");
@@ -68,6 +83,7 @@ const command = process.argv[2] ?? "start";
 switch (command) {
   case "start":
     ensurePostgres();
+    ensureSalonTables();
     ensureLogsDir();
     runPm2(["start", ecosystem]);
     printUrls();
@@ -77,6 +93,7 @@ switch (command) {
     break;
   case "restart":
     ensurePostgres();
+    ensureSalonTables();
     ensureLogsDir();
     runPm2(["restart", ecosystem, "--update-env"]);
     printUrls();

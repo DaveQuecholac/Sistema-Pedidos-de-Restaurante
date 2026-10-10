@@ -1,26 +1,20 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import shellStyles from '../components/app-shell/app-shell.module.css';
 import { useShell } from '../components/app-shell/shell-context';
-import { listOrders, type OrderJson } from '../ordenes/order-api';
+import { listOrders, OrderApiError, type OrderJson } from '../ordenes/order-api';
 import { errorText, statusLabel } from '../ordenes/order-view';
+import { listTables, TablesApiError, type TableJson } from './mesas-api';
 import styles from './mesas.module.css';
 
 const ACTIVE_STATUSES = ['OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const;
 
-const FLOORS = [
-  {
-    id: '1',
-    label: 'Salón',
-    tables: ['1', '2', '3', '4', '5', '6'],
-  },
-] as const;
-
 type BoardState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; orders: OrderJson[] };
+  | { kind: 'ready'; tables: TableJson[]; orders: OrderJson[] };
 
 export function MesasScreen() {
   const { searchQuery, refreshToken, bumpRefresh, selection, selectTable } = useShell();
@@ -29,15 +23,19 @@ export function MesasScreen() {
   useEffect(() => {
     let cancelled = false;
     setBoard({ kind: 'loading' });
-    void listOrders(ACTIVE_STATUSES)
-      .then((orders) => {
+    void Promise.all([listTables(), listOrders([...ACTIVE_STATUSES])])
+      .then(([tables, orders]) => {
         if (!cancelled) {
-          setBoard({ kind: 'ready', orders });
+          setBoard({
+            kind: 'ready',
+            tables: tables.filter((table) => table.active),
+            orders,
+          });
         }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setBoard({ kind: 'error', message: errorText(error) });
+          setBoard({ kind: 'error', message: boardErrorText(error) });
         }
       });
     return () => {
@@ -62,7 +60,38 @@ export function MesasScreen() {
     return map;
   }, [board]);
 
-  const query = searchQuery.trim().toLowerCase();
+  const floors = useMemo(() => {
+    if (board.kind !== 'ready') {
+      return [];
+    }
+    const query = searchQuery.trim().toLowerCase();
+    const grouped = new Map<string, TableJson[]>();
+
+    for (const table of board.tables) {
+      if (
+        query !== '' &&
+        !table.id.toLowerCase().includes(query) &&
+        !table.label.toLowerCase().includes(query) &&
+        !table.zone.toLowerCase().includes(query)
+      ) {
+        continue;
+      }
+      const current = grouped.get(table.zone);
+      if (current === undefined) {
+        grouped.set(table.zone, [table]);
+      } else {
+        current.push(table);
+      }
+    }
+
+    return [...grouped.entries()]
+      .sort(([left], [right]) => left.localeCompare(right, 'es'))
+      .map(([zone, tables]) => ({
+        zone,
+        tables: [...tables].sort((left, right) => left.id.localeCompare(right.id, 'es', { numeric: true })),
+      }));
+  }, [board, searchQuery]);
+
   const selectedTableId = selection.kind === 'table' ? selection.tableId : null;
 
   return (
@@ -74,6 +103,9 @@ export function MesasScreen() {
             Selecciona una mesa para ver el detalle a la derecha. Abre o entra a la comanda desde ahí.
           </p>
         </div>
+        <Link className={styles.adminLink} href="/mesas/admin">
+          Administrar mesas
+        </Link>
       </header>
 
       {board.kind === 'loading' ? <p>Cargando mesas…</p> : null}
@@ -87,57 +119,54 @@ export function MesasScreen() {
         </div>
       ) : null}
 
-      {FLOORS.map((floor) => {
-        const tables = floor.tables.filter((tableId) => {
-          if (query === '') {
-            return true;
-          }
-          return (
-            tableId.toLowerCase().includes(query) ||
-            floor.label.toLowerCase().includes(query)
-          );
-        });
-        if (tables.length === 0) {
-          return null;
-        }
-        return (
-          <section key={floor.id} className={styles.floor} aria-label={floor.label}>
-            <h2 className={styles.floorLabel}>{floor.label}</h2>
-            <ul className={styles.grid}>
-              {tables.map((tableId) => {
-                const order = byTable.get(tableId);
-                const occupied = order !== undefined;
-                const selected = selectedTableId === tableId;
-                return (
-                  <li key={tableId}>
-                    <button
-                      type="button"
-                      className={[
-                        occupied ? styles.tableOccupied : styles.tableFree,
-                        shellStyles.selectable,
-                        selected ? shellStyles.selectableSelected : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      aria-pressed={selected}
-                      onClick={() => selectTable(tableId)}
-                    >
-                      <span className={styles.tableNumber}>{tableId}</span>
-                      <span className={styles.tableStatus}>
-                        {board.kind === 'loading'
-                          ? '…'
-                          : occupied && order !== undefined
-                            ? statusLabel(order.status)
-                            : 'Libre'}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
+      {board.kind === 'ready' && floors.length === 0 ? (
+        <p className={styles.empty}>
+          {board.tables.length === 0
+            ? 'No hay mesas activas en el salón.'
+            : 'Ninguna mesa coincide con la búsqueda.'}
+        </p>
+      ) : null}
+
+      {floors.map((floor) => (
+        <section key={floor.zone} className={styles.floor} aria-label={floor.zone}>
+          <h2 className={styles.floorLabel}>{floor.zone}</h2>
+          <ul className={styles.grid}>
+            {floor.tables.map((table) => {
+              const order = byTable.get(table.id);
+              const occupied = order !== undefined;
+              const selected = selectedTableId === table.id;
+              return (
+                <li key={table.id}>
+                  <button
+                    type="button"
+                    className={[
+                      occupied ? styles.tableOccupied : styles.tableFree,
+                      shellStyles.selectable,
+                      selected ? shellStyles.selectableSelected : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-pressed={selected}
+                    onClick={() => selectTable(table.id)}
+                  >
+                    <span className={styles.tableNumber}>{table.label}</span>
+                    <span className={styles.tableStatus}>
+                      {occupied && order !== undefined ? statusLabel(order.status) : 'Libre'}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
+}
+
+function boardErrorText(error: unknown): string {
+  if (error instanceof TablesApiError) {
+    return errorText(new OrderApiError(error.status, error.message, error.code));
+  }
+  return errorText(error);
 }
