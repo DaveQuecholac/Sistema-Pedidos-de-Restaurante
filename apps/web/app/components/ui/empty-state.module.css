@@ -1,0 +1,25 @@
+.empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-height: 14rem;
+  text-align: center;
+}
+
+.icon {
+  width: 4.5rem;
+  height: 4.5rem;
+  color: var(--color-primary-muted);
+}
+
+.text {
+  margin: 0;
+  max-width: 14rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text);
+}

@@ -40,14 +40,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.55rem 0.25rem;
+  gap: 0.3rem;
+  padding: 0.7rem 0.25rem;
   border-radius: var(--radius-md);
-  color: var(--color-text-muted);
+  color: var(--color-nav-idle);
   text-decoration: none;
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -72,6 +73,10 @@
   box-shadow: inset 0 0 0 1px rgb(15 76 92 / 18%);
 }
 
+.navLinkActive span {
+  color: var(--color-accent-sand); 
+}
+
 .version {
   margin: 0;
   padding-top: 0.5rem;
@@ -93,7 +98,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 0.85rem;
+  gap: 1.5rem;
   height: var(--header-height);
   padding: 0 1.25rem;
   background: rgb(255 255 255 / 78%);
@@ -107,12 +112,13 @@
 .search {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   min-width: 0;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-secondary);
+  max-width: 18rem;
+  padding: 0.7rem 1.1rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-search-bg);
 }
 
 .search svg {
@@ -141,27 +147,48 @@
 }
 
 .clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   margin: 0;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.clock svg,
+.addOrder svg {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .addOrder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   border: 0;
   border-radius: var(--radius-md);
-  padding: 0.55rem 1rem;
-  background: var(--color-primary);
-  color: #fff;
+  padding: 0.75rem 1.1rem;
+  background: var(--color-action-soft);
+  color: var(--color-primary);
+  font-size: 0.75rem;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: background 140ms ease, transform 140ms ease;
 }
 
 .addOrder:hover {
-  background: var(--color-primary-hover);
+  background: #98b9be; 
 }
 
 .addOrder:active {
@@ -188,8 +215,8 @@
   min-height: 0;
   padding: 1.15rem 1rem 1.35rem;
   background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-  box-shadow: var(--shadow-soft);
+  border-left: 1px solid var(--color-divider);
+  box-shadow: none;
   overflow: auto;
 }
 
@@ -211,8 +238,59 @@
 .summaryHead h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   letter-spacing: 0.04em;
+}
+.summaryHead {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.65rem;
+}
+
+.metaItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.metaItem svg {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  stroke: var(--color-text);
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.metaText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.metaLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.metaValue {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
 
 .summaryMeta {
@@ -487,6 +565,9 @@
     grid-template-columns: 1fr;
     height: auto;
     padding: 0.75rem 1rem;
+  }
+  .search {
+    max-width: none;
   }
 
   .clock {

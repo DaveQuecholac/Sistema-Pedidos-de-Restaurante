@@ -36,6 +36,8 @@ import styles from './app-shell.module.css';
 import { orderIdFromPath, shortOrderLabel } from './order-id-from-path';
 import { orderCobroPath, orderCuentaPath, orderDetailPath } from './order-routes';
 import { useShell } from './shell-context';
+import { EmptyState } from '../ui/empty-state';
+import { OrderPanelHeader } from './order-panel.header';
 
 const ACTIVE_STATUSES = ['OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const;
 
@@ -58,10 +60,8 @@ export function SelectionInspector() {
   if (selection.kind === 'none' && routeOrderId === null) {
     return (
       <aside className={styles.summary} aria-label="Detalle">
-        <div className={styles.summaryEmpty}>
-          <strong>Detalle</strong>
-          <p>Selecciona una mesa, un plato o una orden para verla aquí.</p>
-        </div>
+        <OrderPanelHeader title="ORDEN #" origin="" status="" />
+        <EmptyState text="No hay productos añadidos en este momento" />
       </aside>
     );
   }
@@ -85,10 +85,8 @@ export function SelectionInspector() {
   if (orderId === null) {
     return (
       <aside className={styles.summary} aria-label="Detalle">
-        <div className={styles.summaryEmpty}>
-          <strong>Detalle</strong>
-          <p>Selecciona un elemento para verlo aquí.</p>
-        </div>
+        <OrderPanelHeader title="ORDEN #" origin="" status="" />
+        <EmptyState text="No hay productos añadidos en este momento" />
       </aside>
     );
   }
@@ -244,7 +242,7 @@ function TableInspector({
 
       {!adminMode && !loading && order === null ? (
         <>
-          <p className={styles.summaryEmpty}>Sin comanda activa en esta mesa.</p>
+          <EmptyState text="Sin comanda activa en esta mesa" />
           <div className={styles.ctaStack}>
             <button
               type="button"
@@ -474,13 +472,11 @@ function OrderInspector({
 
   return (
     <aside className={styles.summary} aria-label="Detalle de orden">
-      <div className={styles.summaryHead}>
-        <h2>ORDEN #{shortOrderLabel(order.id)}</h2>
-        <p className={styles.summaryMeta}>
-          <span>{originLabel(order)}</span>
-          <span className={styles.badge}>{statusLabel(order.status)}</span>
-        </p>
-      </div>
+      <OrderPanelHeader
+        title={`ORDEN #${shortOrderLabel(order.id)}`}
+        origin={originLabel(order)}
+        status={statusLabel(order.status)}
+      />
 
       {notice ? (
         <p className={styles.summaryNotice} role="alert">
@@ -565,7 +561,7 @@ function OrderInspector({
 
 function OrderLinesPreview({ order }: { order: OrderJson }) {
   if (order.lines.length === 0) {
-    return <p className={styles.summaryEmpty}>Sin productos todavía.</p>;
+    return <EmptyState text="No hay productos añadidos en este momento" />;
   }
 
   return (

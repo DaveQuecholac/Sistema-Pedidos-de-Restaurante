@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import shellStyles from '../components/app-shell/app-shell.module.css';
+import { TableIcon } from '../components/ui/table-icon'; 
 import { useShell } from '../components/app-shell/shell-context';
 import { listOrders, OrderApiError, type OrderJson } from '../ordenes/order-api';
 import { errorText, statusLabel } from '../ordenes/order-view';
@@ -141,15 +141,16 @@ export function MesasScreen() {
                     type="button"
                     className={[
                       occupied ? styles.tableOccupied : styles.tableFree,
-                      shellStyles.selectable,
-                      selected ? shellStyles.selectableSelected : '',
+                      selected ? styles.tableSelected : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
                     aria-pressed={selected}
                     onClick={() => selectTable(table.id)}
                   >
+                    
                     <span className={styles.tableNumber}>{table.label}</span>
+                    <TableIcon className={styles.tableSvg} />
                     <span className={styles.tableStatus}>
                       {occupied && order !== undefined ? statusLabel(order.status) : 'Libre'}
                     </span>

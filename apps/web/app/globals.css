@@ -13,6 +13,12 @@
   --color-accent-sand-soft: #e8d9c0;
   --color-border: #d0d5d8;
   --color-focus: #0f4c5c;
+  --color-search-bg: #e8e0eb;
+  --color-action-soft: #a9c7cb;
+  --color-table-line: #c9ccd0; 
+  --color-nav-idle: #c3c8cc; 
+  --color-divider: #eceef0;
+  --radius-pill: 999px; 
   --shadow-soft: 0 1px 2px rgb(15 76 92 / 6%), 0 8px 24px rgb(15 76 92 / 8%);
   --radius-sm: 0.35rem;
   --radius-md: 0.55rem;

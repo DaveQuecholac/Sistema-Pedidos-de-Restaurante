@@ -2,15 +2,16 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-width: 64rem;
 }
 
 .header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .header h1 {
@@ -21,14 +22,18 @@
 }
 
 .adminLink {
-  margin-top: 0.35rem;
-  color: var(--color-primary);
-  font-weight: 700;
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-sand-soft);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 600;
   text-decoration: none;
+  transition: filter 140ms ease;
 }
 
 .adminLink:hover {
-  text-decoration: underline;
+  filter: brightness(0.97);
 }
 
 .lead {
@@ -44,9 +49,9 @@
 
 .floorLabel {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-accent-sand);
 }
@@ -56,54 +61,70 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 1.5rem 1rem;
+  justify-items: center;
 }
 
 .tableFree,
 .tableOccupied {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
+  align-items: center;
+  gap: 0.25rem;
   width: 100%;
-  min-height: 5.5rem;
-  padding: 0.85rem;
+  max-width: 9rem;
+  padding: 0.6rem 0.5rem;
+  border: 0;
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
+  background: transparent;
   cursor: pointer;
-  text-align: left;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
-}
-
-.tableFree {
-  background: var(--color-surface);
-}
-
-.tableOccupied {
-  background: rgb(15 76 92 / 8%);
-  border-color: rgb(15 76 92 / 28%);
+  transition: background 140ms ease;
 }
 
 .tableFree:hover,
 .tableOccupied:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-soft);
-  border-color: var(--color-primary);
+  background: rgb(15 76 92 / 5%);
+}
+
+.tableSvg {
+  width: 100%;
+  max-width: 7rem;
+  height: auto;
+  color: var(--color-table-line);
+  transition: color 140ms ease;
+}
+
+.tableFree:hover .tableSvg {
+  color: var(--color-accent-sand);
+}
+
+.tableOccupied .tableSvg {
+  color: var(--color-primary-muted);
 }
 
 .tableNumber {
-  font-family: var(--font-display);
-  font-size: 1.55rem;
-  font-weight: 700;
-  color: var(--color-accent-sand);
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1;
+  color: var(--color-accent-sand);
 }
 
 .tableStatus {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--color-text-muted);
+}
+
+.tableSelected {
+  background: rgb(15 76 92 / 8%);
+}
+
+.tableSelected .tableSvg,
+.tableSelected .tableNumber {
+  color: var(--color-primary);
 }
 
 .empty {
