@@ -6,8 +6,10 @@ import { orderCobroPath, orderDetailPath } from '../../../components/app-shell/o
 import { useShell } from '../../../components/app-shell/shell-context';
 import { basisPointsToPercentLabel, centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
-import { can, originLabel, statusLabel } from '../../order-view';
-import styles from '../../orders.module.css';
+import { can } from '../../order-view';
+import styles from '../../../pago/pago.module.css';
+import { EmptyState } from '../../../components/ui/empty-state';
+import { Tabs } from '../../../components/ui/tabs';
 import {
   acceptAccount,
   clearAccountAccepted,
@@ -201,22 +203,28 @@ export function TotalsScreen({ orderId }: Props) {
     );
   }
 
+    const totalQuantity = totals.lines.reduce((sum, line) => sum + line.quantity, 0);
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
-          <h1>
-            {originLabel(order)} · Cuenta
-          </h1>
-          <p className={styles.meta}>
-            <span className={styles.statusBadge}>{statusLabel(order.status)}</span>
-          </p>
-        </div>
-        <nav className={styles.nav} aria-label="Acciones de cuenta">
-          <Link href="/pago">Cola de pago</Link>
-          <Link href={orderDetailPath(orderId)}>Comanda</Link>
+        <h1>Gestión de pagos</h1>
+        <nav className={styles.navChips} aria-label="Acciones de cuenta">
+          <Link href="/pago" className={styles.navChip}>
+            Cola de pago
+          </Link>
+          <Link href={orderDetailPath(orderId)} className={styles.navChip}>
+            Comanda
+          </Link>
         </nav>
       </header>
+
+      <Tabs
+        label="Secciones de la cuenta"
+        value="products"
+        onChange={() => undefined}
+        items={[{ value: 'products', label: 'Productos', count: totals.lines.length }]}
+      />
 
       {notice ? (
         <p className={styles.notice} role="alert">
@@ -224,233 +232,212 @@ export function TotalsScreen({ orderId }: Props) {
         </p>
       ) : null}
 
-      <div className={styles.workspace}>
-        <section className={styles.panel} aria-label="Desglose de la cuenta">
-              <table className={styles.breakdown}>
-                <tbody>
-                  {totals.lines.map((line) => (
-                    <tr key={line.lineId}>
-                      <th scope="row">
-                        {line.name}
-                        <span className={styles.meta}> × {line.quantity}</span>
-                      </th>
-                      <td>{centavosToLabel(line.lineSubtotal.amount)}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <th scope="row">Subtotal</th>
-                    <td>{centavosToLabel(totals.subtotal.amount)}</td>
-                  </tr>
-                  {totals.discount !== null ? (
-                    <tr>
-                      <th scope="row">{discountLabel(totals.discount)}</th>
-                      <td>−{centavosToLabel(totals.discount.amount.amount)}</td>
-                    </tr>
-                  ) : null}
-                  {totals.taxes.map((tax) => (
-                    <tr key={`tax-${tax.basisPoints}`}>
-                      <th scope="row">{taxLabel(tax)}</th>
-                      <td>{centavosToLabel(tax.amount.amount)}</td>
-                    </tr>
-                  ))}
-                  {totals.tip !== null ? (
-                    <tr>
-                      <th scope="row">{tipLabel(totals.tip)}</th>
-                      <td>{centavosToLabel(totals.tip.amount.amount)}</td>
-                    </tr>
-                  ) : null}
-                  <tr className={styles.breakdownTotal}>
-                    <th scope="row">Total</th>
-                    <td>{centavosToLabel(totals.total.amount)}</td>
-                  </tr>
-                </tbody>
-              </table>
-              {capNotice ? (
-                <p className={styles.hint} role="status">
-                  {capNotice}
-                </p>
-              ) : null}
-        </section>
+      {showAdjustmentForms ? (
+        <div className={styles.cards}>
+          <form
+            className={styles.sectionCard}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void applyDiscount();
+            }}
+          >
+            <h2>Descuentos</h2>
+            <div className={styles.chips} role="group" aria-label="Tipo de descuento">
+              <button
+                type="button"
+                className={discountMode === 'none' ? styles.chipActive : styles.chip}
+                aria-pressed={discountMode === 'none'}
+                disabled={sending}
+                onClick={() => {
+                  setDiscountMode('none');
+                  setDiscountText('');
+                }}
+              >
+                Sin descuento
+              </button>
+              <button
+                type="button"
+                className={discountMode === 'percentage' ? styles.chipActive : styles.chip}
+                aria-pressed={discountMode === 'percentage'}
+                disabled={sending}
+                onClick={() => setDiscountMode('percentage')}
+              >
+                Porcentaje
+              </button>
+              <button
+                type="button"
+                className={discountMode === 'fixedAmount' ? styles.chipActive : styles.chip}
+                aria-pressed={discountMode === 'fixedAmount'}
+                disabled={sending}
+                onClick={() => setDiscountMode('fixedAmount')}
+              >
+                Monto fijo
+              </button>
+            </div>
+            {discountMode !== 'none' ? (
+              <label className={styles.field}>
+                {discountMode === 'percentage' ? 'Porcentaje' : 'Monto en pesos'}
+                <input
+                  value={discountText}
+                  disabled={sending}
+                  onChange={(event) => setDiscountText(event.target.value)}
+                  inputMode="decimal"
+                />
+              </label>
+            ) : null}
+            <button type="submit" className={styles.solid} disabled={sending}>
+              Aplicar descuento
+            </button>
+          </form>
 
-        {showAdjustmentForms ? (
-          <div className={styles.formsStack}>
-            {readyToCharge ? (
-              <div className={styles.confirmPanel}>
-                <p className={styles.hint}>
-                  Aplica descuento y propina. Cuando esté lista, acepta la cuenta para cobrar.
-                </p>
-                <div className={styles.confirmActions}>
+          <form
+            className={styles.sectionCard}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void applyTip();
+            }}
+          >
+            <h2>Propinas</h2>
+            <div className={styles.chips} role="group" aria-label="Tipo de propina">
+              <button
+                type="button"
+                className={tipMode === 'none' ? styles.chipActive : styles.chip}
+                aria-pressed={tipMode === 'none'}
+                disabled={sending}
+                onClick={() => {
+                  setTipMode('none');
+                  setTipText('');
+                }}
+              >
+                Sin propina
+              </button>
+              {TIP_PRESETS.map((basisPoints) => {
+                const label = basisPointsToPercentLabel(basisPoints);
+                const selected =
+                  tipMode === 'percentage' && tipText === label.replace(/ %$/, '');
+                return (
                   <button
+                    key={basisPoints}
                     type="button"
-                    className={styles.primary}
+                    className={selected ? styles.chipActive : styles.chip}
+                    aria-pressed={selected}
                     disabled={sending}
-                    onClick={lockAccount}
+                    onClick={() => void applyTipPreset(basisPoints)}
                   >
-                    Aceptar cuenta
+                    {label}
                   </button>
-                </div>
-              </div>
-            ) : null}
-
-            <form
-              className={styles.form}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void applyDiscount();
-              }}
-            >
-              <h2>Descuento</h2>
-              <div className={styles.segmented} role="group" aria-label="Tipo de descuento">
-                <button
-                  type="button"
-                  className={discountMode === 'none' ? styles.segmentActive : styles.segment}
-                  aria-pressed={discountMode === 'none'}
-                  disabled={sending}
-                  onClick={() => {
-                    setDiscountMode('none');
-                    setDiscountText('');
-                  }}
-                >
-                  Sin descuento
-                </button>
-                <button
-                  type="button"
-                  className={discountMode === 'percentage' ? styles.segmentActive : styles.segment}
-                  aria-pressed={discountMode === 'percentage'}
-                  disabled={sending}
-                  onClick={() => setDiscountMode('percentage')}
-                >
-                  Porcentaje
-                </button>
-                <button
-                  type="button"
-                  className={discountMode === 'fixedAmount' ? styles.segmentActive : styles.segment}
-                  aria-pressed={discountMode === 'fixedAmount'}
-                  disabled={sending}
-                  onClick={() => setDiscountMode('fixedAmount')}
-                >
-                  Monto fijo
-                </button>
-              </div>
-              {discountMode !== 'none' ? (
-                <label>
-                  {discountMode === 'percentage' ? 'Porcentaje' : 'Monto en pesos'}
-                  <input
-                    value={discountText}
-                    disabled={sending}
-                    onChange={(event) => setDiscountText(event.target.value)}
-                    inputMode="decimal"
-                  />
-                </label>
-              ) : null}
-              <button type="submit" className={styles.primary} disabled={sending}>
-                Aplicar
+                );
+              })}
+              <button
+                type="button"
+                className={tipMode === 'percentage' ? styles.chipActive : styles.chip}
+                aria-pressed={tipMode === 'percentage'}
+                disabled={sending}
+                onClick={() => setTipMode('percentage')}
+              >
+                Otro %
               </button>
-            </form>
-
-            <form
-              className={styles.form}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void applyTip();
-              }}
-            >
-              <h2>Propina</h2>
-              <div className={styles.segmented} role="group" aria-label="Tipo de propina">
-                <button
-                  type="button"
-                  className={tipMode === 'none' ? styles.segmentActive : styles.segment}
-                  aria-pressed={tipMode === 'none'}
-                  disabled={sending}
-                  onClick={() => {
-                    setTipMode('none');
-                    setTipText('');
-                  }}
-                >
-                  Sin propina
-                </button>
-                <button
-                  type="button"
-                  className={tipMode === 'percentage' ? styles.segmentActive : styles.segment}
-                  aria-pressed={tipMode === 'percentage'}
-                  disabled={sending}
-                  onClick={() => setTipMode('percentage')}
-                >
-                  Otro %
-                </button>
-                <button
-                  type="button"
-                  className={tipMode === 'fixedAmount' ? styles.segmentActive : styles.segment}
-                  aria-pressed={tipMode === 'fixedAmount'}
-                  disabled={sending}
-                  onClick={() => setTipMode('fixedAmount')}
-                >
-                  Monto fijo
-                </button>
-              </div>
-              <div className={styles.presetRow} role="group" aria-label="Atajos de propina">
-                {TIP_PRESETS.map((basisPoints) => {
-                  const label = basisPointsToPercentLabel(basisPoints);
-                  const selected =
-                    tipMode === 'percentage' &&
-                    tipText === label.replace(/ %$/, '');
-                  return (
-                    <button
-                      key={basisPoints}
-                      type="button"
-                      className={selected ? styles.segmentActive : styles.segment}
-                      aria-pressed={selected}
-                      disabled={sending}
-                      onClick={() => void applyTipPreset(basisPoints)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              {tipMode !== 'none' ? (
-                <label>
-                  {tipMode === 'percentage' ? 'Porcentaje' : 'Monto en pesos'}
-                  <input
-                    value={tipText}
-                    disabled={sending}
-                    onChange={(event) => setTipText(event.target.value)}
-                    inputMode="decimal"
-                  />
-                </label>
-              ) : null}
-              <button type="submit" className={styles.primary} disabled={sending}>
-                Aplicar
+              <button
+                type="button"
+                className={tipMode === 'fixedAmount' ? styles.chipActive : styles.chip}
+                aria-pressed={tipMode === 'fixedAmount'}
+                disabled={sending}
+                onClick={() => setTipMode('fixedAmount')}
+              >
+                Monto fijo
               </button>
-            </form>
-          </div>
-        ) : (
-          <div className={styles.confirmPanel}>
-            <p className={styles.lockNotice} role="status">
-              {order.status === 'CLOSED'
-                ? 'La cuenta ya no se puede ajustar'
-                : accountLocked
-                  ? 'Cuenta aceptada. Ya no se puede modificar el descuento ni la propina.'
-                  : 'La cuenta ya no se puede ajustar'}
-            </p>
-            {readyToCharge || order.status === 'CLOSED' ? (
-              <div className={styles.confirmActions}>
-                {accountLocked && order.status !== 'CLOSED' ? (
-                  <button type="button" disabled={sending} onClick={unlockAccount}>
-                    Editar
-                  </button>
-                ) : null}
-                <Link
-                  className={styles.primary}
-                  href={orderCobroPath(orderId)}
-                >
-                  {order.status === 'CLOSED' ? 'Ver cobro' : 'Ir a cobrar'}
-                </Link>
-              </div>
+            </div>
+            {tipMode !== 'none' ? (
+              <label className={styles.field}>
+                {tipMode === 'percentage' ? 'Porcentaje' : 'Monto en pesos'}
+                <input
+                  value={tipText}
+                  disabled={sending}
+                  onChange={(event) => setTipText(event.target.value)}
+                  inputMode="decimal"
+                />
+              </label>
             ) : null}
+            <button type="submit" className={styles.solid} disabled={sending}>
+              Aplicar propina
+            </button>
+          </form>
+        </div>
+      ) : null}
+
+      {capNotice ? (
+        <p className={styles.hint} role="status">
+          {capNotice}
+        </p>
+      ) : null}
+
+      <ul className={styles.rows} aria-label="Productos de la cuenta">
+        {totals.lines.map((line) => (
+          <li key={line.lineId} className={styles.pill}>
+            <span className={styles.pillName}>{line.name}</span>
+            <span className={styles.pillQty}>
+              <span className={styles.pillLabel}>Cantidad</span>
+              {line.quantity}
+            </span>
+            <span className={styles.pillAmount}>
+              {centavosToLabel(line.lineSubtotal.amount)}
+            </span>
+          </li>
+        ))}
+        <li className={`${styles.pill} ${styles.pillTotal}`}>
+          <span className={styles.pillName}>Subtotal:</span>
+          <span className={styles.pillQty}>
+            <span className={styles.pillLabel}>Cantidad</span>
+            {totalQuantity}
+          </span>
+          <span className={styles.pillAmount}>{centavosToLabel(totals.subtotal.amount)}</span>
+        </li>
+      </ul>
+
+      {showAdjustmentForms && readyToCharge ? (
+        <div className={styles.confirmCard}>
+          <p>Aplica descuento y propina. Cuando esté lista, acepta la cuenta para cobrar.</p>
+          <div className={styles.confirmActions}>
+            <button
+              type="button"
+              className={styles.solid}
+              disabled={sending}
+              onClick={lockAccount}
+            >
+              Aceptar cuenta
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
+
+      {!showAdjustmentForms ? (
+        <div className={styles.confirmCard}>
+          <p className={styles.lockText} role="status">
+            {order.status === 'CLOSED'
+              ? 'La cuenta ya no se puede ajustar'
+              : accountLocked
+                ? 'Cuenta aceptada. Ya no se puede modificar el descuento ni la propina.'
+                : 'La cuenta ya no se puede ajustar'}
+          </p>
+          {readyToCharge || order.status === 'CLOSED' ? (
+            <div className={styles.confirmActions}>
+              {accountLocked && order.status !== 'CLOSED' ? (
+                <button
+                  type="button"
+                  className={styles.ghost}
+                  disabled={sending}
+                  onClick={unlockAccount}
+                >
+                  Editar
+                </button>
+              ) : null}
+              <Link className={styles.solidNavy} href={orderCobroPath(orderId)}>
+                {order.status === 'CLOSED' ? 'Ver cobro' : 'Ir a cobrar'}
+              </Link>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

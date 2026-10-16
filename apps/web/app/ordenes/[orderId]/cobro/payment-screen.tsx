@@ -6,8 +6,8 @@ import { orderCuentaPath, orderDetailPath } from '../../../components/app-shell/
 import { useShell } from '../../../components/app-shell/shell-context';
 import { centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
-import { originLabel, statusLabel } from '../../order-view';
-import styles from '../../orders.module.css';
+import styles from '../../../pago/pago.module.css';
+import { Tabs } from '../../../components/ui/tabs';
 import { isAccountAccepted } from '../cuenta/account-accepted';
 import { getOrderTotals } from '../cuenta/totals-api';
 import {
@@ -165,23 +165,29 @@ export function PaymentScreen({ orderId }: Props) {
     setPendingPayment(null);
   }
 
-  return (
+    return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
-          <h1>
-            {originLabel(order)} · Cobro
-          </h1>
-          <p className={styles.meta}>
-            <span className={styles.statusBadge}>{statusLabel(order.status)}</span>
-          </p>
-        </div>
-        <nav className={styles.nav} aria-label="Acciones de cobro">
-          <Link href={orderDetailPath(orderId)}>Comanda</Link>
-          <Link href={orderCuentaPath(orderId)}>Cuenta</Link>
-          <Link href="/pago">Cola de pago</Link>
+        <h1>Gestión de pagos</h1>
+        <nav className={styles.navChips} aria-label="Acciones de cobro">
+          <Link href={orderDetailPath(orderId)} className={styles.navChip}>
+            Comanda
+          </Link>
+          <Link href={orderCuentaPath(orderId)} className={styles.navChip}>
+            Cuenta
+          </Link>
+          <Link href="/pago" className={styles.navChip}>
+            Cola de pago
+          </Link>
         </nav>
       </header>
+
+      <Tabs
+        label="Secciones del cobro"
+        value="products"
+        onChange={() => undefined}
+        items={[{ value: 'products', label: 'Productos', count: totals.lines.length }]}
+      />
 
       {notice ? (
         <p className={styles.notice} role="alert">
@@ -227,55 +233,46 @@ export function PaymentScreen({ orderId }: Props) {
         </div>
       ) : null}
 
-      {view === 'payable' && accountAccepted ? (
-        <div className={styles.workspace}>
-          <section className={styles.chargeTotal} aria-label="Total a cobrar">
-            <p className={styles.chargeLabel}>Total a cobrar</p>
-            <p className={styles.chargeAmount}>{centavosToLabel(totals.total.amount)}</p>
-          </section>
+      {view === 'payable' && accountAccepted && step === 'capture' ? (
+        <form
+          className={`${styles.sectionCard} ${styles.narrow}`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void continueToConfirm();
+          }}
+        >
+          <h2>Medio de pago</h2>
+          <div className={styles.chips} role="group" aria-label="Medio de pago">
+            {PAYMENT_METHODS.map((entry) => (
+              <button
+                key={entry.method}
+                type="button"
+                className={method === entry.method ? styles.chipActive : styles.chip}
+                aria-pressed={method === entry.method}
+                disabled={sending}
+                onClick={() => selectMethod(entry.method)}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
 
-          {step === 'capture' ? (
-            <form
-              className={styles.form}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void continueToConfirm();
-              }}
-            >
-              <h2>Medio de pago</h2>
-              <div className={styles.methodSelector} role="group" aria-label="Medio de pago">
-                {PAYMENT_METHODS.map((entry) => (
-                  <button
-                    key={entry.method}
-                    type="button"
-                    className={
-                      method === entry.method ? styles.methodActive : styles.methodOption
-                    }
-                    aria-pressed={method === entry.method}
-                    disabled={sending}
-                    onClick={() => selectMethod(entry.method)}
-                  >
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-
-              {method === 'cash' ? (
-                <label>
-                  Monto recibido
-                  <input
-                    value={inputText}
-                    disabled={sending}
-                    onChange={(event) => setInputText(event.target.value)}
-                    inputMode="decimal"
-                    autoComplete="off"
-                  />
-                </label>
-              ) : null}
-              {method === 'cash' ? (
+          {method === 'cash' ? (
+            <>
+              <label className={styles.field}>
+                Monto recibido
+                <input
+                  value={inputText}
+                  disabled={sending}
+                  onChange={(event) => setInputText(event.target.value)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                />
+              </label>
+              <div className={styles.chips}>
                 <button
                   type="button"
-                  className={styles.segment}
+                  className={styles.chip}
                   disabled={sending}
                   onClick={() =>
                     setInputText(centavosToLabel(totals.total.amount).slice(1))
@@ -283,69 +280,71 @@ export function PaymentScreen({ orderId }: Props) {
                 >
                   Monto exacto
                 </button>
-              ) : null}
-
-              {method === 'card' ? (
-                <label>
-                  Últimos 4 dígitos
-                  <input
-                    value={inputText}
-                    disabled={sending}
-                    onChange={(event) =>
-                      setInputText(event.target.value.replace(/\D/g, '').slice(0, 4))
-                    }
-                    inputMode="numeric"
-                    maxLength={4}
-                    autoComplete="off"
-                  />
-                </label>
-              ) : null}
-
-              {method === 'digitalGateway' ? (
-                <label>
-                  Correo o teléfono del cliente
-                  <input
-                    value={inputText}
-                    disabled={sending}
-                    onChange={(event) => setInputText(event.target.value)}
-                    autoComplete="off"
-                  />
-                </label>
-              ) : null}
-
-              <button type="submit" className={styles.primary} disabled={sending}>
-                Continuar
-              </button>
-            </form>
-          ) : null}
-
-          {step === 'confirm' && pendingPayment !== null ? (
-            <div className={styles.confirmPanel}>
-              <p>
-                {confirmationText(method, totals.total, pendingPayment)}
-              </p>
-              <div className={styles.confirmActions}>
-                <button
-                  type="button"
-                  className={styles.danger}
-                  disabled={sending}
-                  onClick={() => void confirmClose()}
-                >
-                  Confirmar cobro
-                </button>
-                <button
-                  type="button"
-                  disabled={sending}
-                  onClick={() => {
-                    setStep('capture');
-                    setPendingPayment(null);
-                  }}
-                >
-                  Volver
-                </button>
               </div>
-            </div>
+            </>
           ) : null}
+
+          {method === 'card' ? (
+            <label className={styles.field}>
+              Últimos 4 dígitos
+              <input
+                value={inputText}
+                disabled={sending}
+                onChange={(event) =>
+                  setInputText(event.target.value.replace(/\D/g, '').slice(0, 4))
+                }
+                inputMode="numeric"
+                maxLength={4}
+                autoComplete="off"
+              />
+            </label>
+          ) : null}
+
+          {method === 'digitalGateway' ? (
+            <label className={styles.field}>
+              Correo o teléfono del cliente
+              <input
+                value={inputText}
+                disabled={sending}
+                onChange={(event) => setInputText(event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+          ) : null}
+
+          <button type="submit" className={styles.solid} disabled={sending}>
+            Continuar
+          </button>
+        </form>
+      ) : null}
+
+      {view === 'payable' &&
+      accountAccepted &&
+      step === 'confirm' &&
+      pendingPayment !== null ? (
+        <div className={`${styles.confirmCard} ${styles.narrow}`}>
+          <p>{confirmationText(method, totals.total, pendingPayment)}</p>
+          <div className={styles.confirmActions}>
+            <button
+              type="button"
+              className={styles.solidNavy}
+              disabled={sending}
+              onClick={() => void confirmClose()}
+            >
+              Confirmar cobro
+            </button>
+            <button
+              type="button"
+              className={styles.ghost}
+              disabled={sending}
+              onClick={() => {
+                setStep('capture');
+                setPendingPayment(null);
+              }}
+            >
+              Volver
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

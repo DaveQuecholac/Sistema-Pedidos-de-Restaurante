@@ -21,42 +21,7 @@
   font-size: 1.75rem;
 }
 
-.workspace {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  min-width: 0;
-}
-
-.panel {
-  margin: 0;
-  min-width: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 0.55rem 0.75rem;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-}
-
-.panel[open] {
-  padding-bottom: 0.75rem;
-}
-
-.panel summary {
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.panel[open] summary {
-  margin-bottom: 0.65rem;
-}
-
-.panelBody {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-}
+/* ---------- Catálogo ---------- */
 
 .catalogPanel {
   min-width: 0;
@@ -116,47 +81,169 @@
   color: var(--color-text-muted);
 }
 
-.form {
+.actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-  padding: 0.9rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+}
+
+.row .actions button,
+.rowInactive .actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.row .actions button.danger,
+.rowInactive .actions button.danger {
+  border: 0;
+  background: var(--color-destructive);
+  color: #fff;
+  font-weight: 700;
+}
+
+.row .actions button.danger:hover:not(:disabled),
+.rowInactive .actions button.danger:hover:not(:disabled) {
+  background: var(--color-destructive-hover);
+}
+
+.row .actions button:disabled,
+.rowInactive .actions button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ---------- Formulario (vive en el panel derecho) ---------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  color: var(--color-text);
+  line-height: 1.35;
 }
 
 .form h2 {
   margin: 0;
-  font-size: 1.15rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-divider);
   font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.page label {
+.form label {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.form input,
+.form select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-card-muted);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.form input:focus-visible,
+.form select:focus-visible {
+  outline: 2px solid var(--color-primary-muted);
+  outline-offset: 1px;
+}
+
+.form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.9rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-action-soft);
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.form button:hover:not(:disabled) {
+  background: #98b9be;
+}
+
+.form button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.form button.primary {
+  min-height: 2.75rem;
+  background: var(--color-primary-muted);
+  color: #fff;
+  font-size: 1rem;
+}
+
+.form button.primary:hover:not(:disabled) {
+  background: var(--color-primary);
+}
+
+.form button.danger {
+  background: var(--color-destructive);
+  color: #fff;
+}
+
+.form button.danger:hover:not(:disabled) {
+  background: var(--color-destructive-hover);
+}
+
+.panel {
+  margin: 0;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--color-section-soft);
+}
+
+.panel summary {
+  cursor: pointer;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
-.page input,
-.page select,
-.page button {
-  font: inherit;
-  min-height: 2.5rem;
+.panel[open] summary {
+  margin-bottom: 0.65rem;
 }
 
-.page input,
-.page select {
-  width: 100%;
-  max-width: 100%;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-secondary);
-  color: var(--color-text);
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .modifier {
@@ -165,68 +252,15 @@
   gap: 0.5rem;
   margin: 0;
   padding: 0.75rem;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-secondary);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: auto;
-}
-
-.page button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  width: 100%;
-  padding: 0.5rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
   background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
 }
 
-.page button:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.page button.primary {
-  border: 0;
-  background: var(--color-primary);
-  color: #fff;
-  font-weight: 700;
-}
-
-.page button.primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.page button.danger {
-  border: 0;
-  background: var(--color-destructive);
-  color: #fff;
-  font-weight: 700;
-}
-
-.page button.danger:hover:not(:disabled) {
-  background: var(--color-destructive-hover);
-}
-
-.row .actions button,
-.rowInactive .actions button {
-  min-height: 2rem;
-  padding: 0.25rem 0.45rem;
-  font-size: 0.82rem;
-}
+/* ---------- Comunes ---------- */
 
 .hint {
   margin: 0;
+  font-size: 0.75rem;
   font-weight: 400;
   color: var(--color-text-muted);
 }
@@ -237,6 +271,18 @@
   color: var(--color-destructive);
 }
 
+.error button {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .empty {
   margin: 0;
   color: var(--color-text-muted);
@@ -245,13 +291,5 @@
 @media (min-width: 40rem) {
   .catalog {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 64rem) {
-  .workspace {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 19rem;
-    align-items: start;
   }
 }

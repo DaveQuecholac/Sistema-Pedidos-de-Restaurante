@@ -268,8 +268,8 @@ function TableInspector({
               Ver comanda
             </Link>
             {order.status === 'READY' ? (
-              <Link className={styles.ctaPrimary} href={orderCuentaPath(order.id)}>
-                Ir a cobro
+              <Link className={styles.ctaNavy} href={orderCuentaPath(order.id)}>
+                Realizar cobro
               </Link>
             ) : null}
             {order.status !== 'CLOSED' && order.status !== 'CANCELLED' ? (
@@ -485,77 +485,87 @@ function OrderInspector({
       ) : null}
 
       <OrderLinesPreview order={order} />
+      <div className={styles.summaryFoot}>
+        {totals !== null ? (
+          <div className={styles.totals}>
+            <div className={styles.totalsRow}>
+              <span>Subtotal</span>
+              <span>{centavosToLabel(totals.subtotal.amount)}</span>
+            </div>
+            {totals.discount !== null ? (
+              <div className={styles.totalsRow}>
+                <span>Descuento</span>
+                <span>-{centavosToLabel(totals.discount.amount.amount)}</span>
+              </div>
+            ) : null}
+            <div className={styles.totalsRow}>
+              <span>Impuestos</span>
+              <span>{centavosToLabel(totals.taxTotal.amount)}</span>
+            </div>
+            {totals.tip !== null ? (
+              <div className={styles.totalsRow}>
+                <span>Propina</span>
+                <span>{centavosToLabel(totals.tip.amount.amount)}</span>
+              </div>
+            ) : null}
+            <div className={styles.totalsTotal}>
+              <span>Total</span>
+              <span>{centavosToLabel(totals.total.amount)}</span>
+            </div>
+          </div>
+        ) : null}
 
-      {totals !== null ? (
-        <div className={styles.totals}>
-          <div className={styles.totalsRow}>
-            <span>Subtotal</span>
-            <span>{centavosToLabel(totals.subtotal.amount)}</span>
-          </div>
-          {totals.discount !== null ? (
-            <div className={styles.totalsRow}>
-              <span>Descuento</span>
-              <span>-{centavosToLabel(totals.discount.amount.amount)}</span>
-            </div>
+        <div className={styles.ctaStack}>
+          <Link className={styles.ctaSecondary} href={orderDetailPath(order.id)}>
+            Ver comanda
+          </Link>
+          {can(order, 'sendToKitchen') ? (
+            <button
+              type="button"
+              className={styles.ctaPrimary}
+              disabled={sending}
+              onClick={() => void runAction(() => sendToKitchen(order.id))}
+            >
+              Enviar a cocina
+            </button>
           ) : null}
-          <div className={styles.totalsRow}>
-            <span>Impuestos</span>
-            <span>{centavosToLabel(totals.taxTotal.amount)}</span>
-          </div>
-          {totals.tip !== null ? (
-            <div className={styles.totalsRow}>
-              <span>Propina</span>
-              <span>{centavosToLabel(totals.tip.amount.amount)}</span>
-            </div>
+          {order.status !== 'CLOSED' && order.status !== 'CANCELLED' ? (
+            <Link className={styles.ctaSecondary} href={orderCuentaPath(order.id)}>
+              Ver cuenta
+            </Link>
           ) : null}
-          <div className={styles.totalsTotal}>
-            <span>Total</span>
-            <span>{centavosToLabel(totals.total.amount)}</span>
-          </div>
+          {order.status === 'READY' ? (
+            <Link className={styles.ctaPrimary} href={orderCuentaPath(order.id)}>
+              Cobrar
+            </Link>
+          ) : null}
+          {order.status === 'CLOSED' ? (
+            <Link className={styles.ctaSecondary} href={orderCobroPath(order.id)}>
+              Ver cobro
+            </Link>
+          ) : null}
+          {can(order, 'cancel') ? (
+            <button
+              type="button"
+              className={styles.ctaDanger}
+              disabled={sending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    '¿Cancelar esta orden? Se anula la comanda completa y no se puede deshacer.',
+                  )
+                ) {
+                  void runAction(() => cancelOrder(order.id));
+                }
+              }}
+            >
+              Cancelar orden
+            </button>
+          ) : null}
         </div>
-      ) : null}
-
-      <div className={styles.ctaStack}>
-        <Link className={styles.ctaSecondary} href={orderDetailPath(order.id)}>
-          Ver comanda
-        </Link>
-        {can(order, 'sendToKitchen') ? (
-          <button
-            type="button"
-            className={styles.ctaPrimary}
-            disabled={sending}
-            onClick={() => void runAction(() => sendToKitchen(order.id))}
-          >
-            Enviar a cocina
-          </button>
-        ) : null}
-        {order.status !== 'CLOSED' && order.status !== 'CANCELLED' ? (
-          <Link className={styles.ctaSecondary} href={orderCuentaPath(order.id)}>
-            Ver cuenta
-          </Link>
-        ) : null}
-        {order.status === 'READY' ? (
-          <Link className={styles.ctaPrimary} href={orderCuentaPath(order.id)}>
-            Cobrar
-          </Link>
-        ) : null}
-        {order.status === 'CLOSED' ? (
-          <Link className={styles.ctaSecondary} href={orderCobroPath(order.id)}>
-            Ver cobro
-          </Link>
-        ) : null}
-        {can(order, 'cancel') ? (
-          <button
-            type="button"
-            className={styles.ctaDanger}
-            disabled={sending}
-            onClick={() => void runAction(() => cancelOrder(order.id))}
-          >
-            Cancelar orden
-          </button>
-        ) : null}
       </div>
     </aside>
+
   );
 }
 
@@ -568,20 +578,36 @@ function OrderLinesPreview({ order }: { order: OrderJson }) {
     <ul className={styles.lineList}>
       {order.lines.map((line) => (
         <li key={line.id} className={styles.lineItem}>
-          <strong>{line.name}</strong>
-          <p className={styles.lineMeta}>
-            <span>× {line.quantity}</span>
-            <span>{centavosToLabel(line.unitPrice.amount)}</span>
-          </p>
-          {line.modifiers.length > 0 ? (
-            <ul className={styles.modList}>
-              {line.modifiers.map((modifier) => (
-                <li key={`${line.id}-${modifier.modifierId}`}>{modifierLabel(modifier)}</li>
-              ))}
-            </ul>
-          ) : null}
+          <span className={styles.lineThumb}>
+            <ImageIcon />
+          </span>
+          <div className={styles.lineInfo}>
+            <span className={styles.lineName}>{line.name}</span>
+            <span className={styles.linePrice}>{centavosToLabel(line.unitPrice.amount)}</span>
+            {line.modifiers.length > 0 ? (
+              <ul className={styles.modList}>
+                {line.modifiers.map((modifier) => (
+                  <li key={`${line.id}-${modifier.modifierId}`}>{modifierLabel(modifier)}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <div className={styles.lineQty}>
+            <span className={styles.lineQtyLabel}>Cantidad</span>
+            <span className={styles.lineQtyValue}>{line.quantity}</span>
+          </div>
         </li>
       ))}
     </ul>
+  );
+}
+
+function ImageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <circle cx="9" cy="9" r="1.6" />
+      <path d="m21 16-5-5-8 8" />
+    </svg>
   );
 }

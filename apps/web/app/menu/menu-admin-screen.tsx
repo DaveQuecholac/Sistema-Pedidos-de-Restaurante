@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import shellStyles from '../components/app-shell/app-shell.module.css';
-import { useShell } from '../components/app-shell/shell-context';
+import { createPortal } from 'react-dom';
 import {
   basisPointsToPercentLabel,
   catalogView,
@@ -58,7 +57,7 @@ type Draft =
   | { ok: false; message: string };
 
 export function MenuAdminScreen() {
-  const { selection, selectMenuItem } = useShell();
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [catalog, setCatalog] = useState<CatalogState>({ kind: 'loading' });
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -67,6 +66,10 @@ export function MenuAdminScreen() {
 
   useEffect(() => {
     void refreshCatalog(setCatalog);
+  }, []);
+
+  useEffect(() => {
+    setSlot(document.getElementById('shell-panel-slot'));
   }, []);
 
   const view = catalogView(
@@ -224,7 +227,7 @@ export function MenuAdminScreen() {
       ) : null}
 
       {view === 'empty' || view === 'list' ? (
-        <div className={styles.workspace}>
+        <>
           <section className={styles.catalogPanel} aria-label="Platos">
             {view === 'empty' ? (
               <p className={styles.empty}>Todavía no hay platos. Crea el primero.</p>
@@ -234,27 +237,7 @@ export function MenuAdminScreen() {
                   ? catalog.items.map((item) => (
                       <li
                         key={item.id}
-                        className={[
-                          item.active ? styles.row : styles.rowInactive,
-                          shellStyles.selectable,
-                          selection.kind === 'menuItem' && selection.menuItemId === item.id
-                            ? shellStyles.selectableSelected
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        role="button"
-                        tabIndex={0}
-                        aria-pressed={
-                          selection.kind === 'menuItem' && selection.menuItemId === item.id
-                        }
-                        onClick={() => selectMenuItem(item.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            selectMenuItem(item.id);
-                          }
-                        }}
+                        className={item.active ? styles.row : styles.rowInactive}
                       >
                         <h2>{item.name}</h2>
                         {item.ingredients.length > 0 ? (
@@ -309,186 +292,191 @@ export function MenuAdminScreen() {
             )}
           </section>
 
-          <form
-            className={styles.form}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void save();
-            }}
-          >
-            <h2>{editingId === null ? 'Nuevo plato' : 'Editar plato'}</h2>
-            <label>
-              Nombre
-              <input
-                value={form.name}
-                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              />
-            </label>
-            <label>
-              Precio (pesos)
-              <input
-                inputMode="decimal"
-                value={form.priceText}
-                onChange={(event) => setForm((current) => ({ ...current, priceText: event.target.value }))}
-              />
-            </label>
-            <label>
-              Impuesto (%)
-              <input
-                inputMode="decimal"
-                value={form.taxText}
-                onChange={(event) => setForm((current) => ({ ...current, taxText: event.target.value }))}
-              />
-            </label>
-
-            <details className={styles.panel}>
-              <summary>Ingredientes ({form.ingredients.length})</summary>
-              <div className={styles.panelBody}>
-              <p className={styles.hint}>Lo que el plato trae. Un omitir solo puede quitar uno de estos.</p>
-              {form.ingredients.map((ingredient) => (
-                <div key={ingredient.key} className={styles.modifier}>
-                  <label>
-                    Ingrediente
-                    <input
-                      value={ingredient.name}
-                      onChange={(event) => renameIngredient(ingredient.key, event.target.value)}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className={styles.danger}
-                    disabled={sending}
-                    onClick={() => removeIngredient(ingredient.key)}
-                  >
-                    <Icon name="x" />
-                    Quitar ingrediente
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                disabled={sending}
-                onClick={() =>
-                  setForm((current) => ({
-                    ...current,
-                    ingredients: [...current.ingredients, { key: crypto.randomUUID(), name: '' }],
-                  }))
-                }
+          {slot !== null
+            ? createPortal(
+              <form
+                className={styles.form}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void save();
+                }}
               >
-                <Icon name="plus" />
-                Agregar ingrediente
-              </button>
-              </div>
-            </details>
+                <h2>{editingId === null ? 'Nuevo plato' : 'Editar plato'}</h2>
+                <label>
+                  Nombre
+                  <input
+                    value={form.name}
+                    onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Precio (pesos)
+                  <input
+                    inputMode="decimal"
+                    value={form.priceText}
+                    onChange={(event) => setForm((current) => ({ ...current, priceText: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Impuesto (%)
+                  <input
+                    inputMode="decimal"
+                    value={form.taxText}
+                    onChange={(event) => setForm((current) => ({ ...current, taxText: event.target.value }))}
+                  />
+                </label>
 
-            <details className={styles.panel}>
-              <summary>Modificadores ({form.modifiers.length})</summary>
-              <div className={styles.panelBody}>
-              <p className={styles.hint}>Extra se cobra y se escribe. Omitir elige un ingrediente y no se cobra.</p>
-              {form.modifiers.map((modifier) => (
-                <div key={modifier.key} className={styles.modifier}>
-                  {modifier.kind === 'exclusion' ? (
-                    <label>
-                      Ingrediente que se omite
-                      <select
-                        value={modifier.name}
-                        onChange={(event) => updateModifier(modifier.key, { name: event.target.value })}
+                <details className={styles.panel}>
+                  <summary>Ingredientes ({form.ingredients.length})</summary>
+                  <div className={styles.panelBody}>
+                  <p className={styles.hint}>Lo que el plato trae. Un omitir solo puede quitar uno de estos.</p>
+                  {form.ingredients.map((ingredient) => (
+                    <div key={ingredient.key} className={styles.modifier}>
+                      <label>
+                        Ingrediente
+                        <input
+                          value={ingredient.name}
+                          onChange={(event) => renameIngredient(ingredient.key, event.target.value)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className={styles.danger}
+                        disabled={sending}
+                        onClick={() => removeIngredient(ingredient.key)}
                       >
-                        <option value="">Elige un ingrediente</option>
-                        {omitChoices(form, modifier.key).map((name) => (
-                          <option key={name} value={name}>
-                            {name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : (
-                    <label>
-                      Nombre del extra
-                      <input
-                        value={modifier.name}
-                        onChange={(event) => updateModifier(modifier.key, { name: event.target.value })}
-                      />
-                    </label>
-                  )}
-                  <label>
-                    Tipo
-                    <select
-                      value={modifier.kind}
-                      onChange={(event) =>
-                        updateModifier(modifier.key, {
-                          kind: event.target.value,
-                          name: event.target.value === 'exclusion' ? '' : modifier.name,
-                          priceText: event.target.value === 'exclusion' ? '' : modifier.priceText,
-                        })
-                      }
-                    >
-                      <option value="extra">Extra</option>
-                      <option value="exclusion">Omitir</option>
-                      {modifier.kind !== 'extra' && modifier.kind !== 'exclusion' ? (
-                        <option value={modifier.kind}>{modifier.kind}</option>
-                      ) : null}
-                    </select>
-                  </label>
-                  {modifier.kind !== 'exclusion' || modifier.priceText.trim() !== '' ? (
-                    <label>
-                      Precio del extra
-                      <input
-                        inputMode="decimal"
-                        value={modifier.priceText}
-                        onChange={(event) => updateModifier(modifier.key, { priceText: event.target.value })}
-                      />
-                    </label>
-                  ) : null}
+                        <Icon name="x" />
+                        Quitar ingrediente
+                      </button>
+                    </div>
+                  ))}
                   <button
                     type="button"
-                    className={styles.danger}
                     disabled={sending}
-                    onClick={() => removeModifier(modifier.key)}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        ingredients: [...current.ingredients, { key: crypto.randomUUID(), name: '' }],
+                      }))
+                    }
                   >
-                    <Icon name="x" />
-                    Quitar modificador
+                    <Icon name="plus" />
+                    Agregar ingrediente
                   </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                disabled={sending}
-                onClick={() =>
-                  setForm((current) => ({
-                    ...current,
-                    modifiers: [
-                      ...current.modifiers,
-                      { key: crypto.randomUUID(), name: '', kind: 'extra', priceText: '' },
-                    ],
-                  }))
-                }
-              >
-                <Icon name="plus" />
-                Agregar modificador
-              </button>
-              </div>
-            </details>
+                  </div>
+                </details>
 
-            {notice ? (
-              <p className={styles.notice} role="alert">
-                {notice}
-              </p>
-            ) : null}
-            <div className={styles.actions}>
-              <button className={styles.primary} type="submit" disabled={sending}>
-                <Icon name="check" />
-                {editingId === null ? 'Guardar plato' : 'Guardar cambios'}
-              </button>
-              {editingId !== null ? (
-                <button type="button" disabled={sending} onClick={cancelEdit}>
-                  <Icon name="x" />
-                  Cancelar
-                </button>
-              ) : null}
-            </div>
-          </form>
-        </div>
+                <details className={styles.panel}>
+                  <summary>Modificadores ({form.modifiers.length})</summary>
+                  <div className={styles.panelBody}>
+                  <p className={styles.hint}>Extra se cobra y se escribe. Omitir elige un ingrediente y no se cobra.</p>
+                  {form.modifiers.map((modifier) => (
+                    <div key={modifier.key} className={styles.modifier}>
+                      {modifier.kind === 'exclusion' ? (
+                        <label>
+                          Ingrediente que se omite
+                          <select
+                            value={modifier.name}
+                            onChange={(event) => updateModifier(modifier.key, { name: event.target.value })}
+                          >
+                            <option value="">Elige un ingrediente</option>
+                            {omitChoices(form, modifier.key).map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : (
+                        <label>
+                          Nombre del extra
+                          <input
+                            value={modifier.name}
+                            onChange={(event) => updateModifier(modifier.key, { name: event.target.value })}
+                          />
+                        </label>
+                      )}
+                      <label>
+                        Tipo
+                        <select
+                          value={modifier.kind}
+                          onChange={(event) =>
+                            updateModifier(modifier.key, {
+                              kind: event.target.value,
+                              name: event.target.value === 'exclusion' ? '' : modifier.name,
+                              priceText: event.target.value === 'exclusion' ? '' : modifier.priceText,
+                            })
+                          }
+                        >
+                          <option value="extra">Extra</option>
+                          <option value="exclusion">Omitir</option>
+                          {modifier.kind !== 'extra' && modifier.kind !== 'exclusion' ? (
+                            <option value={modifier.kind}>{modifier.kind}</option>
+                          ) : null}
+                        </select>
+                      </label>
+                      {modifier.kind !== 'exclusion' || modifier.priceText.trim() !== '' ? (
+                        <label>
+                          Precio del extra
+                          <input
+                            inputMode="decimal"
+                            value={modifier.priceText}
+                            onChange={(event) => updateModifier(modifier.key, { priceText: event.target.value })}
+                          />
+                        </label>
+                      ) : null}
+                      <button
+                        type="button"
+                        className={styles.danger}
+                        disabled={sending}
+                        onClick={() => removeModifier(modifier.key)}
+                      >
+                        <Icon name="x" />
+                        Quitar modificador
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        modifiers: [
+                          ...current.modifiers,
+                          { key: crypto.randomUUID(), name: '', kind: 'extra', priceText: '' },
+                        ],
+                      }))
+                    }
+                  >
+                    <Icon name="plus" />
+                    Agregar modificador
+                  </button>
+                  </div>
+                </details>
+
+                {notice ? (
+                  <p className={styles.notice} role="alert">
+                    {notice}
+                  </p>
+                ) : null}
+                <div className={styles.actions}>
+                  <button className={styles.primary} type="submit" disabled={sending}>
+                    <Icon name="check" />
+                    {editingId === null ? 'Guardar plato' : 'Guardar cambios'}
+                  </button>
+                  {editingId !== null ? (
+                    <button type="button" disabled={sending} onClick={cancelEdit}>
+                      <Icon name="x" />
+                      Cancelar
+                    </button>
+                  ) : null}
+                </div>
+              </form>,
+              slot,
+            )
+            : null}
+        </>
       ) : null}
     </div>
   );

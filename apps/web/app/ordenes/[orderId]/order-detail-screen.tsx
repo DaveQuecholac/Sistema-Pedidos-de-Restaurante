@@ -1,19 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { orderCobroPath, orderCuentaPath } from '../../components/app-shell/order-routes';
 import { useShell } from '../../components/app-shell/shell-context';
+import { EmptyState } from '../../components/ui/empty-state';
 import { listMenuItems, type MenuItemJson } from '../../menu/menu-api';
 import { centavosToLabel } from '../../menu/menu-amount';
 import {
   addLine,
   cancelLine,
-  cancelOrder,
   getOrder,
   modifyLine,
   OrderApiError,
-  sendToKitchen,
   type LineItemJson,
   type OrderJson,
 } from '../order-api';
@@ -27,7 +26,7 @@ import {
   preselect,
   statusLabel,
 } from '../order-view';
-import styles from '../orders.module.css';
+import styles from './order-detail.module.css';
 
 type OrderState =
   | { kind: 'loading' }
@@ -45,7 +44,7 @@ type Props = {
 };
 
 export function OrderDetailScreen({ orderId }: Props) {
-  const { bumpRefresh, setSelectedOrderId } = useShell();
+  const { bumpRefresh, setSelectedOrderId, refreshToken } = useShell();
   const [orderState, setOrderState] = useState<OrderState>({ kind: 'loading' });
   const [menuState, setMenuState] = useState<MenuState>({ kind: 'loading' });
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -55,12 +54,21 @@ export function OrderDetailScreen({ orderId }: Props) {
   const [missingModifiers, setMissingModifiers] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
     setSelectedOrderId(orderId);
     void loadAll(orderId, setOrderState, setMenuState);
   }, [orderId, setSelectedOrderId]);
+
+  // Si el panel derecho cambia la orden (enviar a cocina, cancelar), recarga esta vista.
+  const lastRefreshToken = useRef(refreshToken);
+  useEffect(() => {
+    if (lastRefreshToken.current === refreshToken) {
+      return;
+    }
+    lastRefreshToken.current = refreshToken;
+    void reloadOrder(orderId, setOrderState);
+  }, [refreshToken, orderId]);
 
   const order = orderState.kind === 'ready' ? orderState.order : null;
   const editable = order !== null && can(order, 'editLines');
@@ -129,7 +137,6 @@ export function OrderDetailScreen({ orderId }: Props) {
     try {
       const updated = await action();
       setOrderState({ kind: 'ready', order: updated });
-      setConfirmCancel(false);
       resetLineForm();
       bumpRefresh();
     } catch (error) {
@@ -138,7 +145,6 @@ export function OrderDetailScreen({ orderId }: Props) {
         await reloadOrder(orderId, setOrderState);
         setEditingLineId(null);
         setMissingModifiers(false);
-        setConfirmCancel(false);
         bumpRefresh();
       }
     } finally {
@@ -219,16 +225,18 @@ export function OrderDetailScreen({ orderId }: Props) {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
+        <div className={styles.titleBlock}>
           <h1>{originLabel(current)}</h1>
-          <p className={styles.meta}>
-            <span className={styles.statusBadge}>{statusLabel(current.status)}</span>
-          </p>
+          <span className={styles.badge}>{statusLabel(current.status)}</span>
         </div>
-        <nav className={styles.nav} aria-label="Acciones de comanda">
-          <Link href={orderCuentaPath(orderId)}>Cuenta</Link>
+        <nav className={styles.navChips} aria-label="Acciones de comanda">
+          <Link href={orderCuentaPath(orderId)} className={styles.navChip}>
+            Cuenta
+          </Link>
           {current.status === 'CLOSED' ? (
-            <Link href={orderCobroPath(orderId)}>Ver cobro</Link>
+            <Link href={orderCobroPath(orderId)} className={styles.navChip}>
+              Ver cobro
+            </Link>
           ) : null}
         </nav>
       </header>
@@ -239,122 +247,80 @@ export function OrderDetailScreen({ orderId }: Props) {
         </p>
       ) : null}
 
+      {lock !== null ? (
+        <p className={styles.lockNotice} role="status">
+          {lock}
+        </p>
+      ) : null}
+
+      {editable && (menuState.kind === 'error' || dishes.length === 0) ? (
+        <p className={styles.notice} role="alert">
+          No se pudo cargar el menú
+        </p>
+      ) : null}
+
       <div className={styles.workspace}>
-        <section className={styles.panel} aria-label="Líneas de la comanda">
-              {current.lines.length === 0 ? (
-                <p className={styles.empty}>Todavía no hay platos en esta comanda.</p>
-              ) : (
-                <ul className={styles.catalog}>
-                  {current.lines.map((line) => (
-                    <li key={line.id} className={styles.lineRow}>
-                      <strong>{line.name}</strong>
-                      <p className={styles.meta}>
-                        <span>× {line.quantity}</span>
-                        <span>{centavosToLabel(line.unitPrice.amount)}</span>
-                      </p>
-                      {line.modifiers.length > 0 ? (
-                        <ul className={styles.checkList}>
-                          {line.modifiers.map((modifier) => (
-                            <li key={`${line.id}-${modifier.modifierId}`}>
-                              {modifierLabel(modifier)}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {editable ? (
-                        <div className={styles.actions}>
-                          <button
-                            type="button"
-                            disabled={sending}
-                            onClick={() => startEdit(line)}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.danger}
-                            disabled={sending}
-                            onClick={() =>
-                              void runMutation(() => cancelLine(current.id, line.id))
-                            }
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-          <div className={styles.actionBar}>
-            {can(current, 'sendToKitchen') ? (
-              <button
-                type="button"
-                className={styles.primary}
-                disabled={sending}
-                onClick={() => void runMutation(() => sendToKitchen(current.id))}
-              >
-                Enviar a cocina
-              </button>
-            ) : null}
-            {can(current, 'cancel') && !confirmCancel ? (
-              <button
-                type="button"
-                className={styles.danger}
-                disabled={sending}
-                onClick={() => {
-                  setNotice(null);
-                  setConfirmCancel(true);
-                }}
-              >
-                Cancelar orden
-              </button>
-            ) : null}
-            {can(current, 'cancel') && confirmCancel ? (
-              <div className={styles.confirmPanel} role="alertdialog" aria-labelledby="cancel-order-title">
-                <p id="cancel-order-title">¿Cancelar esta orden?</p>
-                <p className={styles.hint}>
-                  Se anula la comanda completa. Esta acción no se puede deshacer.
-                </p>
-                <div className={styles.confirmActions}>
-                  <button
-                    type="button"
-                    className={styles.danger}
-                    disabled={sending}
-                    onClick={() => void runMutation(() => cancelOrder(current.id))}
-                  >
-                    Sí, cancelar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={sending}
-                    onClick={() => setConfirmCancel(false)}
-                  >
-                    No, volver
-                  </button>
-                </div>
-              </div>
-            ) : null}
-            {current.status === 'IN_KITCHEN' ? (
-              <p className={styles.lockNotice} role="status">
-                Pedido actualmente en cocción
-              </p>
-            ) : null}
-          </div>
+        <section aria-label="Líneas de la comanda">
+          {current.lines.length === 0 ? (
+            <EmptyState text="Todavía no hay platos en esta comanda" />
+          ) : (
+            <ul className={styles.lines}>
+              {current.lines.map((line) => (
+                <li
+                  key={line.id}
+                  className={
+                    editingLineId === line.id
+                      ? `${styles.line} ${styles.lineEditing}`
+                      : styles.line
+                  }
+                >
+                  <div className={styles.lineInfo}>
+                    <p className={styles.lineName}>{line.name}</p>
+                    <p className={styles.lineMeta}>
+                      <span>× {line.quantity}</span>
+                      <span>{centavosToLabel(line.unitPrice.amount)}</span>
+                    </p>
+                    {line.modifiers.length > 0 ? (
+                      <ul className={styles.lineMods}>
+                        {line.modifiers.map((modifier) => (
+                          <li key={`${line.id}-${modifier.modifierId}`}>
+                            {modifierLabel(modifier)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  {editable ? (
+                    <div className={styles.iconActions}>
+                      <button
+                        type="button"
+                        className={styles.iconButton}
+                        aria-label={`Editar ${line.name}`}
+                        title="Editar"
+                        disabled={sending}
+                        onClick={() => startEdit(line)}
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.iconButton} ${styles.iconButtonDanger}`}
+                        aria-label={`Quitar ${line.name}`}
+                        title="Quitar"
+                        disabled={sending}
+                        onClick={() =>
+                          void runMutation(() => cancelLine(current.id, line.id))
+                        }
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
-
-        {lock !== null ? (
-          <p className={styles.lockNotice} role="status">
-            {lock}
-          </p>
-        ) : null}
-
-        {editable && (menuState.kind === 'error' || dishes.length === 0) ? (
-          <p className={styles.notice} role="alert">
-            No se pudo cargar el menú
-          </p>
-        ) : null}
 
         {showForm ? (
           <form
@@ -398,7 +364,7 @@ export function OrderDetailScreen({ orderId }: Props) {
               />
             </label>
             {selectedDish !== null && selectedDish.modifiers.length > 0 ? (
-              <fieldset className={styles.checkList}>
+              <fieldset className={styles.checks}>
                 <legend>Modificadores</legend>
                 {selectedDish.modifiers.map((modifier) => (
                   <label key={modifier.id} className={styles.checkRow}>
@@ -407,10 +373,10 @@ export function OrderDetailScreen({ orderId }: Props) {
                       checked={modifierIds.includes(modifier.id)}
                       disabled={sending}
                       onChange={(event) => {
-                        setModifierIds((current) =>
+                        setModifierIds((previous) =>
                           event.target.checked
-                            ? [...current, modifier.id]
-                            : current.filter((id) => id !== modifier.id),
+                            ? [...previous, modifier.id]
+                            : previous.filter((id) => id !== modifier.id),
                         );
                       }}
                     />
@@ -438,6 +404,7 @@ export function OrderDetailScreen({ orderId }: Props) {
                 </button>
                 <button
                   type="button"
+                  className={styles.secondary}
                   disabled={sending}
                   onClick={() => {
                     resetLineForm();
@@ -452,6 +419,23 @@ export function OrderDetailScreen({ orderId }: Props) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4l10-10-4-4L4 16v4z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
   );
 }
 

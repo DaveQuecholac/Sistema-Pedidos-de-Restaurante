@@ -2,14 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import shellStyles from '../components/app-shell/app-shell.module.css';
+import { shortOrderLabel } from '../components/app-shell/order-id-from-path';
 import { orderDetailPath } from '../components/app-shell/order-routes';
 import { useShell } from '../components/app-shell/shell-context';
-import { listOrders, type OrderJson } from './order-api';
+import tableStyles from '../components/ui/data-table.module.css';
+import { Tabs } from '../components/ui/tabs';
+import { cancelOrder, listOrders, type OrderJson } from './order-api';
 import {
   boardView,
+  can,
   errorText,
-  openedAtLabel,
   originLabel,
   statusLabel,
   type BoardStatus,
@@ -21,140 +23,203 @@ type BoardState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; orders: OrderJson[] };
 
+type OrdersTab = 'all' | 'dineIn' | 'external' | 'closed';
 type BoardFilter = 'active' | 'closed';
 
 const ACTIVE_STATUSES = ['OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const;
 
 export function OrdersScreen() {
-  const { searchQuery, refreshToken, selection, selectOrder } = useShell();
+  const { searchQuery, refreshToken, selection, selectOrder, bumpRefresh } = useShell();
   const [board, setBoard] = useState<BoardState>({ kind: 'loading' });
-  const [filter, setFilter] = useState<BoardFilter>('active');
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [tab, setTab] = useState<OrdersTab>('all');
+  const [notice, setNotice] = useState<string | null>(null);
   const selectedOrderId = selection.kind === 'order' ? selection.orderId : null;
 
+  const dataset: BoardFilter = tab === 'closed' ? 'closed' : 'active';
+
   useEffect(() => {
-    void refreshBoard(setBoard, filter);
-  }, [filter, refreshToken]);
+    void refreshBoard(setBoard, dataset);
+  }, [dataset, refreshToken]);
 
   const view = boardView(toBoardStatus(board));
   const query = searchQuery.trim().toLowerCase();
+
+  const counts = useMemo(() => {
+    if (board.kind !== 'ready' || tab === 'closed') {
+      return null;
+    }
+    return {
+      all: board.orders.length,
+      dineIn: board.orders.filter((order) => order.tableId !== null).length,
+      external: board.orders.filter((order) => order.externalOrderId !== null).length,
+    };
+  }, [board, tab]);
+
   const visibleOrders = useMemo(() => {
     if (board.kind !== 'ready') {
       return [];
     }
-    if (query === '') {
-      return board.orders;
-    }
     return board.orders.filter((order) => {
-      const origin = originLabel(order).toLowerCase();
-      return origin.includes(query) || order.id.toLowerCase().includes(query);
+      if (tab === 'dineIn' && order.tableId === null) {
+        return false;
+      }
+      if (tab === 'external' && order.externalOrderId === null) {
+        return false;
+      }
+      if (query === '') {
+        return true;
+      }
+      return (
+        originLabel(order).toLowerCase().includes(query) ||
+        order.id.toLowerCase().includes(query)
+      );
     });
-  }, [board, query]);
+  }, [board, query, tab]);
+
+  async function onCancel(order: OrderJson) {
+    if (!window.confirm(`¿Cancelar la orden #${shortOrderLabel(order.id)}?`)) {
+      return;
+    }
+    setNotice(null);
+    try {
+      await cancelOrder(order.id);
+      bumpRefresh();
+    } catch (error) {
+      setNotice(errorText(error));
+    }
+  }
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div>
-          <h1>Órdenes</h1>
-          <p className={styles.meta}>
-            Selecciona una comanda para ver el detalle a la derecha.
-          </p>
-        </div>
+      <header className={`${styles.header} ${styles.headerRule}`}>
+        <h1>Órdenes</h1>
       </header>
 
-      <div className={styles.segmented} role="group" aria-label="Filtro de comandas">
-        <button
-          type="button"
-          className={filter === 'active' ? styles.segmentActive : styles.segment}
-          aria-pressed={filter === 'active'}
-          onClick={() => setFilter('active')}
-        >
-          Activas
-        </button>
-        <button
-          type="button"
-          className={filter === 'closed' ? styles.segmentActive : styles.segment}
-          aria-pressed={filter === 'closed'}
-          onClick={() => setFilter('closed')}
-        >
-          Cerradas
-        </button>
-      </div>
+      <Tabs
+        label="Filtro de comandas"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: 'all', label: 'Todas', count: counts?.all },
+          { value: 'dineIn', label: 'En sala', count: counts?.dineIn },
+          { value: 'external', label: 'Externas / Delivery', count: counts?.external },
+          // Temporal: quítala cuando exista "Registro de pagos".
+          { value: 'closed', label: 'Cerradas' },
+        ]}
+      />
+
+      {notice ? (
+        <p className={styles.notice} role="alert">
+          {notice}
+        </p>
+      ) : null}
 
       {view === 'loading' ? <p>Cargando comandas…</p> : null}
 
       {view === 'error' && board.kind === 'error' ? (
         <div className={styles.error} role="alert">
           <p>{board.message}</p>
-          <button type="button" onClick={() => void refreshBoard(setBoard, filter)}>
+          <button type="button" onClick={() => void refreshBoard(setBoard, dataset)}>
             Reintentar
           </button>
         </div>
       ) : null}
 
       {view === 'empty' || view === 'list' ? (
-        <section
-          className={styles.panel}
-          aria-label={filter === 'active' ? 'Comandas activas' : 'Comandas cerradas'}
-        >
+        <section className={tableStyles.card} aria-label="Comandas">
           {visibleOrders.length === 0 ? (
-            <p className={styles.empty}>
+            <p className={styles.empty} style={{ padding: '1rem' }}>
               {query !== ''
                 ? 'Ninguna comanda coincide con la búsqueda.'
-                : filter === 'active'
-                  ? 'No hay comandas abiertas, en cocción o listas.'
-                  : 'No hay comandas cerradas.'}
+                : tab === 'closed'
+                  ? 'No hay comandas cerradas.'
+                  : 'No hay comandas abiertas, en cocción o listas.'}
             </p>
           ) : (
-            <ul className={styles.catalog}>
-              {visibleOrders.map((item) => {
-                const selected = selectedOrderId === item.id;
-                return (
-                  <li
-                    key={item.id}
-                    className={[
-                      styles.row,
-                      shellStyles.selectable,
-                      selected ? shellStyles.selectableSelected : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={selected}
-                    onClick={() => selectOrder(item.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        selectOrder(item.id);
-                      }
-                    }}
-                  >
-                    <h2>{originLabel(item)}</h2>
-                    <p className={styles.meta}>
-                      <span>{openedAtLabel(item, timeZone)}</span>
-                      <span className={styles.statusBadge}>{statusLabel(item.status)}</span>
-                      <span>
-                        {item.lines.length === 1 ? '1 línea' : `${item.lines.length} líneas`}
-                      </span>
-                    </p>
-                    <div className={styles.actions}>
-                      <Link
-                        href={orderDetailPath(item.id)}
-                        className={styles.primaryLink}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        Ver comanda
-                      </Link>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <table className={tableStyles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Origen</th>
+                  <th scope="col">Identificador</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleOrders.map((item) => {
+                  const selected = selectedOrderId === item.id;
+                  return (
+                    <tr
+                      key={item.id}
+                      className={selected ? tableStyles.rowSelected : undefined}
+                      tabIndex={0}
+                      aria-current={selected || undefined}
+                      onClick={() => selectOrder(item.id)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.target === event.currentTarget &&
+                          (event.key === 'Enter' || event.key === ' ')
+                        ) {
+                          event.preventDefault();
+                          selectOrder(item.id);
+                        }
+                      }}
+                    >
+                      <td>#{shortOrderLabel(item.id)}</td>
+                      <td>{item.tableId !== null ? 'Mesa' : 'Externo'}</td>
+                      <td>{identifierLabel(item)}</td>
+                      <td>{statusLabel(item.status)}</td>
+                      <td>
+                        <div className={tableStyles.actions}>
+                          <Link
+                            href={orderDetailPath(item.id)}
+                            className={tableStyles.actionLink}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Ver/Editar
+                          </Link>
+                          <button
+                            type="button"
+                            className={tableStyles.iconButton}
+                            aria-label={`Cancelar orden ${shortOrderLabel(item.id)}`}
+                            disabled={!can(item, 'cancel')}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void onCancel(item);
+                            }}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </section>
       ) : null}
     </div>
+  );
+}
+
+function identifierLabel(order: OrderJson): string {
+  if (order.tableId !== null) {
+    return `Mesa ${order.tableId}`;
+  }
+  if (order.externalOrderId !== null) {
+    return order.externalOrderId;
+  }
+  return '—';
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
   );
 }
 

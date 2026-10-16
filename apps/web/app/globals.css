@@ -14,10 +14,18 @@
   --color-border: #d0d5d8;
   --color-focus: #0f4c5c;
   --color-search-bg: #e8e0eb;
+  --color-section-soft: #e1eeee; 
+  --color-card-muted: #e7eded; 
   --color-action-soft: #a9c7cb;
   --color-table-line: #c9ccd0; 
   --color-nav-idle: #c3c8cc; 
   --color-divider: #eceef0;
+  --color-tab-idle-bg: #dcecee; 
+  --color-tab-idle-text: #b5d0d3; 
+  --color-table-header: #e4ecec; 
+  --color-surface-muted: #f7f7f7;
+  --color-navy: #1e4177; 
+  --color-navy-hover: #173566; 
   --radius-pill: 999px; 
   --shadow-soft: 0 1px 2px rgb(15 76 92 / 6%), 0 8px 24px rgb(15 76 92 / 8%);
   --radius-sm: 0.35rem;

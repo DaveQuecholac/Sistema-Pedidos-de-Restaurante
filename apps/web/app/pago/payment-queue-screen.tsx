@@ -2,12 +2,15 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import shellStyles from '../components/app-shell/app-shell.module.css';
+import { shortOrderLabel } from '../components/app-shell/order-id-from-path';
 import { orderCuentaPath, orderDetailPath } from '../components/app-shell/order-routes';
 import { useShell } from '../components/app-shell/shell-context';
+import tableStyles from '../components/ui/data-table.module.css';
+import { EmptyState } from '../components/ui/empty-state';
+import { Tabs } from '../components/ui/tabs';
 import { listOrders, type OrderJson } from '../ordenes/order-api';
-import { errorText, openedAtLabel, originLabel, statusLabel } from '../ordenes/order-view';
-import styles from '../ordenes/orders.module.css';
+import { errorText, originLabel, statusLabel } from '../ordenes/order-view';
+import styles from './pago.module.css';
 
 type BoardState =
   | { kind: 'loading' }
@@ -17,7 +20,6 @@ type BoardState =
 export function PaymentQueueScreen() {
   const { searchQuery, refreshToken, bumpRefresh, selection, selectOrder } = useShell();
   const [board, setBoard] = useState<BoardState>({ kind: 'loading' });
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const selectedOrderId = selection.kind === 'order' ? selection.orderId : null;
 
   useEffect(() => {
@@ -56,13 +58,21 @@ export function PaymentQueueScreen() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div>
-          <h1>Pago</h1>
-          <p className={styles.meta}>
-            Órdenes listas. Selecciona una para ver el detalle; Cobrar abre la cuenta aquí en Pago.
-          </p>
-        </div>
+        <h1>Pago</h1>
       </header>
+
+      <Tabs
+        label="Cola de pago"
+        value="ready"
+        onChange={() => undefined}
+        items={[
+          {
+            value: 'ready',
+            label: 'Por cobrar',
+            count: board.kind === 'ready' ? orders.length : null,
+          },
+        ]}
+      />
 
       {board.kind === 'loading' ? <p>Cargando cola de pago…</p> : null}
 
@@ -76,62 +86,80 @@ export function PaymentQueueScreen() {
       ) : null}
 
       {board.kind === 'ready' && orders.length === 0 ? (
-        <p className={styles.empty}>No hay órdenes listas para cobrar.</p>
+        <EmptyState text="No hay órdenes listas para cobrar" />
       ) : null}
 
       {board.kind === 'ready' && orders.length > 0 ? (
-        <ul className={styles.catalog}>
-          {orders.map((order) => {
-            const selected = selectedOrderId === order.id;
-            return (
-              <li
-                key={order.id}
-                className={[
-                  styles.row,
-                  shellStyles.selectable,
-                  selected ? shellStyles.selectableSelected : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selected}
-                onClick={() => selectOrder(order.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    selectOrder(order.id);
-                  }
-                }}
-              >
-                <h2>{originLabel(order)}</h2>
-                <p className={styles.meta}>
-                  <span>{openedAtLabel(order, timeZone)}</span>
-                  <span className={styles.statusBadge}>{statusLabel(order.status)}</span>
-                  <span>
-                    {order.lines.length === 1 ? '1 línea' : `${order.lines.length} líneas`}
-                  </span>
-                </p>
-                <div className={styles.actions}>
-                  <Link
-                    href={orderCuentaPath(order.id)}
-                    className={styles.primaryLink}
-                    onClick={(event) => event.stopPropagation()}
+        <section className={tableStyles.card} aria-label="Órdenes por cobrar">
+          <table className={tableStyles.table}>
+            <thead>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Origen</th>
+                <th scope="col">Identificador</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => {
+                const selected = selectedOrderId === order.id;
+                return (
+                  <tr
+                    key={order.id}
+                    className={selected ? tableStyles.rowSelected : undefined}
+                    tabIndex={0}
+                    aria-current={selected || undefined}
+                    onClick={() => selectOrder(order.id)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.target === event.currentTarget &&
+                        (event.key === 'Enter' || event.key === ' ')
+                      ) {
+                        event.preventDefault();
+                        selectOrder(order.id);
+                      }
+                    }}
                   >
-                    Cobrar
-                  </Link>
-                  <Link
-                    href={orderDetailPath(order.id)}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    Ver comanda
-                  </Link>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    <td>#{shortOrderLabel(order.id)}</td>
+                    <td>{order.tableId !== null ? 'Mesa' : 'Externo'}</td>
+                    <td>{identifierLabel(order)}</td>
+                    <td>{statusLabel(order.status)}</td>
+                    <td>
+                      <div className={tableStyles.actions}>
+                        <Link
+                          href={orderCuentaPath(order.id)}
+                          className={tableStyles.actionLink}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          Cobrar
+                        </Link>
+                        <Link
+                          href={orderDetailPath(order.id)}
+                          className={tableStyles.actionLink}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          Ver comanda
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
       ) : null}
     </div>
   );
+}
+
+function identifierLabel(order: OrderJson): string {
+  if (order.tableId !== null) {
+    return `Mesa ${order.tableId}`;
+  }
+  if (order.externalOrderId !== null) {
+    return order.externalOrderId;
+  }
+  return '—';
 }
