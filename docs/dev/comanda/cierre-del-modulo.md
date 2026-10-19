@@ -16,7 +16,8 @@ Desde el inicio: «Comandas» y «Cocina», junto a «Administrar menú».
 
 **Mesero (comandas)**
 
-- Abrir una comanda por mesa o por id de pedido externo.
+- Abrir una comanda por mesa o por id de pedido externo.  
+  *(Actualización 10 oct 2026: solo una comanda abierta por mesa; las mesas vienen del catálogo — ver `docs/dev/mesas/cierre-del-modulo.md`.)*
 - Agregar, editar o quitar platos mientras la orden está abierta.
 - Elegir extras y omisiones que vienen de la carta.
 - Enviar a cocina. Ahí ya no se editan líneas; todavía se puede cancelar la orden.

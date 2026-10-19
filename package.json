@@ -11,6 +11,7 @@
     "dev:plain": "node scripts/ensure-postgres.mjs && pnpm -r --parallel --filter @restaurante/api --filter @restaurante/web run dev",
     "dev:api": "pnpm --filter @restaurante/api dev",
     "dev:web": "pnpm --filter @restaurante/web dev",
+    "db:ensure-tables": "node scripts/ensure-salon-tables.mjs",
     "build": "pnpm -r --filter @restaurante/api --filter @restaurante/web run build",
     "typecheck": "pnpm -r --filter @restaurante/api --filter @restaurante/web run typecheck",
     "lint": "pnpm -r --filter @restaurante/api --filter @restaurante/web run lint"

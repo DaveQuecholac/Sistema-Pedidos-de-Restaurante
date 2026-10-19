@@ -12,6 +12,11 @@ import { ListOrders } from '../../../application/order/list-orders';
 import { MarkOrderReady } from '../../../application/order/mark-order-ready';
 import { ModifyLine } from '../../../application/order/modify-line';
 import { OpenOrder } from '../../../application/order/open-order';
+import type { TableRepository } from '../../../application/ports/table-repository';
+import {
+  DEMO_SALON_TABLE_IDS,
+  salonTables,
+} from '../../../application/table/salon-tables';
 import {
   AGUA_ID,
   FIXED_NOW,
@@ -73,6 +78,7 @@ function watchOrders(orders: InMemoryOrderRepository): {
     },
     findById: (id) => orders.findById(id),
     findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
+    findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
     list: (filter) => orders.list(filter),
   };
   return { port, calls };
@@ -88,13 +94,17 @@ async function seedCatalog(): Promise<InMemoryMenuRepository> {
 function testModule(
   orders: OrderRepository,
   menu: MenuRepository,
+  tables: TableRepository = salonTables(...DEMO_SALON_TABLE_IDS),
   generateOrderId: () => string = orderIds(),
   generateLineId: () => string = lineIds(),
 ) {
   @Module({
     controllers: [OrderController, TotalsController],
     providers: [
-      { provide: OpenOrder, useValue: new OpenOrder(orders, generateOrderId, () => FIXED_NOW) },
+      {
+        provide: OpenOrder,
+        useValue: new OpenOrder(orders, tables, generateOrderId, () => FIXED_NOW),
+      },
       { provide: ListOrders, useValue: new ListOrders(orders) },
       { provide: GetOrder, useValue: new GetOrder(orders) },
       { provide: AddLine, useValue: new AddLine(orders, menu, generateLineId) },
@@ -481,6 +491,7 @@ describe('totals HTTP', () => {
       add: (order) => tracked.add(order),
       save: (order) => tracked.save(order),
       findByExternalOrderId: (id) => tracked.findByExternalOrderId(id),
+      findActiveByTableId: (tableId) => tracked.findActiveByTableId(tableId),
       list: (filter) => tracked.list(filter),
       async findById(id) {
         if (id === 'boom') {

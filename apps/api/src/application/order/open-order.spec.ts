@@ -7,6 +7,14 @@ import {
 } from '../../domain/order/order.errors';
 import { LineItem } from '../../domain/order/line-item';
 import { Quantity } from '../../domain/order/quantity';
+import { Table } from '../../domain/table/table';
+import { InMemoryTableRepository } from '../table/in-memory-table-repository';
+import { salonTables } from '../table/salon-tables';
+import {
+  TableAlreadyHasActiveOrderError,
+  TableInactiveError,
+  TableNotFoundError,
+} from '../table/table-repository.errors';
 import { InMemoryOrderRepository } from './in-memory-order-repository';
 import { OpenOrder } from './open-order';
 import { ExternalOrderIdInUseError } from './order-repository.errors';
@@ -20,7 +28,12 @@ import {
 describe('OpenOrder', () => {
   it('opens a table order with generateId and now (C1)', async () => {
     const seen = watchOrders(new InMemoryOrderRepository());
-    const useCase = new OpenOrder(seen.orders, idsOf('order-1'), () => FIXED_NOW);
+    const useCase = new OpenOrder(
+      seen.orders,
+      salonTables('5'),
+      idsOf('order-1'),
+      () => FIXED_NOW,
+    );
 
     const order = await useCase.execute({ tableId: '5' });
 
@@ -32,18 +45,20 @@ describe('OpenOrder', () => {
     expect(order.lines).toEqual([]);
   });
 
-  it('opens an external order (C2)', async () => {
+  it('opens an external order without touching tables (C2)', async () => {
     const seen = watchOrders(new InMemoryOrderRepository());
-    const useCase = new OpenOrder(seen.orders, idsOf('order-1'), () => FIXED_NOW);
+    const tables = new InMemoryTableRepository();
+    const useCase = new OpenOrder(seen.orders, tables, idsOf('order-1'), () => FIXED_NOW);
 
     const order = await useCase.execute({ externalOrderId: 'UBER-1' });
 
     expect(seen.calls.add).toBe(1);
     expect(order.origin.externalOrderId).toBe('UBER-1');
     expect(order.origin.tableId).toBeNull();
+    expect(await tables.list()).toEqual([]);
   });
 
-  it('allows several live orders on the same table (C3)', async () => {
+  it('rejects a second active order on the same table (C3)', async () => {
     const repo = new InMemoryOrderRepository();
     await repo.add(
       Order.open({ id: 'order-a', origin: OrderOrigin.table('5'), openedAt: FIXED_NOW }),
@@ -63,18 +78,24 @@ describe('OpenOrder', () => {
           }),
         ],
         version: 1,
-      discount: null,
-      tip: null,
-      payment: null,
-    }),
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
     );
 
-    const useCase = new OpenOrder(repo, idsOf('order-c'), () => FIXED_NOW);
-    const third = await useCase.execute({ tableId: '5' });
+    const seen = watchOrders(repo);
+    const useCase = new OpenOrder(
+      seen.orders,
+      salonTables('5'),
+      idsOf('order-c'),
+      () => FIXED_NOW,
+    );
 
-    const all = await repo.list({ statuses: null });
-    expect(third.id).toBe('order-c');
-    expect(all.map((order) => order.id).sort()).toEqual(['order-a', 'order-b', 'order-c']);
+    await expect(useCase.execute({ tableId: '5' })).rejects.toBeInstanceOf(
+      TableAlreadyHasActiveOrderError,
+    );
+    expect(seen.calls.add).toBe(0);
   });
 
   it('rejects an external id already used by an OPEN order (C4)', async () => {
@@ -86,7 +107,12 @@ describe('OpenOrder', () => {
         openedAt: FIXED_NOW,
       }),
     );
-    const useCase = new OpenOrder(seen.orders, idsOf('order-b'), () => FIXED_NOW);
+    const useCase = new OpenOrder(
+      seen.orders,
+      salonTables(),
+      idsOf('order-b'),
+      () => FIXED_NOW,
+    );
 
     await expect(useCase.execute({ externalOrderId: 'UBER-1' })).rejects.toBeInstanceOf(
       ExternalOrderIdInUseError,
@@ -104,12 +130,17 @@ describe('OpenOrder', () => {
         openedAt: FIXED_NOW,
         lines: [],
         version: 1,
-      discount: null,
-      tip: null,
-      payment: null,
-    }),
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
     );
-    const useCase = new OpenOrder(seen.orders, idsOf('order-b'), () => FIXED_NOW);
+    const useCase = new OpenOrder(
+      seen.orders,
+      salonTables(),
+      idsOf('order-b'),
+      () => FIXED_NOW,
+    );
 
     await expect(useCase.execute({ externalOrderId: 'UBER-1' })).rejects.toBeInstanceOf(
       ExternalOrderIdInUseError,
@@ -127,10 +158,68 @@ describe('OpenOrder', () => {
 
     for (const entry of cases) {
       const seen = watchOrders(new InMemoryOrderRepository());
-      const useCase = new OpenOrder(seen.orders, idsOf('order-1'), () => FIXED_NOW);
+      const useCase = new OpenOrder(
+        seen.orders,
+        salonTables('5'),
+        idsOf('order-1'),
+        () => FIXED_NOW,
+      );
 
       await expect(useCase.execute(entry.command)).rejects.toBeInstanceOf(entry.error);
       expect(seen.calls.add).toBe(0);
     }
+  });
+
+  it('rejects a missing table (C7)', async () => {
+    const seen = watchOrders(new InMemoryOrderRepository());
+    const useCase = new OpenOrder(
+      seen.orders,
+      salonTables('1'),
+      idsOf('order-1'),
+      () => FIXED_NOW,
+    );
+
+    await expect(useCase.execute({ tableId: '999' })).rejects.toBeInstanceOf(TableNotFoundError);
+    expect(seen.calls.add).toBe(0);
+  });
+
+  it('rejects an inactive table (C8)', async () => {
+    const seen = watchOrders(new InMemoryOrderRepository());
+    const tables = new InMemoryTableRepository([
+      Table.restore({ id: '5', label: '5', zone: 'Salón', active: false }),
+    ]);
+    const useCase = new OpenOrder(seen.orders, tables, idsOf('order-1'), () => FIXED_NOW);
+
+    await expect(useCase.execute({ tableId: '5' })).rejects.toBeInstanceOf(TableInactiveError);
+    expect(seen.calls.add).toBe(0);
+  });
+
+  it('allows a new table order after the previous one was cancelled (C9)', async () => {
+    const orders = new InMemoryOrderRepository();
+    await orders.add(
+      Order.restore({
+        id: 'order-old',
+        origin: OrderOrigin.table('5'),
+        status: 'CANCELLED',
+        openedAt: FIXED_NOW,
+        lines: [],
+        version: 1,
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
+    );
+    const seen = watchOrders(orders);
+    const useCase = new OpenOrder(
+      seen.orders,
+      salonTables('5'),
+      idsOf('order-new'),
+      () => FIXED_NOW,
+    );
+
+    const order = await useCase.execute({ tableId: '5' });
+
+    expect(order.id).toBe('order-new');
+    expect(seen.calls.add).toBe(1);
   });
 });

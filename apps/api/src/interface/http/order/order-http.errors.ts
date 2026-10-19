@@ -7,6 +7,11 @@ import {
   OrderNotFoundError,
 } from '../../../application/order/order-repository.errors';
 import {
+  TableAlreadyHasActiveOrderError,
+  TableInactiveError,
+  TableNotFoundError,
+} from '../../../application/table/table-repository.errors';
+import {
   DuplicateModifierSelectionError,
   EmptyOrderError,
   InvalidExternalOrderIdError,
@@ -92,6 +97,19 @@ const translations: ReadonlyArray<{
   {
     accept: (error): error is ExternalOrderIdInUseError =>
       error instanceof ExternalOrderIdInUseError,
+    status: 409,
+  },
+  {
+    accept: (error): error is TableNotFoundError => error instanceof TableNotFoundError,
+    status: 404,
+  },
+  {
+    accept: (error): error is TableInactiveError => error instanceof TableInactiveError,
+    status: 409,
+  },
+  {
+    accept: (error): error is TableAlreadyHasActiveOrderError =>
+      error instanceof TableAlreadyHasActiveOrderError,
     status: 409,
   },
   {

@@ -5,6 +5,7 @@ export { Quantity } from './quantity';
 export { LineItem, LineModifier } from './line-item';
 export type { LineItemRestoreInput, LineModifierRestoreInput } from './line-item';
 export {
+  ACTIVE_ORDER_STATUSES,
   ORDER_STATUSES,
   ORDER_TRANSITION_ACTIONS,
   isOrderStatus,

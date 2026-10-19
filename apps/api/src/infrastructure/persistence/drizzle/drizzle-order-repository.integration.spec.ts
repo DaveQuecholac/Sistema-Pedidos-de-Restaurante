@@ -1217,6 +1217,49 @@ describeIntegration('DrizzleOrderRepository', () => {
       await expect(ordersRepo.findById(orderId)).rejects.toBeInstanceOf(OrderMappingError);
     });
   });
+
+  it('finds an OPEN order by table id (P34)', async () => {
+    const orderId = id();
+    const tableId = `fa-${id().slice(0, 8)}`;
+
+    await inTransaction(db, async (ordersRepo) => {
+      await ordersRepo.add(
+        Order.open({ id: orderId, origin: OrderOrigin.table(tableId), openedAt: OPENED_AT }),
+      );
+
+      const found = await ordersRepo.findActiveByTableId(tableId);
+
+      expect(found?.id).toBe(orderId);
+      expect(found?.status).toBe('OPEN');
+      expect(found?.origin.tableId).toBe(tableId);
+      await expect(ordersRepo.findActiveByTableId('no-such-table')).resolves.toBeNull();
+    });
+  });
+
+  it('does not treat CLOSED or CANCELLED as active for a table (P35)', async () => {
+    const closedId = id();
+    const cancelledId = id();
+    const tableClosed = `fc-${id().slice(0, 8)}`;
+    const tableCancelled = `fx-${id().slice(0, 8)}`;
+
+    await inTransaction(db, async (ordersRepo, menuRepo) => {
+      await ordersRepo.add(
+        Order.open({
+          id: cancelledId,
+          origin: OrderOrigin.table(tableCancelled),
+          openedAt: OPENED_AT,
+        }),
+      );
+      const opened = await ordersRepo.findById(cancelledId);
+      await ordersRepo.save(opened!.cancel());
+
+      const ready = await seedReadyOrderL(ordersRepo, menuRepo, closedId, tableClosed);
+      await ordersRepo.save(ready.close(cashPayment(closedId)));
+
+      await expect(ordersRepo.findActiveByTableId(tableCancelled)).resolves.toBeNull();
+      await expect(ordersRepo.findActiveByTableId(tableClosed)).resolves.toBeNull();
+    });
+  });
 });
 
 
@@ -1294,6 +1337,7 @@ async function seedReadyOrderL(
   ordersRepo: DrizzleOrderRepository,
   menuRepo: DrizzleMenuRepository,
   orderId: string,
+  tableId = '5',
 ): Promise<Order> {
   const tacosId = id();
   const quesoId = id();
@@ -1305,7 +1349,7 @@ async function seedReadyOrderL(
   await menuRepo.add(agua);
 
   await ordersRepo.add(
-    Order.open({ id: orderId, origin: OrderOrigin.table('5'), openedAt: OPENED_AT }),
+    Order.open({ id: orderId, origin: OrderOrigin.table(tableId), openedAt: OPENED_AT }),
   );
   let order = (await ordersRepo.findById(orderId))!;
   order = order

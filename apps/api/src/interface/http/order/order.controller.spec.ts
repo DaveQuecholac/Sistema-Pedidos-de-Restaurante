@@ -3,6 +3,11 @@ import { NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import { InMemoryMenuRepository } from '../../../application/menu/in-memory-menu-repository';
+import {
+  DEMO_SALON_TABLE_IDS,
+  salonTables,
+} from '../../../application/table/salon-tables';
+import type { TableRepository } from '../../../application/ports/table-repository';
 import { AddLine } from '../../../application/order/add-line';
 import { BeginCooking } from '../../../application/order/begin-cooking';
 import { CancelLine } from '../../../application/order/cancel-line';
@@ -69,6 +74,7 @@ function watchOrders(orders: InMemoryOrderRepository): {
     },
     findById: (id) => orders.findById(id),
     findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
+    findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
     list: (filter) => orders.list(filter),
   };
   return { port, calls };
@@ -85,13 +91,17 @@ async function seedCatalog(): Promise<InMemoryMenuRepository> {
 function testModule(
   orders: OrderRepository,
   menu: MenuRepository,
+  tables: TableRepository = salonTables(...DEMO_SALON_TABLE_IDS),
   generateOrderId: () => string = orderIds(),
   generateLineId: () => string = lineIds(),
 ) {
   @Module({
     controllers: [OrderController],
     providers: [
-      { provide: OpenOrder, useValue: new OpenOrder(orders, generateOrderId, () => FIXED_NOW) },
+      {
+        provide: OpenOrder,
+        useValue: new OpenOrder(orders, tables, generateOrderId, () => FIXED_NOW),
+      },
       { provide: ListOrders, useValue: new ListOrders(orders) },
       { provide: GetOrder, useValue: new GetOrder(orders) },
       { provide: AddLine, useValue: new AddLine(orders, menu, generateLineId) },
@@ -258,17 +268,19 @@ describe('orders HTTP', () => {
     expect(await withExtra.json()).toEqual(invalidRequest(openOrderBodySchema, extra));
   });
 
-  it('allows a second table order and rejects a repeated external id (H6)', async () => {
+  it('rejects a second active table order and a repeated external id (H6)', async () => {
     const { base } = await listen();
     const first = await openTable(base, '5');
     const second = await send(`${base}/orders`, 'POST', { tableId: '5' });
-    const secondBody = await second.json();
     await send(`${base}/orders`, 'POST', { externalOrderId: 'UBER-1' });
     const duplicate = await send(`${base}/orders`, 'POST', { externalOrderId: 'UBER-1' });
 
     expect(first.id).toBe('order-1');
-    expect(second.status).toBe(201);
-    expect(secondBody.id).toBe('order-2');
+    expect(second.status).toBe(409);
+    expect(await second.json()).toEqual({
+      code: 'TableAlreadyHasActiveOrderError',
+      message: 'Table already has an active order',
+    });
     expect(duplicate.status).toBe(409);
     expect(await duplicate.json()).toEqual({
       code: 'ExternalOrderIdInUseError',
@@ -536,7 +548,7 @@ describe('orders HTTP', () => {
     await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
     const twice = await send(`${base}/orders/${created.id}/send-to-kitchen`, 'POST', {});
 
-    const open = await openTable(base, 'begin-open');
+    const open = await openTable(base, '6');
     await addTacos(base, open.id);
     const beginOpen = await send(`${base}/orders/${open.id}/begin-cooking`, 'POST', {});
 
@@ -611,15 +623,15 @@ describe('orders HTTP', () => {
 
   it('lists by status filter and rejects unknown status (H23)', async () => {
     const { base } = await listen();
-    const sent = await openTable(base, 'k');
+    const sent = await openTable(base, '1');
     await addTacos(base, sent.id);
     await send(`${base}/orders/${sent.id}/send-to-kitchen`, 'POST', {});
-    const ready = await openTable(base, 'r');
+    const ready = await openTable(base, '2');
     await addTacos(base, ready.id);
     await send(`${base}/orders/${ready.id}/send-to-kitchen`, 'POST', {});
     await send(`${base}/orders/${ready.id}/begin-cooking`, 'POST', {});
     await send(`${base}/orders/${ready.id}/mark-ready`, 'POST', {});
-    const open = await openTable(base, 'o');
+    const open = await openTable(base, '3');
 
     const filtered = await send(`${base}/orders?status=SENT_TO_KITCHEN,READY`, 'GET');
     const filteredBody = await filtered.json();
@@ -650,6 +662,7 @@ describe('orders HTTP', () => {
         throw new Error('boom');
       },
       findByExternalOrderId: async () => null,
+      findActiveByTableId: async () => null,
       list: async () => [],
     };
 
@@ -670,7 +683,12 @@ describe('orders HTTP', () => {
   it('rejects a concurrent add-line with 409 (H25)', async () => {
     const tracked = new InMemoryOrderRepository();
     const menu = await seedCatalog();
-    const open = new OpenOrder(tracked, orderIds(), () => FIXED_NOW);
+    const open = new OpenOrder(
+      tracked,
+      salonTables(...DEMO_SALON_TABLE_IDS),
+      orderIds(),
+      () => FIXED_NOW,
+    );
     const created = await open.execute({ tableId: '5' });
     const firstLine = new AddLine(tracked, menu, lineIds());
     await firstLine.execute({
@@ -682,7 +700,13 @@ describe('orders HTTP', () => {
 
     const concurrent = withConcurrentSave(tracked, (order) => order.sendToKitchen());
     app = await NestFactory.create(
-      testModule(concurrent, menu, orderIds(), () => 'line-2'),
+      testModule(
+        concurrent,
+        menu,
+        salonTables(...DEMO_SALON_TABLE_IDS),
+        orderIds(),
+        () => 'line-2',
+      ),
       { logger: false },
     );
     await app.listen(0);

@@ -136,6 +136,65 @@ describe('InMemoryOrderRepository', () => {
     expect(found?.origin.externalOrderId).toBe('UBER-1');
   });
 
+  it('finds the active order for a table and ignores other tables (RP6b)', async () => {
+    const repo = new InMemoryOrderRepository();
+    await repo.add(openOrder('order-5', OrderOrigin.table('5')));
+    await repo.add(openOrder('order-6', OrderOrigin.table('6')));
+
+    const found = await repo.findActiveByTableId('5');
+
+    expect(found?.id).toBe('order-5');
+    expect(found).not.toBe(await repo.findById('order-5'));
+  });
+
+  it('returns null when the table has no active order (RP6c)', async () => {
+    const repo = new InMemoryOrderRepository();
+    await repo.add(
+      Order.restore({
+        id: 'order-cancelled',
+        origin: OrderOrigin.table('5'),
+        status: 'CANCELLED',
+        openedAt: OPENED_AT,
+        lines: [line('line-1')],
+        version: 1,
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
+    );
+    await repo.add(openOrder('order-ext', OrderOrigin.external('PL-1')));
+
+    await expect(repo.findActiveByTableId('5')).resolves.toBeNull();
+    await expect(repo.findActiveByTableId('missing')).resolves.toBeNull();
+  });
+
+  it('treats READY as active and finds SENT_TO_KITCHEN / IN_KITCHEN (RP6d)', async () => {
+    const repo = new InMemoryOrderRepository();
+    for (const [id, status, tableId] of [
+      ['order-sent', 'SENT_TO_KITCHEN', '1'],
+      ['order-cook', 'IN_KITCHEN', '2'],
+      ['order-ready', 'READY', '3'],
+    ] as const) {
+      await repo.add(
+        Order.restore({
+          id,
+          origin: OrderOrigin.table(tableId),
+          status,
+          openedAt: OPENED_AT,
+          lines: [line(`line-${tableId}`)],
+          version: 1,
+          discount: null,
+          tip: null,
+          payment: null,
+        }),
+      );
+    }
+
+    expect((await repo.findActiveByTableId('1'))?.id).toBe('order-sent');
+    expect((await repo.findActiveByTableId('2'))?.id).toBe('order-cook');
+    expect((await repo.findActiveByTableId('3'))?.id).toBe('order-ready');
+  });
+
   it('lists only IN_KITCHEN orders sorted by openedAt then id (RP7)', async () => {
     const repo = new InMemoryOrderRepository();
     const later = new Date('2026-10-04T19:00:00.000Z');

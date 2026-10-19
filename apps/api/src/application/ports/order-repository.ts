@@ -7,5 +7,7 @@ export interface OrderRepository {
   save(order: Order): Promise<void>;
   findById(id: string): Promise<Order | null>;
   findByExternalOrderId(externalOrderId: string): Promise<Order | null>;
+  /** Active = OPEN | SENT_TO_KITCHEN | IN_KITCHEN | READY. Null if none. */
+  findActiveByTableId(tableId: string): Promise<Order | null>;
   list(filter: { statuses: readonly OrderStatus[] | null }): Promise<Order[]>;
 }

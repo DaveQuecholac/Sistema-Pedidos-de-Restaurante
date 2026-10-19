@@ -380,6 +380,7 @@ describe('CloseOrder', () => {
       add: (order) => orders.add(order),
       findById: (id) => orders.findById(id),
       findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
+      findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
       list: (filter) => orders.list(filter),
       async save() {
         throw boom;
@@ -399,6 +400,7 @@ describe('CloseOrder', () => {
       add: (order) => orders.add(order),
       findById: (id) => orders.findById(id),
       findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
+      findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
       list: (filter) => orders.list(filter),
       async save() {
         throw boom;

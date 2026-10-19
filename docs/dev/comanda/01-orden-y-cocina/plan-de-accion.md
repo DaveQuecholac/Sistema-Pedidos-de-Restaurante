@@ -39,7 +39,7 @@ Valen las decisiones confirmadas en la sección 11 del análisis.
 | Versión | La lleva `Order`. El dominio no la cambia. El repositorio compara y escribe `+1` |
 | Ids | `generateId` inyectado. Orden y línea. El dominio no llama a `crypto` |
 | Reloj | `now` inyectado en `OpenOrder`. El dominio no llama a `new Date()` |
-| Mesa | Varias comandas vivas por mesa. Sin consulta de mesa ocupada |
+| Mesa | **Vigente (mesas, 10 oct 2026):** una orden activa por mesa; catálogo + activa. *(Antes en este plan: varias vivas — obsoleto.)* |
 | Externo | Único para siempre: `ExternalOrderIdInUseError` |
 | Errores | Clases con `name` propio, mensaje fijo en inglés, sin HTTP ni SQL |
 
@@ -282,7 +282,7 @@ Platos de prueba (fixture): **Tacos** activo, `4500` MXN, tasa `1600`, ingredien
 |----|------|------|----------|
 | C1 | `OpenOrder` | mesa `"5"` libre | `OPEN`, id de `generateId`, `openedAt` de `now`, un `add` |
 | C2 | `OpenOrder` | externo `"UBER-1"` | mismo flujo, origen externo |
-| C3 | `OpenOrder` | mesa `"5"` con una orden `OPEN` y otra `IN_KITCHEN` | se abre una tercera; las tres conviven con ids distintos |
+| C3 | `OpenOrder` | mesa `"5"` con una orden activa | `TableAlreadyHasActiveOrderError`, cero `add` *(antes, 4 oct: abrir tercera; sustituido por módulo mesas)* |
 | C4 | `OpenOrder` | externo `"UBER-1"` ya usado por una `OPEN` | `ExternalOrderIdInUseError`, cero `add` |
 | C5 | `OpenOrder` | externo `"UBER-1"` ya usado por una `CANCELLED` | `ExternalOrderIdInUseError`, cero `add` |
 | C6 | `OpenOrder` | ambos campos, ninguno, mesa en blanco | error de la sección 8 del análisis y cero `add` |
