@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useStaffRole } from '../../session/role-context';
 import styles from './app-shell.module.css';
 import { useShell } from './shell-context';
 
 export function Header() {
   const { searchQuery, setSearchQuery, openAddOrder } = useShell();
+  const { role, leave } = useStaffRole();
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -52,13 +54,23 @@ export function Header() {
         </svg>
         {clockLabel}
       </p>
-      <button type="button" className={styles.addOrder} onClick={openAddOrder}>
+      <button type="button" className={styles.leaveSession} onClick={leave}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 8v8M8 12h8" />
+          <path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2" />
+          <path d="M4 12h10" />
+          <path d="m11 8 4 4-4 4" />
         </svg>
-        Nueva orden
+        Cerrar sesión
       </button>
+      {role === 'waiter' ? (
+        <button type="button" className={styles.addOrder} onClick={openAddOrder}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v8M8 12h8" />
+          </svg>
+          Nueva orden
+        </button>
+      ) : null}
     </header>
   );
 }

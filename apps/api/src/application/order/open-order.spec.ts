@@ -11,7 +11,6 @@ import { Table } from '../../domain/table/table';
 import { InMemoryTableRepository } from '../table/in-memory-table-repository';
 import { salonTables } from '../table/salon-tables';
 import {
-  TableAlreadyHasActiveOrderError,
   TableInactiveError,
   TableNotFoundError,
 } from '../table/table-repository.errors';
@@ -58,44 +57,40 @@ describe('OpenOrder', () => {
     expect(await tables.list()).toEqual([]);
   });
 
-  it('rejects a second active order on the same table (C3)', async () => {
-    const repo = new InMemoryOrderRepository();
-    await repo.add(
-      Order.open({ id: 'order-a', origin: OrderOrigin.table('5'), openedAt: FIXED_NOW }),
-    );
-    await repo.add(
-      Order.restore({
-        id: 'order-b',
-        origin: OrderOrigin.table('5'),
-        status: 'IN_KITCHEN',
-        openedAt: FIXED_NOW,
-        lines: [
-          LineItem.capture({
-            id: 'line-1',
-            menuItem: tacosDish(),
-            quantity: Quantity.of(1),
-            modifierIds: [],
-          }),
-        ],
-        version: 1,
-        discount: null,
-        tip: null,
-        payment: null,
-      }),
-    );
-
-    const seen = watchOrders(repo);
+  it('opens another comanda on a table that already has one', async () => {
+    const seen = watchOrders(new InMemoryOrderRepository());
     const useCase = new OpenOrder(
       seen.orders,
       salonTables('5'),
-      idsOf('order-c'),
+      idsOf('order-a', 'order-b'),
       () => FIXED_NOW,
     );
 
-    await expect(useCase.execute({ tableId: '5' })).rejects.toBeInstanceOf(
-      TableAlreadyHasActiveOrderError,
+    const first = await useCase.execute({ tableId: '5' });
+    const second = await useCase.execute({ tableId: '5' });
+
+    expect(seen.calls.add).toBe(2);
+    expect(first.id).toBe('order-a');
+    expect(second.id).toBe('order-b');
+    expect(second.sittingId).toBe(first.sittingId);
+  });
+
+  it('pulls an older comanda without a sitting into the same bill', async () => {
+    const orders = new InMemoryOrderRepository();
+    await orders.add(
+      Order.open({
+        id: 'order-old',
+        origin: OrderOrigin.fromInput({ tableId: '5' }),
+        openedAt: FIXED_NOW,
+      }),
     );
-    expect(seen.calls.add).toBe(0);
+    const useCase = new OpenOrder(orders, salonTables('5'), idsOf('order-new'), () => FIXED_NOW);
+
+    const created = await useCase.execute({ tableId: '5' });
+    const older = await orders.findById('order-old');
+
+    expect(created.sittingId).toBe('sitting-order-new');
+    expect(older?.sittingId).toBe(created.sittingId);
   });
 
   it('rejects an external id already used by an OPEN order (C4)', async () => {

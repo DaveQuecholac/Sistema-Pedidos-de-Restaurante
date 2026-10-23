@@ -13,6 +13,7 @@ describe('orderIdFromPath', () => {
     expect(orderIdFromPath('/')).toBeNull();
     expect(orderIdFromPath('/ordenes')).toBeNull();
     expect(orderIdFromPath('/pago')).toBeNull();
+    expect(orderIdFromPath('/pago/mesa/1')).toBeNull();
     expect(orderIdFromPath('/cocina')).toBeNull();
   });
 });

@@ -57,6 +57,21 @@ export class InMemoryOrderRepository implements OrderRepository {
     return null;
   }
 
+  async listActiveByTableId(tableId: string): Promise<Order[]> {
+    const active = new Set<OrderStatus>(ACTIVE_ORDER_STATUSES);
+    return [...this.orders.values()]
+      .filter((order) => order.origin.tableId === tableId && active.has(order.status))
+      .sort((left, right) => left.openedAt.getTime() - right.openedAt.getTime())
+      .map((order) => copy(order));
+  }
+
+  async listBySittingId(sittingId: string): Promise<Order[]> {
+    return [...this.orders.values()]
+      .filter((order) => order.sittingId === sittingId)
+      .sort((left, right) => left.openedAt.getTime() - right.openedAt.getTime())
+      .map((order) => copy(order));
+  }
+
   async list(filter: { statuses: readonly OrderStatus[] | null }): Promise<Order[]> {
     let orders = [...this.orders.values()];
 
@@ -88,6 +103,8 @@ function copy(order: Order, version = order.version): Order {
     discount: order.discount,
     tip: order.tip,
     payment: order.payment,
+    sittingId: order.sittingId,
+    tableSettlementId: order.tableSettlementId,
   });
 }
 

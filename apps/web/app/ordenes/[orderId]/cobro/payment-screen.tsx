@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { orderCuentaPath, orderDetailPath } from '../../../components/app-shell/order-routes';
+import { orderCuentaPath } from '../../../components/app-shell/order-routes';
 import { useShell } from '../../../components/app-shell/shell-context';
 import { centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
@@ -170,9 +170,6 @@ export function PaymentScreen({ orderId }: Props) {
       <header className={styles.header}>
         <h1>Gestión de pagos</h1>
         <nav className={styles.navChips} aria-label="Acciones de cobro">
-          <Link href={orderDetailPath(orderId)} className={styles.navChip}>
-            Comanda
-          </Link>
           <Link href={orderCuentaPath(orderId)} className={styles.navChip}>
             Cuenta
           </Link>
@@ -218,9 +215,6 @@ export function PaymentScreen({ orderId }: Props) {
       {view === 'notReady' ? (
         <div className={styles.lockNotice} role="status">
           <p>Se cobra cuando cocina marca la orden como lista.</p>
-          <p>
-            <Link href={orderDetailPath(orderId)}>Ir a la comanda</Link>
-          </p>
         </div>
       ) : null}
 

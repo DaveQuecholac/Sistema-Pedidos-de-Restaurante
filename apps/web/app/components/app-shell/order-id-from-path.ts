@@ -10,8 +10,8 @@ export function orderIdFromPath(pathname: string): string | null {
     return null;
   }
 
-  // "/pago" alone has no id; "/pago/:id/cuenta" does.
-  if (segment === 'cuenta' || segment === 'cobro') {
+  // "/pago" alone has no id; "/pago/:id/cuenta" does. "/pago/mesa/:tableId" is the table bill.
+  if (segment === 'cuenta' || segment === 'cobro' || segment === 'mesa') {
     return null;
   }
 

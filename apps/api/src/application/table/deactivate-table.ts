@@ -15,8 +15,8 @@ export class DeactivateTable {
       throw new TableNotFoundError();
     }
 
-    const activeOrder = await this.orders.findActiveByTableId(id);
-    if (activeOrder !== null) {
+    const activeOrders = await this.orders.listActiveByTableId(id);
+    if (activeOrders.length > 0) {
       throw new TableHasActiveOrderError();
     }
 

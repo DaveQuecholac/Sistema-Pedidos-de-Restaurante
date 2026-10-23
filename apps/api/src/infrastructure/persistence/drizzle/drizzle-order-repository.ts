@@ -62,6 +62,8 @@ export class DrizzleOrderRepository implements OrderRepository {
         .set({
           status: order.status,
           version: order.version + 1,
+          sittingId: order.sittingId,
+          tableSettlementId: order.tableSettlementId,
           ...toDiscountColumns(order.discount),
           ...toTipColumns(order.tip),
         })
@@ -123,6 +125,24 @@ export class DrizzleOrderRepository implements OrderRepository {
 
     const hydrated = await this.hydrate([stored]);
     return hydrated[0] ?? null;
+  }
+
+  async listActiveByTableId(tableId: string): Promise<Order[]> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.tableId, tableId), inArray(orders.status, [...ACTIVE_ORDER_STATUSES])))
+      .orderBy(asc(orders.openedAt), asc(orders.id));
+    return this.hydrate(rows);
+  }
+
+  async listBySittingId(sittingId: string): Promise<Order[]> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(eq(orders.sittingId, sittingId))
+      .orderBy(asc(orders.openedAt), asc(orders.id));
+    return this.hydrate(rows);
   }
 
   async list(filter: { statuses: readonly OrderStatus[] | null }): Promise<Order[]> {

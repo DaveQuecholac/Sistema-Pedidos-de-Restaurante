@@ -35,6 +35,7 @@ import { getOrderTotals, type OrderTotalsJson } from '../../ordenes/[orderId]/cu
 import styles from './app-shell.module.css';
 import { orderIdFromPath, shortOrderLabel } from './order-id-from-path';
 import { orderCobroPath, orderCuentaPath, orderDetailPath } from './order-routes';
+import { useStaffRole } from '../../session/role-context';
 import { useShell } from './shell-context';
 import { EmptyState } from '../ui/empty-state';
 import { OrderPanelHeader } from './order-panel.header';
@@ -106,7 +107,7 @@ function TableInspector({
   const router = useRouter();
   const { bumpRefresh, selectOrder } = useShell();
   const [table, setTable] = useState<TableJson | null>(null);
-  const [order, setOrder] = useState<OrderJson | null>(null);
+  const [orders, setOrders] = useState<OrderJson[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -120,11 +121,11 @@ function TableInspector({
         if (cancelled) {
           return;
         }
-        const match = orders
+        const matches = orders
           .filter((item) => item.tableId === tableId)
-          .sort((a, b) => b.openedAt.localeCompare(a.openedAt))[0];
+          .sort((a, b) => a.openedAt.localeCompare(b.openedAt));
         setTable(loaded);
-        setOrder(match ?? null);
+        setOrders(matches);
         setLoading(false);
       })
       .catch((error: unknown) => {
@@ -182,8 +183,13 @@ function TableInspector({
   }
 
   const title = table?.label ?? tableId;
-  const occupancy =
-    loading ? '…' : order === null ? 'Libre' : statusLabel(order.status);
+  const occupancy = loading
+    ? '…'
+    : orders.length === 0
+      ? 'Libre'
+      : orders.length === 1
+        ? statusLabel(orders[0].status)
+        : `${orders.length} comandas`;
   const activeLabel = table === null ? '…' : table.active ? 'Activa' : 'Inactiva';
 
   return (
@@ -231,16 +237,16 @@ function TableInspector({
               Activar mesa
             </button>
           )}
-          {order !== null ? (
+          {orders.length > 0 ? (
             <p className={styles.summaryMeta}>
-              Comanda activa: {statusLabel(order.status)}. No se puede desactivar hasta cerrarla o
-              cancelarla.
+              {orders.length === 1 ? 'Comanda activa' : `${orders.length} comandas activas`}. No se
+              puede desactivar hasta cerrarlas o cancelarlas.
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {!adminMode && !loading && order === null ? (
+      {!adminMode && !loading && orders.length === 0 ? (
         <>
           <EmptyState text="Sin comanda activa en esta mesa" />
           <div className={styles.ctaStack}>
@@ -256,27 +262,27 @@ function TableInspector({
         </>
       ) : null}
 
-      {!adminMode && !loading && order !== null ? (
+      {!adminMode && !loading && orders.length > 0 ? (
         <>
-          <p className={styles.summaryMeta}>
-            Orden #{shortOrderLabel(order.id)} · {order.lines.length}{' '}
-            {order.lines.length === 1 ? 'línea' : 'líneas'}
-          </p>
-          <OrderLinesPreview order={order} />
+          <ul className={styles.summaryMeta}>
+            {orders.map((item, index) => (
+              <li key={item.id}>
+                <Link href={orderDetailPath(item.id)}>
+                  Comanda {index + 1} · {statusLabel(item.status)} · {item.lines.length}{' '}
+                  {item.lines.length === 1 ? 'línea' : 'líneas'}
+                </Link>
+              </li>
+            ))}
+          </ul>
           <div className={styles.ctaStack}>
-            <Link className={styles.ctaPrimary} href={orderDetailPath(order.id)}>
-              Ver comanda
-            </Link>
-            {order.status === 'READY' ? (
-              <Link className={styles.ctaNavy} href={orderCuentaPath(order.id)}>
-                Realizar cobro
-              </Link>
-            ) : null}
-            {order.status !== 'CLOSED' && order.status !== 'CANCELLED' ? (
-              <Link className={styles.ctaSecondary} href={orderCuentaPath(order.id)}>
-                Ver cuenta
-              </Link>
-            ) : null}
+            <button
+              type="button"
+              className={styles.ctaSecondary}
+              disabled={sending || table?.active === false}
+              onClick={() => void onOpen()}
+            >
+              Abrir otra comanda
+            </button>
           </div>
         </>
       ) : null}
@@ -399,6 +405,9 @@ function OrderInspector({
   refreshToken: number;
 }) {
   const { bumpRefresh } = useShell();
+  const { role } = useStaffRole();
+  const service = role === 'waiter';
+  const charge = role === 'cashier';
   const [state, setState] = useState<OrderLoad>({ kind: 'loading' });
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -516,10 +525,12 @@ function OrderInspector({
         ) : null}
 
         <div className={styles.ctaStack}>
-          <Link className={styles.ctaSecondary} href={orderDetailPath(order.id)}>
-            Ver comanda
-          </Link>
-          {can(order, 'sendToKitchen') ? (
+          {service ? (
+            <Link className={styles.ctaSecondary} href={orderDetailPath(order.id)}>
+              Ver comanda
+            </Link>
+          ) : null}
+          {service && can(order, 'sendToKitchen') ? (
             <button
               type="button"
               className={styles.ctaPrimary}
@@ -529,22 +540,22 @@ function OrderInspector({
               Enviar a cocina
             </button>
           ) : null}
-          {order.status !== 'CLOSED' && order.status !== 'CANCELLED' ? (
+          {charge && order.status !== 'CLOSED' && order.status !== 'CANCELLED' ? (
             <Link className={styles.ctaSecondary} href={orderCuentaPath(order.id)}>
               Ver cuenta
             </Link>
           ) : null}
-          {order.status === 'READY' ? (
+          {charge && order.status === 'READY' ? (
             <Link className={styles.ctaPrimary} href={orderCuentaPath(order.id)}>
               Cobrar
             </Link>
           ) : null}
-          {order.status === 'CLOSED' ? (
+          {charge && order.status === 'CLOSED' ? (
             <Link className={styles.ctaSecondary} href={orderCobroPath(order.id)}>
               Ver cobro
             </Link>
           ) : null}
-          {can(order, 'cancel') ? (
+          {service && can(order, 'cancel') ? (
             <button
               type="button"
               className={styles.ctaDanger}

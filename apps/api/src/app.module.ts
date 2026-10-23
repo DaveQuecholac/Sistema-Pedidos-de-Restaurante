@@ -18,6 +18,10 @@ import { DatabaseHealthPort } from './application/ports/database-health.port';
 import { MenuRepository } from './application/ports/menu-repository';
 import { OrderRepository } from './application/ports/order-repository';
 import type { TableRepository } from './application/ports/table-repository';
+import type { TableSittingRepository } from './application/ports/table-sitting-repository';
+import { CloseTableAccount } from './application/table/close-table-account';
+import { GetTableAccount } from './application/table/get-table-account';
+import { SetTableBillingMode, SetTableDiscount, SetTableTip } from './application/table/set-table-account';
 import { CloseOrder } from './application/payment/close-order';
 import { GetOrderPayment } from './application/payment/get-order-payment';
 import type { PaymentPort } from './application/ports/payment-port';
@@ -40,11 +44,13 @@ import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/driz
 import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
 import { DrizzleOrderRepository } from './infrastructure/persistence/drizzle/drizzle-order-repository';
 import { DrizzleTableRepository } from './infrastructure/persistence/drizzle/drizzle-table-repository';
+import { DrizzleTableSittingRepository } from './infrastructure/persistence/drizzle/drizzle-table-sitting-repository';
 import { DatabaseHealthController } from './interface/http/controllers/database-health.controller';
 import { HealthController } from './interface/http/controllers/health.controller';
 import { MenuItemController } from './interface/http/menu/menu-item.controller';
 import { OrderController } from './interface/http/order/order.controller';
 import { PaymentController } from './interface/http/payment/payment.controller';
+import { TableAccountController } from './interface/http/table/table-account.controller';
 import { TableController } from './interface/http/table/table.controller';
 import { TotalsController } from './interface/http/totals/totals.controller';
 
@@ -52,6 +58,7 @@ export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
 export const MENU_REPOSITORY = Symbol('MENU_REPOSITORY');
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
 export const TABLE_REPOSITORY = Symbol('TABLE_REPOSITORY');
+export const TABLE_SITTING_REPOSITORY = Symbol('TABLE_SITTING_REPOSITORY');
 export const PAYMENT_PORTS = Symbol('PAYMENT_PORTS');
 
 /** Composition root: health, menu, orders, and payments through driven adapters. */
@@ -65,6 +72,7 @@ export class AppModule {
         DatabaseHealthController,
         MenuItemController,
         TableController,
+        TableAccountController,
         OrderController,
         TotalsController,
         PaymentController,
@@ -90,6 +98,10 @@ export class AppModule {
         {
           provide: TABLE_REPOSITORY,
           useValue: new DrizzleTableRepository(db),
+        },
+        {
+          provide: TABLE_SITTING_REPOSITORY,
+          useValue: new DrizzleTableSittingRepository(db),
         },
         {
           provide: ListMenuItems,
@@ -144,9 +156,12 @@ export class AppModule {
         },
         {
           provide: OpenOrder,
-          inject: [ORDER_REPOSITORY, TABLE_REPOSITORY],
-          useFactory: (orders: OrderRepository, tables: TableRepository) =>
-            new OpenOrder(orders, tables, () => crypto.randomUUID(), () => new Date()),
+          inject: [ORDER_REPOSITORY, TABLE_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          useFactory: (
+            orders: OrderRepository,
+            tables: TableRepository,
+            sittings: TableSittingRepository,
+          ) => new OpenOrder(orders, tables, sittings, () => crypto.randomUUID(), () => new Date()),
         },
         {
           provide: ListOrders,
@@ -228,6 +243,39 @@ export class AppModule {
           provide: GetOrderPayment,
           inject: [ORDER_REPOSITORY],
           useFactory: (orders: OrderRepository) => new GetOrderPayment(orders),
+        },
+        {
+          provide: GetTableAccount,
+          inject: [ORDER_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          useFactory: (orders: OrderRepository, sittings: TableSittingRepository) =>
+            new GetTableAccount(orders, sittings),
+        },
+        {
+          provide: SetTableBillingMode,
+          inject: [ORDER_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          useFactory: (orders: OrderRepository, sittings: TableSittingRepository) =>
+            new SetTableBillingMode(orders, sittings),
+        },
+        {
+          provide: SetTableDiscount,
+          inject: [ORDER_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          useFactory: (orders: OrderRepository, sittings: TableSittingRepository) =>
+            new SetTableDiscount(orders, sittings),
+        },
+        {
+          provide: SetTableTip,
+          inject: [ORDER_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          useFactory: (orders: OrderRepository, sittings: TableSittingRepository) =>
+            new SetTableTip(orders, sittings),
+        },
+        {
+          provide: CloseTableAccount,
+          inject: [ORDER_REPOSITORY, TABLE_SITTING_REPOSITORY, PAYMENT_PORTS],
+          useFactory: (
+            orders: OrderRepository,
+            sittings: TableSittingRepository,
+            payments: PaymentPort[],
+          ) => new CloseTableAccount(orders, sittings, payments, () => crypto.randomUUID(), () => new Date()),
         },
       ],
     };

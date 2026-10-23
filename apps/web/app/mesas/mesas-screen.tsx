@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { TableIcon } from '../components/ui/table-icon'; 
 import { useShell } from '../components/app-shell/shell-context';
@@ -44,7 +43,7 @@ export function MesasScreen() {
   }, [refreshToken]);
 
   const byTable = useMemo(() => {
-    const map = new Map<string, OrderJson>();
+    const map = new Map<string, { order: OrderJson; count: number }>();
     if (board.kind !== 'ready') {
       return map;
     }
@@ -53,8 +52,13 @@ export function MesasScreen() {
         continue;
       }
       const existing = map.get(order.tableId);
-      if (existing === undefined || existing.openedAt < order.openedAt) {
-        map.set(order.tableId, order);
+      if (existing === undefined) {
+        map.set(order.tableId, { order, count: 1 });
+        continue;
+      }
+      existing.count += 1;
+      if (existing.order.openedAt < order.openedAt) {
+        existing.order = order;
       }
     }
     return map;
@@ -103,9 +107,6 @@ export function MesasScreen() {
             Selecciona una mesa para ver el detalle a la derecha. Abre o entra a la comanda desde ahí.
           </p>
         </div>
-        <Link className={styles.adminLink} href="/mesas/admin">
-          Administrar mesas
-        </Link>
       </header>
 
       {board.kind === 'loading' ? <p>Cargando mesas…</p> : null}
@@ -132,9 +133,15 @@ export function MesasScreen() {
           <h2 className={styles.floorLabel}>{floor.zone}</h2>
           <ul className={styles.grid}>
             {floor.tables.map((table) => {
-              const order = byTable.get(table.id);
-              const occupied = order !== undefined;
+              const group = byTable.get(table.id);
+              const occupied = group !== undefined;
               const selected = selectedTableId === table.id;
+              const status =
+                group === undefined
+                  ? 'Libre'
+                  : group.count > 1
+                    ? `${group.count} comandas`
+                    : statusLabel(group.order.status);
               return (
                 <li key={table.id}>
                   <button
@@ -151,9 +158,7 @@ export function MesasScreen() {
                     
                     <span className={styles.tableNumber}>{table.label}</span>
                     <TableIcon className={styles.tableSvg} />
-                    <span className={styles.tableStatus}>
-                      {occupied && order !== undefined ? statusLabel(order.status) : 'Libre'}
-                    </span>
+                    <span className={styles.tableStatus}>{status}</span>
                   </button>
                 </li>
               );

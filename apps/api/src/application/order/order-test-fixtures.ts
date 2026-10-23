@@ -162,6 +162,8 @@ export function watchOrders(orders: OrderRepository) {
     findById: (id) => orders.findById(id),
     findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
     findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
+    listActiveByTableId: (tableId) => orders.listActiveByTableId(tableId),
+    listBySittingId: (sittingId) => orders.listBySittingId(sittingId),
     list: (filter) => orders.list(filter),
   };
   return { orders: wrapped, calls };
@@ -178,6 +180,8 @@ export function withConcurrentSave(
     save: (order) => orders.save(order),
     findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
     findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
+    listActiveByTableId: (tableId) => orders.listActiveByTableId(tableId),
+    listBySittingId: (sittingId) => orders.listBySittingId(sittingId),
     list: (filter) => orders.list(filter),
     async findById(id) {
       const order = await orders.findById(id);

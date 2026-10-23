@@ -79,6 +79,8 @@ function watchOrders(orders: InMemoryOrderRepository): {
     findById: (id) => orders.findById(id),
     findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
     findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
+    listActiveByTableId: (tableId) => orders.listActiveByTableId(tableId),
+    listBySittingId: (sittingId) => orders.listBySittingId(sittingId),
     list: (filter) => orders.list(filter),
   };
   return { port, calls };
@@ -492,6 +494,8 @@ describe('totals HTTP', () => {
       save: (order) => tracked.save(order),
       findByExternalOrderId: (id) => tracked.findByExternalOrderId(id),
       findActiveByTableId: (tableId) => tracked.findActiveByTableId(tableId),
+      listActiveByTableId: (tableId) => tracked.listActiveByTableId(tableId),
+      listBySittingId: (sittingId) => tracked.listBySittingId(sittingId),
       list: (filter) => tracked.list(filter),
       async findById(id) {
         if (id === 'boom') {

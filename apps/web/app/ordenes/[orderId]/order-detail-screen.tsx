@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { orderCobroPath, orderCuentaPath } from '../../components/app-shell/order-routes';
 import { useShell } from '../../components/app-shell/shell-context';
 import { EmptyState } from '../../components/ui/empty-state';
 import { listMenuItems, type MenuItemJson } from '../../menu/menu-api';
@@ -229,16 +228,6 @@ export function OrderDetailScreen({ orderId }: Props) {
           <h1>{originLabel(current)}</h1>
           <span className={styles.badge}>{statusLabel(current.status)}</span>
         </div>
-        <nav className={styles.navChips} aria-label="Acciones de comanda">
-          <Link href={orderCuentaPath(orderId)} className={styles.navChip}>
-            Cuenta
-          </Link>
-          {current.status === 'CLOSED' ? (
-            <Link href={orderCobroPath(orderId)} className={styles.navChip}>
-              Ver cobro
-            </Link>
-          ) : null}
-        </nav>
       </header>
 
       {notice ? (

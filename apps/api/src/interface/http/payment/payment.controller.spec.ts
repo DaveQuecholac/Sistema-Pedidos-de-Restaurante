@@ -634,6 +634,8 @@ describe('payment HTTP', () => {
       findById: (id) => tracked.findById(id),
       findByExternalOrderId: (id) => tracked.findByExternalOrderId(id),
       findActiveByTableId: (tableId) => tracked.findActiveByTableId(tableId),
+      listActiveByTableId: (tableId) => tracked.listActiveByTableId(tableId),
+      listBySittingId: (sittingId) => tracked.listBySittingId(sittingId),
       list: (filter) => tracked.list(filter),
       async save() {
         throw boom;
@@ -739,6 +741,8 @@ describe('payment HTTP', () => {
       },
       findByExternalOrderId: (id) => tracked.findByExternalOrderId(id),
       findActiveByTableId: (tableId) => tracked.findActiveByTableId(tableId),
+      listActiveByTableId: (tableId) => tracked.listActiveByTableId(tableId),
+      listBySittingId: (sittingId) => tracked.listBySittingId(sittingId),
       list: (filter) => tracked.list(filter),
       save: (order) => tracked.save(order),
     };

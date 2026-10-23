@@ -169,18 +169,14 @@ describe('tables HTTP', () => {
     });
   });
 
-  it('rejects a second active order on the same table (H6)', async () => {
+  it('opens a second comanda on the same table (H6)', async () => {
     const { base } = await listen([Table.create({ id: '5', label: '5', zone: 'Salón' })]);
 
     const first = await send(`${base}/orders`, 'POST', { tableId: '5' });
     const second = await send(`${base}/orders`, 'POST', { tableId: '5' });
 
     expect(first.status).toBe(201);
-    expect(second.status).toBe(409);
-    expect(await second.json()).toEqual({
-      code: 'TableAlreadyHasActiveOrderError',
-      message: 'Table already has an active order',
-    });
+    expect(second.status).toBe(201);
   });
 
   it('opens an external order without a table (H7)', async () => {

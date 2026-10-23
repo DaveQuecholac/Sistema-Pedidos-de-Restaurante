@@ -3,13 +3,14 @@ import { Money } from '../money/money';
 import type { Payment } from '../payment/payment';
 import { PaymentAmountMismatchError } from '../payment/payment.errors';
 import type { Discount } from '../totals/discount';
-import { calculateTotals, type OrderTotals } from '../totals/order-totals';
+import { calculateTotals, type OrderTotals, type TotalsLine } from '../totals/order-totals';
 import type { Tip } from '../totals/tip';
 import type { LineItem } from './line-item';
 import type { OrderOrigin } from './order-origin';
 import {
   DuplicateLineItemIdError,
   EmptyOrderError,
+  InvalidOrderOriginError,
   InvalidOrderPaymentError,
   InvalidOrderStatusError,
   InvalidOrderVersionError,
@@ -35,6 +36,8 @@ export type OrderRestoreInput = {
   discount: Discount | null;
   tip: Tip | null;
   payment: Payment | null;
+  sittingId?: string | null;
+  tableSettlementId?: string | null;
 };
 
 /** Aggregate root: origin, lines, kitchen state, totals adjustments and payment. Does not change version. */
@@ -49,6 +52,8 @@ export class Order {
     private readonly discountValue: Discount | null,
     private readonly tipValue: Tip | null,
     private readonly paymentValue: Payment | null,
+    private readonly sittingIdValue: string | null,
+    private readonly tableSettlementIdValue: string | null,
   ) {}
 
   static open(input: { id: string; origin: OrderOrigin; openedAt: Date }): Order {
@@ -59,6 +64,8 @@ export class Order {
       input.openedAt,
       [],
       0,
+      null,
+      null,
       null,
       null,
       null,
@@ -84,17 +91,23 @@ export class Order {
       input.discount,
       input.tip,
       input.payment,
+      optionalId(input.sittingId),
+      optionalId(input.tableSettlementId),
     );
 
-    const isClosed = order.statusValue === 'CLOSED';
-    const hasPayment = order.paymentValue !== null;
-    if (isClosed !== hasPayment) {
-      throw new InvalidOrderPaymentError();
-    }
-    if (
-      order.paymentValue !== null &&
-      !order.paymentValue.amount.equals(order.totals().total)
-    ) {
+    const settledOnTable = order.tableSettlementIdValue !== null;
+    if (order.statusValue === 'CLOSED') {
+      if (settledOnTable) {
+        if (order.paymentValue !== null) {
+          throw new InvalidOrderPaymentError();
+        }
+      } else if (
+        order.paymentValue === null ||
+        !order.paymentValue.amount.equals(order.totals().total)
+      ) {
+        throw new InvalidOrderPaymentError();
+      }
+    } else if (order.paymentValue !== null || settledOnTable) {
       throw new InvalidOrderPaymentError();
     }
 
@@ -168,6 +181,46 @@ export class Order {
     });
   }
 
+  /** Closes a ready comanda as part of the table's single bill. The payment lives on that bill. */
+  closeOnTableAccount(settlementId: string): Order {
+    if (this.sittingIdValue !== settlementId || !this.canClose()) {
+      throw new OrderNotClosableError();
+    }
+
+    return this.copy({
+      status: orderStatus(this.statusValue).next('close'),
+      payment: null,
+      tableSettlementId: settlementId,
+    });
+  }
+
+  bindSitting(sittingId: string): Order {
+    const trimmed = sittingId.trim();
+    if (trimmed.length === 0) {
+      throw new BlankIdError();
+    }
+    if (this.originValue.tableId === null) {
+      throw new InvalidOrderOriginError();
+    }
+    if (this.sittingIdValue !== null) {
+      return this;
+    }
+    return this.copy({ sittingId: trimmed });
+  }
+
+  lineContributions(): TotalsLine[] {
+    return this.linesValue.map((line) => ({
+      lineId: line.id,
+      name: line.name,
+      quantity: line.quantity.amount,
+      unitPrice: line.unitPrice,
+      extras: line.modifiers.map(
+        (modifier) => modifier.price ?? Money.zero(line.unitPrice.currency),
+      ),
+      taxRate: line.applicableTax,
+    }));
+  }
+
   setDiscount(discount: Discount | null): Order {
     this.requireAdjustableTotals();
     return this.copy({ discount });
@@ -180,16 +233,7 @@ export class Order {
 
   totals(): OrderTotals {
     return calculateTotals({
-      lines: this.linesValue.map((line) => ({
-        lineId: line.id,
-        name: line.name,
-        quantity: line.quantity.amount,
-        unitPrice: line.unitPrice,
-        extras: line.modifiers.map(
-          (modifier) => modifier.price ?? Money.zero(line.unitPrice.currency),
-        ),
-        taxRate: line.applicableTax,
-      })),
+      lines: this.lineContributions(),
       discount: this.discountValue,
       tip: this.tipValue,
     });
@@ -243,6 +287,14 @@ export class Order {
     return this.paymentValue;
   }
 
+  get sittingId(): string | null {
+    return this.sittingIdValue;
+  }
+
+  get tableSettlementId(): string | null {
+    return this.tableSettlementIdValue;
+  }
+
   private requireEditable(): void {
     if (!orderStatus(this.statusValue).canEditLines) {
       throw new OrderNotEditableError();
@@ -261,6 +313,8 @@ export class Order {
     discount?: Discount | null;
     tip?: Tip | null;
     payment?: Payment | null;
+    sittingId?: string | null;
+    tableSettlementId?: string | null;
   }): Order {
     return new Order(
       this.idValue,
@@ -272,8 +326,23 @@ export class Order {
       patch.discount !== undefined ? patch.discount : this.discountValue,
       patch.tip !== undefined ? patch.tip : this.tipValue,
       patch.payment !== undefined ? patch.payment : this.paymentValue,
+      patch.sittingId !== undefined ? patch.sittingId : this.sittingIdValue,
+      patch.tableSettlementId !== undefined
+        ? patch.tableSettlementId
+        : this.tableSettlementIdValue,
     );
   }
+}
+
+function optionalId(value: string | null | undefined): string | null {
+  if (value == null) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new BlankIdError();
+  }
+  return trimmed;
 }
 
 function requireId(id: string): string {

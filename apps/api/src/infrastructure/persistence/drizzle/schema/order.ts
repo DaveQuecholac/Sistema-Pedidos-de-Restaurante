@@ -28,6 +28,8 @@ export const orders = pgTable(
     tipBasisPoints: integer('tip_basis_points'),
     tipAmount: integer('tip_amount'),
     tipCurrency: text('tip_currency'),
+    sittingId: text('sitting_id'),
+    tableSettlementId: text('table_settlement_id'),
   },
   (table) => [
     check(
@@ -108,6 +110,10 @@ export const orders = pgTable(
           and length(${table.tipCurrency}) = 3
         )
       )`,
+    ),
+    check(
+      'orders_table_settlement_when_closed',
+      sql`${table.tableSettlementId} is null or ${table.status} = 'CLOSED'`,
     ),
     unique('orders_external_order_id_unique').on(table.externalOrderId),
     index('orders_status_opened_at_idx').on(table.status, table.openedAt),
@@ -230,6 +236,54 @@ export const orderPayments = pgTable(
           and ${table.cardLast4} is null
         )
       )`,
+    ),
+  ],
+);
+
+export const tableSittings = pgTable(
+  'table_sittings',
+  {
+    id: text('id').primaryKey(),
+    tableId: text('table_id').notNull(),
+    status: text('status').notNull(),
+    billingMode: text('billing_mode').notNull(),
+    discountKind: text('discount_kind'),
+    discountBasisPoints: integer('discount_basis_points'),
+    discountAmount: integer('discount_amount'),
+    discountCurrency: text('discount_currency'),
+    tipKind: text('tip_kind'),
+    tipBasisPoints: integer('tip_basis_points'),
+    tipAmount: integer('tip_amount'),
+    tipCurrency: text('tip_currency'),
+  },
+  (table) => [
+    check('table_sittings_status', sql`${table.status} in ('OPEN', 'CLOSED')`),
+    check('table_sittings_billing_mode', sql`${table.billingMode} in ('combined', 'separate')`),
+    check('table_sittings_table_id_len', sql`length(btrim(${table.tableId})) between 1 and 40`),
+  ],
+);
+
+export const tableSittingPayments = pgTable(
+  'table_sitting_payments',
+  {
+    sittingId: text('sitting_id')
+      .primaryKey()
+      .references(() => tableSittings.id, { onDelete: 'cascade' }),
+    paymentId: text('payment_id').notNull(),
+    method: text('method').notNull(),
+    amount: integer('amount').notNull(),
+    currency: text('currency').notNull(),
+    tenderedAmount: integer('tendered_amount'),
+    cardLast4: text('card_last4'),
+    payerReference: text('payer_reference'),
+    reference: text('reference').notNull(),
+    paidAt: timestamp('paid_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    unique('table_sitting_payments_payment_id_unique').on(table.paymentId),
+    check(
+      'table_sitting_payments_method',
+      sql`${table.method} in ('cash', 'card', 'digitalGateway')`,
     ),
   ],
 );

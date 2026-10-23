@@ -71,6 +71,13 @@
       "when": 1791671467179,
       "tag": "0009_robust_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792781679996,
+      "tag": "0010_dark_mongoose",
+      "breakpoints": true
     }
   ]
 }

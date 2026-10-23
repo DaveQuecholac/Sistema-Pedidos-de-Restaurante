@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { orderCobroPath, orderDetailPath } from '../../../components/app-shell/order-routes';
+import { orderCobroPath } from '../../../components/app-shell/order-routes';
 import { useShell } from '../../../components/app-shell/shell-context';
 import { basisPointsToPercentLabel, centavosToLabel } from '../../../menu/menu-amount';
 import { getOrder, OrderApiError } from '../../order-api';
@@ -212,9 +212,6 @@ export function TotalsScreen({ orderId }: Props) {
         <nav className={styles.navChips} aria-label="Acciones de cuenta">
           <Link href="/pago" className={styles.navChip}>
             Cola de pago
-          </Link>
-          <Link href={orderDetailPath(orderId)} className={styles.navChip}>
-            Comanda
           </Link>
         </nav>
       </header>

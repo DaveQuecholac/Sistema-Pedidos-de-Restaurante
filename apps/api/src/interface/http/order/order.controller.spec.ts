@@ -75,6 +75,8 @@ function watchOrders(orders: InMemoryOrderRepository): {
     findById: (id) => orders.findById(id),
     findByExternalOrderId: (id) => orders.findByExternalOrderId(id),
     findActiveByTableId: (tableId) => orders.findActiveByTableId(tableId),
+    listActiveByTableId: (tableId) => orders.listActiveByTableId(tableId),
+    listBySittingId: (sittingId) => orders.listBySittingId(sittingId),
     list: (filter) => orders.list(filter),
   };
   return { port, calls };
@@ -268,7 +270,7 @@ describe('orders HTTP', () => {
     expect(await withExtra.json()).toEqual(invalidRequest(openOrderBodySchema, extra));
   });
 
-  it('rejects a second active table order and a repeated external id (H6)', async () => {
+  it('opens a second comanda on the same table and rejects a repeated external id (H6)', async () => {
     const { base } = await listen();
     const first = await openTable(base, '5');
     const second = await send(`${base}/orders`, 'POST', { tableId: '5' });
@@ -276,11 +278,10 @@ describe('orders HTTP', () => {
     const duplicate = await send(`${base}/orders`, 'POST', { externalOrderId: 'UBER-1' });
 
     expect(first.id).toBe('order-1');
-    expect(second.status).toBe(409);
-    expect(await second.json()).toEqual({
-      code: 'TableAlreadyHasActiveOrderError',
-      message: 'Table already has an active order',
-    });
+    expect(second.status).toBe(201);
+    const secondBody = await second.json();
+    expect(secondBody.tableId).toBe('5');
+    expect(secondBody.id).not.toBe(first.id);
     expect(duplicate.status).toBe(409);
     expect(await duplicate.json()).toEqual({
       code: 'ExternalOrderIdInUseError',
@@ -663,6 +664,8 @@ describe('orders HTTP', () => {
       },
       findByExternalOrderId: async () => null,
       findActiveByTableId: async () => null,
+      listActiveByTableId: async () => [],
+      listBySittingId: async () => [],
       list: async () => [],
     };
 

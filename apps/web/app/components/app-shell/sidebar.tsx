@@ -2,16 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useStaffRole } from '../../session/role-context';
+import { roleAllowsPath, staffRoleLabel } from '../../session/staff-role';
 import styles from './app-shell.module.css';
 
 const LINKS = [
   { href: '/', label: 'Mesas', match: (path: string) => path === '/', Icon: IconHome },
-  {
-    href: '/menu',
-    label: 'Menú',
-    match: (path: string) => path.startsWith('/menu'),
-    Icon: IconMenu,
-  },
   {
     href: '/ordenes',
     label: 'Órdenes',
@@ -34,6 +30,8 @@ const LINKS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { role } = useStaffRole();
+  const links = role === null ? [] : LINKS.filter((link) => roleAllowsPath(role, link.href));
 
   return (
     <aside className={styles.sidebar} aria-label="Navegación principal">
@@ -41,7 +39,7 @@ export function Sidebar() {
         R
       </div>
       <nav className={styles.nav}>
-        {LINKS.map(({ href, label, match, Icon }) => {
+        {links.map(({ href, label, match, Icon }) => {
           const active = match(pathname);
           return (
             <Link
@@ -56,6 +54,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      {role !== null ? <p className={styles.roleName}>{staffRoleLabel(role)}</p> : null}
       <p className={styles.version}>V.1.0</p>
     </aside>
   );
@@ -65,14 +64,6 @@ function IconHome() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" />
-    </svg>
-  );
-}
-
-function IconMenu() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 7h14M5 12h14M5 17h10" />
     </svg>
   );
 }

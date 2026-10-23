@@ -71,6 +71,8 @@ export function toOrder(
       discount: toDiscount(order),
       tip: toTip(order),
       payment: payment === null ? null : toPayment(payment),
+      sittingId: order.sittingId,
+      tableSettlementId: order.tableSettlementId,
     });
   } catch (error) {
     if (isOrderRuleError(error)) {
@@ -139,6 +141,8 @@ export function toOrderRow(order: Order): OrderRow {
     version: order.version,
     ...toDiscountColumns(order.discount),
     ...toTipColumns(order.tip),
+    sittingId: order.sittingId,
+    tableSettlementId: order.tableSettlementId,
   };
 }
 
@@ -204,7 +208,12 @@ export function toTipColumns(tip: Tip | null): Pick<
   };
 }
 
-function toDiscount(order: OrderRow): Discount | null {
+export function toDiscount(order: {
+  discountKind: string | null;
+  discountBasisPoints: number | null;
+  discountAmount: number | null;
+  discountCurrency: string | null;
+}): Discount | null {
   if (order.discountKind === null) {
     if (
       order.discountBasisPoints !== null ||
@@ -241,7 +250,12 @@ function toDiscount(order: OrderRow): Discount | null {
   throw new OrderMappingError();
 }
 
-function toTip(order: OrderRow): Tip | null {
+export function toTip(order: {
+  tipKind: string | null;
+  tipBasisPoints: number | null;
+  tipAmount: number | null;
+  tipCurrency: string | null;
+}): Tip | null {
   if (order.tipKind === null) {
     if (
       order.tipBasisPoints !== null ||
