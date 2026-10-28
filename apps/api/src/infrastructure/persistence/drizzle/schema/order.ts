@@ -9,7 +9,6 @@ import {
   timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
-import { menuItems } from './menu';
 
 export const orders = pgTable(
   'orders',
@@ -127,9 +126,7 @@ export const orderLines = pgTable(
     orderId: text('order_id')
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
-    menuItemId: text('menu_item_id')
-      .notNull()
-      .references(() => menuItems.id, { onDelete: 'restrict' }),
+    menuItemId: text('menu_item_id').notNull(),
     name: text('name').notNull(),
     unitPriceAmount: integer('unit_price_amount').notNull(),
     unitPriceCurrency: text('unit_price_currency').notNull(),

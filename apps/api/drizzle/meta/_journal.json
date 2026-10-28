@@ -78,6 +78,13 @@
       "when": 1792781679996,
       "tag": "0010_dark_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793213842132,
+      "tag": "0011_talented_scorpion",
+      "breakpoints": true
     }
   ]
 }

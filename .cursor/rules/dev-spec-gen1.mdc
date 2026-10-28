@@ -23,10 +23,10 @@ Usuario: **Hector**. Flujo: analizar → acordar → documentar/implementar. Doc
 | Nivel | Decisión |
 |-------|----------|
 | Diseño | Hexagonal (Ports & Adapters); núcleo estilo Clean (entidades → casos de uso) |
-| Sistema | Monolito modular, un solo despliegue (API + web + una BD) |
+| Sistema | En ejecución: monolito modular, un solo despliegue. Objetivo acordado el 28 de octubre de 2026: microservicios, `docs/microservicios/analisis.md`. Cada fase espera su plan |
 | Stack | TypeScript, NestJS, PostgreSQL + Drizzle, Zod, pnpm, Next.js + React |
 | Cobros MVP | Adaptadores **simulados** detrás de `PaymentPort` |
-| Alcance | RF1–RF5 |
+| Alcance | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
 
 ## Producto (RF1–RF5)
 
@@ -114,7 +114,7 @@ Tarjetas: `docs/documentacion-inicial/plan-sprints-trello.md`.
 
 ### Fuera de Gen 1
 
-Sin acuerdo de Hector no se cablea: delivery real, pasarelas reales, microservicios, auth avanzada, app móvil, tRPC/GraphQL, design systems pesados, event-bus como base, paquetes `lib/*` de dominio prematuros, Docusaurus/Storybook en el workspace.
+Sin acuerdo de Hector no se cablea: delivery real, pasarelas reales, auth avanzada, app móvil, tRPC/GraphQL, design systems pesados, event-bus como base, paquetes `lib/*` de dominio prematuros, Docusaurus/Storybook en el workspace. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway.
 
 ## Mapa del repo
 

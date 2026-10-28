@@ -1,8 +1,8 @@
 # Guía de pruebas CTTM
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
-**Fecha de esta corrida:** 4 de octubre de 2026.  
-**Alcance de esta corrida:** Sprint 4 completo — `dev/pagos` tareas 1–3 (núcleo RF5, adaptadores/API, pantalla de cobro + demo MVP). Las corridas anteriores quedan abajo y no se borran.
+**Fecha de esta corrida:** 28 de octubre de 2026.  
+**Alcance de esta corrida:** Fase 1 de microservicios — soltar la FK `order_lines.menu_item_id` → `menu_items.id`. Migración `0011_talented_scorpion.sql`. Las corridas anteriores quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -386,3 +386,30 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 3. No se apagó `postgresql-18` para el encendido en frío.
 4. Órdenes `D4-*` / `D4-API-*` quedan en la BD; no son seeds.
 5. `cierre-del-modulo.md` de pagos no se escribió: el plan lo deja solo si Hector lo pide.
+
+## Corrida — 28 de octubre de 2026, fase 1 soltar la FK de la línea al menú
+
+**Alcance:** quitar de Postgres la clave foránea `order_lines.menu_item_id` → `menu_items.id`. La columna se queda `NOT NULL`. Un solo proceso y una sola base.  
+**Plan:** `docs/microservicios/01-soltar-fk/plan-de-accion.md`.  
+**Migración:** `apps/api/drizzle/0011_talented_scorpion.sql`, salida de `db:generate`. Una sentencia: `ALTER TABLE "order_lines" DROP CONSTRAINT "order_lines_menu_item_id_menu_items_id_fk"`.  
+**Bloque de código:** 1 de 1. Unas 70 líneas entre el schema de `order_lines`, el journal y los casos F1–F3. El SQL nuevo es una línea. No hace falta un segundo bloque de 1000.
+
+### Hexagonal (revisión de capas)
+
+- Dominio y casos de uso sin cambios. `AddLine` sigue rechazando un plato desconocido con `MenuItemNotFoundError` antes de guardar, cuando la orden todavía se puede editar.
+- El cambio está en el adaptador de persistencia: `schema/order.ts` ya no declara `.references()` hacia `menu_items`.
+- El JSON de la línea sigue exponiendo `menuItemId`.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **463** passed, **52** skipped. Typecheck API limpio. Dominio sin imports nuevos. `0011_talented_scorpion.sql` salió de `db:generate`. |
+| T Integración | Pasó | Tras `db:migrate`, la FK `order_lines_menu_item_id_menu_items_id_fk` tiene 0 filas en `pg_constraint`. `menu_item_id` sigue `NOT NULL`. Siguen las FK de la línea hacia la orden y las de ingredientes y modificadores. `test:db`: **52** (menú, órdenes, mesas), incluidos F1, F2 y F3. |
+| T Sistema | Pasó con hueco | API en `http://localhost:3001` ya levantada. Recorrido: plato «Plato demo fase 1» (`d6e2882a-4bac-443f-a729-c7d82229b5b3`, 1000 MXN, impuesto 0) → orden `557d7324-29f7-40e5-8877-0ecf9bccf4db` (`fk1-c7a55b41-aca9-44d8-9343-90cc039ff936`) → línea → cocina → total **1000** → cierre cash `CLOSED`. La línea en `order_lines` guarda ese `menu_item_id`. El punto 7 del plan, sobre la orden ya cerrada, respondió **409** `OrderNotEditableError`, no **422** `MenuItemNotFoundError`. |
+| M Madurez | Nivel 2 para esta fase | Evidencia de código, integración y recorrido de venta. No se marca madura: el plan y el código chocan en el punto 7 de la demo. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. El plan pide, al final del recorrido, `POST /orders/:id/lines` con un plato inexistente y respuesta 422 `MenuItemNotFoundError`. La orden ya estaba `CLOSED`. `AddLine` revisa si se puede editar antes de buscar el plato, así que la API respondió 409 `OrderNotEditableError` y no insertó línea. No se cambió el caso de uso.
+2. `pnpm test` deja las de integración en skipped; `test:db` las corre (52 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío. No se tocó `apps/web`.
+4. Quedan en la BD el plato «Plato demo fase 1» y la orden cerrada `557d7324-…`. No son seeds.

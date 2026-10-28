@@ -26,6 +26,7 @@ import { Tip } from '../../../domain/totals/tip';
 import { type AppDatabase, createDatabase } from './client';
 import { DrizzleMenuRepository, type MenuDatabase } from './drizzle-menu-repository';
 import { DrizzleOrderRepository, type OrderDatabase } from './drizzle-order-repository';
+import { menuItems } from './schema/menu';
 import { orderLineModifiers, orderLines, orderPayments, orders } from './schema/order';
 
 const integrationOn = process.env.ORDER_REPOSITORY_INTEGRATION === '1';
@@ -1258,6 +1259,66 @@ describeIntegration('DrizzleOrderRepository', () => {
 
       await expect(ordersRepo.findActiveByTableId(tableCancelled)).resolves.toBeNull();
       await expect(ordersRepo.findActiveByTableId(tableClosed)).resolves.toBeNull();
+    });
+  });
+
+  it('no longer has a foreign key from order lines to menu items (F1)', async () => {
+    const rows = await db.execute(sql`
+      SELECT conname
+      FROM pg_constraint
+      WHERE conname = 'order_lines_menu_item_id_menu_items_id_fk'
+    `);
+
+    expect(rows).toHaveLength(0);
+  });
+
+  it('keeps menu_item_id not null on order lines (F2)', async () => {
+    const rows = await db.execute<{ is_nullable: string }>(sql`
+      SELECT is_nullable
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'order_lines'
+        AND column_name = 'menu_item_id'
+    `);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.is_nullable).toBe('NO');
+  });
+
+  it('persists a line whose menu item has no catalog row (F3)', async () => {
+    const orderId = id();
+    const menuItemId = id();
+
+    await inTransaction(db, async (ordersRepo, _menuRepo, tx) => {
+      const dish = tacosDish(menuItemId);
+      const order = Order.open({
+        id: orderId,
+        origin: OrderOrigin.table(`f3-${orderId.slice(0, 8)}`),
+        openedAt: OPENED_AT,
+      }).addLine(
+        LineItem.capture({
+          id: id(),
+          menuItem: dish,
+          quantity: Quantity.of(1),
+          modifierIds: [],
+        }),
+      );
+
+      await ordersRepo.add(order);
+      const found = await ordersRepo.findById(orderId);
+      const line = found?.lines[0];
+
+      expect(line?.menuItemId).toBe(menuItemId);
+      expect(line?.name).toBe('Tacos');
+      expect(line?.unitPrice.amount).toBe(4500);
+      expect(line?.unitPrice.currency).toBe('MXN');
+      expect(line?.applicableTax.basisPoints).toBe(1600);
+
+      const menuRows = await tx
+        .select({ id: menuItems.id })
+        .from(menuItems)
+        .where(eq(menuItems.id, menuItemId));
+      expect(menuRows).toHaveLength(0);
     });
   });
 });

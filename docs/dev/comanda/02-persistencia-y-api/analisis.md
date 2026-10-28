@@ -1,5 +1,7 @@
 # Análisis — Tarea 2 · Persistencia y API de órdenes y cocina (E2 + E3)
 
+La FK `order_lines.menu_item_id` se quitó en `docs/microservicios/01-soltar-fk/` y la columna se conservó.
+
 **Rama:** `dev/comanda`  
 **Sprint:** 2 (RF2–RF3). Tarea 2 de 3. Solo esta.  
 **Fecha:** 4 de octubre de 2026  

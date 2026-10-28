@@ -19,6 +19,7 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 |---------|-----------|
 | [`desarrollo/`](./desarrollo/) | **Dev Spec Gen 1** — cómo se trabaja en este repo |
 | [`documentacion-inicial/`](./documentacion-inicial/) | Enunciado RF, análisis, propuesta, stack, hexagonal, plan de sprints/Trello |
+| [`microservicios/`](./microservicios/) | Corte a microservicios (28 oct 2026): análisis completo y plan de acción general. Supera el despliegue único de septiembre |
 | [`dev/plataforma/01-base-de-datos-y-arranque/`](./dev/plataforma/01-base-de-datos-y-arranque/) | Tarea 1 del Sprint 1: análisis y plan de base de datos y arranque |
 | [`dev/menu/01-modelo-y-operaciones/`](./dev/menu/01-modelo-y-operaciones/) | Tarea 1 de la épica Menú: análisis y plan del modelo y las operaciones |
 | [`dev/menu/02-persistencia-y-api/`](./dev/menu/02-persistencia-y-api/) | Tarea 2 de la épica Menú: análisis y plan de persistencia y API |
@@ -64,7 +65,18 @@ Ejemplo: la tarea 1 en `dev/plataforma` está en `docs/dev/plataforma/01-base-de
 | [propuesta-inicial.md](./documentacion-inicial/propuesta-inicial.md) | Propuesta consolidada |
 | [analisis-arquitectura.md](./documentacion-inicial/analisis-arquitectura.md) | Decisión Hexagonal |
 | [arquitectura-hexagonal.md](./documentacion-inicial/arquitectura-hexagonal.md) | Guía canónica Ports & Adapters |
-| [analisis-estilo-sistema-despliegue.md](./documentacion-inicial/analisis-estilo-sistema-despliegue.md) | Monolito modular + despliegue único |
+| [analisis-estilo-sistema-despliegue.md](./documentacion-inicial/analisis-estilo-sistema-despliegue.md) | Gen 1: monolito modular + despliegue único (superado en el despliegue por el corte de microservicios) |
 | [analisis-patrones-diseno.md](./documentacion-inicial/analisis-patrones-diseno.md) | Patrones mínimos |
 | [stack-tecnologico.md](./documentacion-inicial/stack-tecnologico.md) | Stack oficial |
 | [plan-sprints-trello.md](./documentacion-inicial/plan-sprints-trello.md) | Sprints + tarjetas copy-paste (Trello) |
+
+## Índice — microservicios
+
+El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro de cada servicio. El plan es general: cada fase, al implementarse, gana su propio par análisis + plan.
+
+| Documento | Rol |
+|-----------|-----|
+| [analisis.md](./microservicios/analisis.md) | Corte a cuatro servicios, puertos, saga de cobro y datos |
+| [plan-de-accion.md](./microservicios/plan-de-accion.md) | Plan general. Fases 2 a 5 todavía sin plan propio |
+| [01-soltar-fk/analisis.md](./microservicios/01-soltar-fk/analisis.md) | Fase 1: quitar la FK de la línea al menú, sin partir procesos |
+| [01-soltar-fk/plan-de-accion.md](./microservicios/01-soltar-fk/plan-de-accion.md) | Fase 1 por pasos, con migración Drizzle y pruebas F1–F3. Sin implementar |

@@ -21,10 +21,10 @@ Este archivo es la especificación larga del repositorio (layout, scripts, capas
 | Nivel | Decisión |
 |-------|----------|
 | Diseño interno | **Arquitectura Hexagonal** (puertos y adaptadores); núcleo estilo Clean |
-| Sistema | **Monolito modular**, un solo despliegue |
+| Sistema | En ejecución: monolito modular, un solo despliegue. Objetivo acordado el 28 de octubre de 2026: microservicios, `docs/microservicios/analisis.md`. Cada fase espera su plan |
 | Stack | TypeScript, NestJS, PostgreSQL + Drizzle, Zod, pnpm, Next.js + React |
 | Cobros MVP | Adaptadores **simulados** detrás de `PaymentPort` |
-| Alcance | RF1–RF5; sin microservicios, auth avanzada ni pasarelas reales |
+| Alcance | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
 
 ---
 
@@ -86,7 +86,7 @@ Checklist antes de dar por hecho un cambio de capas: ver `arquitectura-hexagonal
 | Next/React | Adaptador driving; **muestra** lo que devolvió el núcleo |
 | Money / Strategies | Cálculo y cobro en dominio/aplicación, no en la UI |
 
-**Prohibido sin acuerdo:** tRPC/GraphQL como API principal, design systems pesados, microservicios.
+**Prohibido sin acuerdo:** tRPC/GraphQL como API principal, design systems pesados. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway.
 
 **Config / env:** `process.env` solo en composition root o adaptadores de infra. Domain y use cases reciben dependencias por constructor (puertos / options), no leen env.
 
@@ -180,7 +180,7 @@ Cada sprint = slice vertical **demoable** (dominio → API → UI). Plan y tarje
 
 ## 10. Fuera de Gen 1 / fuera de MVP
 
-No inventar ni cablear sin acuerdo: delivery de terceros, pasarelas reales, microservicios, auth avanzada, app móvil, Docusaurus/Storybook como parte del workspace, paquetes `lib/*` de dominio compartido prematuros.
+No inventar ni cablear sin acuerdo: delivery de terceros, pasarelas reales, auth avanzada, app móvil, Docusaurus/Storybook como parte del workspace, paquetes `lib/*` de dominio compartido prematuros. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway.
 
 ---
 
