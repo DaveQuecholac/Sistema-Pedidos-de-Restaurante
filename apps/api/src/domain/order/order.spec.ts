@@ -1,0 +1,755 @@
+import { describe, expect, it } from 'vitest';
+import { Ingredient } from '../menu/ingredient';
+import { MenuItem } from '../menu/menu-item';
+import { Modifier } from '../menu/modifier';
+import { TaxRate } from '../menu/tax-rate';
+import { Money } from '../money/money';
+import { ChargeRequest } from '../payment/charge-request';
+import { PaymentDetails } from '../payment/payment-details';
+import { Payment } from '../payment/payment';
+import { PaymentAmountMismatchError } from '../payment/payment.errors';
+import { Discount } from '../totals/discount';
+import { calculateTotals } from '../totals/order-totals';
+import { Percentage } from '../totals/percentage';
+import { Tip } from '../totals/tip';
+import { LineItem } from './line-item';
+import { Order } from './order';
+import { OrderOrigin } from './order-origin';
+import {
+  DuplicateLineItemIdError,
+  EmptyOrderError,
+  InvalidOrderPaymentError,
+  InvalidOrderStatusError,
+  InvalidOrderTransitionError,
+  LineItemNotFoundError,
+  OrderNotClosableError,
+  OrderNotEditableError,
+  OrderTotalsNotAdjustableError,
+} from './order.errors';
+import { Quantity } from './quantity';
+
+const OPENED_AT = new Date('2026-10-04T18:00:00.000Z');
+
+function tacos(): MenuItem {
+  return MenuItem.create({
+    id: 'item-tacos',
+    name: 'Tacos',
+    price: Money.of(4500, 'MXN'),
+    applicableTax: TaxRate.of(1600),
+    ingredients: [
+      Ingredient.of({ id: 'ing-tortilla', name: 'Tortilla' }),
+      Ingredient.of({ id: 'ing-suadero', name: 'Suadero' }),
+      Ingredient.of({ id: 'ing-cilantro', name: 'Cilantro' }),
+    ],
+    modifiers: [
+      Modifier.extra({ id: 'mod-queso', name: 'Queso', price: Money.of(1500, 'MXN') }),
+      Modifier.exclusion({ id: 'mod-cilantro', name: 'Cilantro' }),
+    ],
+  });
+}
+
+function line(id: string, modifierIds: string[] = []): LineItem {
+  return LineItem.capture({
+    id,
+    menuItem: tacos(),
+    quantity: Quantity.of(1),
+    modifierIds,
+  });
+}
+
+function openOrder(): Order {
+  return Order.open({
+    id: 'order-1',
+    origin: OrderOrigin.table('5'),
+    openedAt: OPENED_AT,
+  });
+}
+
+function agua(): MenuItem {
+  return MenuItem.create({
+    id: 'item-agua',
+    name: 'Agua de jamaica',
+    price: Money.of(2500, 'MXN'),
+    applicableTax: TaxRate.of(0),
+    ingredients: [Ingredient.of({ id: 'ing-azucar', name: 'Azúcar' })],
+    modifiers: [
+      Modifier.extra({ id: 'mod-chia', name: 'Chía', price: Money.of(500, 'MXN') }),
+      Modifier.exclusion({ id: 'mod-azucar', name: 'Azúcar' }),
+    ],
+  });
+}
+
+function withStatus(
+  status: 'SENT_TO_KITCHEN' | 'IN_KITCHEN' | 'READY' | 'CANCELLED',
+  lines: LineItem[],
+  adjustments: { discount?: Discount | null; tip?: Tip | null } = {},
+): Order {
+  return Order.restore({
+    id: 'order-1',
+    origin: OrderOrigin.table('5'),
+    status,
+    openedAt: OPENED_AT,
+    lines,
+    version: 2,
+    discount: adjustments.discount ?? null,
+    tip: adjustments.tip ?? null,
+    payment: null,
+  });
+}
+
+function orderLLines(): LineItem[] {
+  return [
+    LineItem.capture({
+      id: 'line-tacos',
+      menuItem: tacos(),
+      quantity: Quantity.of(2),
+      modifierIds: ['mod-queso'],
+    }),
+    LineItem.capture({
+      id: 'line-agua',
+      menuItem: agua(),
+      quantity: Quantity.of(1),
+      modifierIds: [],
+    }),
+  ];
+}
+
+function cashPayment(amount: number, tendered = 20000): Payment {
+  return Payment.record({
+    id: 'pay-1',
+    request: ChargeRequest.of({
+      orderId: 'order-1',
+      amount: Money.of(amount, 'MXN'),
+      details: PaymentDetails.cash(Money.of(tendered, 'MXN')),
+    }),
+    reference: 'cash-1',
+    paidAt: OPENED_AT,
+  });
+}
+
+function readyOrderL(
+  adjustments: { discount?: Discount | null; tip?: Tip | null } = {},
+): Order {
+  return Order.restore({
+    id: 'order-1',
+    origin: OrderOrigin.table('5'),
+    status: 'READY',
+    openedAt: OPENED_AT,
+    lines: orderLLines(),
+    version: 2,
+    discount: adjustments.discount ?? null,
+    tip: adjustments.tip ?? null,
+    payment: null,
+  });
+}
+
+function closedOrderL(): Order {
+  return readyOrderL().close(cashPayment(16420));
+}
+
+function totalsSnapshot(order: Order) {
+  const totals = order.totals();
+  return {
+    subtotal: totals.subtotal.amount,
+    discount: totals.discount?.amount.amount ?? null,
+    tip: totals.tip?.amount.amount ?? null,
+    taxTotal: totals.taxTotal.amount,
+    total: totals.total.amount,
+    lines: totals.lines.map((line) => ({
+      lineId: line.lineId,
+      unitAmount: line.unitAmount.amount,
+      lineSubtotal: line.lineSubtotal.amount,
+    })),
+  };
+}
+
+describe('Order', () => {
+  it('opens with OPEN, no lines, version 0 and the given openedAt (OR1)', () => {
+    const order = openOrder();
+
+    expect(order.status).toBe('OPEN');
+    expect(order.lines).toEqual([]);
+    expect(order.version).toBe(0);
+    expect(order.openedAt).toBe(OPENED_AT);
+    expect(order.origin.tableId).toBe('5');
+  });
+
+  it('keeps two added lines in order (OR2)', () => {
+    const order = openOrder().addLine(line('line-1')).addLine(line('line-2'));
+
+    expect(order.lines.map((item) => item.id)).toEqual(['line-1', 'line-2']);
+  });
+
+  it('rejects addLine with a duplicate line id and leaves the order unchanged (OR3)', () => {
+    const original = openOrder().addLine(line('line-1'));
+
+    expect(() => original.addLine(line('line-1'))).toThrow(DuplicateLineItemIdError);
+    expect(original.lines).toHaveLength(1);
+    expect(original.lines[0]?.id).toBe('line-1');
+  });
+
+  it('replaceLine keeps the line in the same position (OR4)', () => {
+    const first = line('line-1');
+    const second = line('line-2', ['mod-queso']);
+    const replaced = second.recapture({
+      menuItem: tacos(),
+      quantity: Quantity.of(3),
+      modifierIds: ['mod-cilantro'],
+    });
+
+    const order = openOrder().addLine(first).addLine(second).replaceLine(replaced);
+
+    expect(order.lines.map((item) => item.id)).toEqual(['line-1', 'line-2']);
+    expect(order.lines[1]?.quantity.amount).toBe(3);
+    expect(order.lines[1]?.modifiers[0]?.kind).toBe('exclusion');
+  });
+
+  it('rejects replaceLine of a missing id (OR5)', () => {
+    const order = openOrder().addLine(line('line-1'));
+
+    expect(() => order.replaceLine(line('line-missing'))).toThrow(LineItemNotFoundError);
+  });
+
+  it('rejects cancelLine of a missing id (OR5)', () => {
+    const order = openOrder().addLine(line('line-1'));
+
+    expect(() => order.cancelLine('line-missing')).toThrow(LineItemNotFoundError);
+  });
+
+  it('cancelLine of the only line leaves an OPEN empty order (OR6)', () => {
+    const order = openOrder().addLine(line('line-1')).cancelLine('line-1');
+
+    expect(order.status).toBe('OPEN');
+    expect(order.lines).toEqual([]);
+  });
+
+  it('rejects sendToKitchen without lines (OR7)', () => {
+    expect(() => openOrder().sendToKitchen()).toThrow(EmptyOrderError);
+  });
+
+  it('sendToKitchen with a line moves to SENT_TO_KITCHEN and keeps the lines (OR8)', () => {
+    const withLine = openOrder().addLine(line('line-1'));
+    const sent = withLine.sendToKitchen();
+
+    expect(sent.status).toBe('SENT_TO_KITCHEN');
+    expect(sent.lines.map((item) => item.id)).toEqual(['line-1']);
+  });
+
+  it('beginCooking moves SENT_TO_KITCHEN to IN_KITCHEN (OR8b)', () => {
+    const order = withStatus('SENT_TO_KITCHEN', [line('line-1')]).beginCooking();
+
+    expect(order.status).toBe('IN_KITCHEN');
+    expect(order.lines.map((item) => item.id)).toEqual(['line-1']);
+  });
+
+  it('rejects addLine after send and while cooking (OR9)', () => {
+    expect(() => withStatus('SENT_TO_KITCHEN', [line('line-1')]).addLine(line('line-2'))).toThrow(
+      OrderNotEditableError,
+    );
+    expect(() => withStatus('IN_KITCHEN', [line('line-1')]).addLine(line('line-2'))).toThrow(
+      OrderNotEditableError,
+    );
+  });
+
+  it('rejects replaceLine after send (OR9)', () => {
+    const existing = line('line-1');
+    const order = withStatus('SENT_TO_KITCHEN', [existing]);
+
+    expect(() =>
+      order.replaceLine(
+        existing.recapture({
+          menuItem: tacos(),
+          quantity: Quantity.of(2),
+          modifierIds: [],
+        }),
+      ),
+    ).toThrow(OrderNotEditableError);
+  });
+
+  it('rejects cancelLine after send (OR9)', () => {
+    const order = withStatus('SENT_TO_KITCHEN', [line('line-1')]);
+
+    expect(() => order.cancelLine('line-1')).toThrow(OrderNotEditableError);
+  });
+
+  it('rejects editing lines in READY (OR10)', () => {
+    const order = withStatus('READY', [line('line-1')]);
+
+    expect(() => order.addLine(line('line-2'))).toThrow(OrderNotEditableError);
+    expect(() => order.replaceLine(line('line-1'))).toThrow(OrderNotEditableError);
+    expect(() => order.cancelLine('line-1')).toThrow(OrderNotEditableError);
+  });
+
+  it('rejects editing lines in CANCELLED (OR10)', () => {
+    const order = withStatus('CANCELLED', [line('line-1')]);
+
+    expect(() => order.addLine(line('line-2'))).toThrow(OrderNotEditableError);
+    expect(() => order.replaceLine(line('line-1'))).toThrow(OrderNotEditableError);
+    expect(() => order.cancelLine('line-1')).toThrow(OrderNotEditableError);
+  });
+
+  it('rejects markReady from OPEN and SENT_TO_KITCHEN (OR11)', () => {
+    expect(() => openOrder().addLine(line('line-1')).markReady()).toThrow(
+      InvalidOrderTransitionError,
+    );
+    expect(() => withStatus('SENT_TO_KITCHEN', [line('line-1')]).markReady()).toThrow(
+      InvalidOrderTransitionError,
+    );
+  });
+
+  it('rejects beginCooking from OPEN (OR11b)', () => {
+    expect(() => openOrder().addLine(line('line-1')).beginCooking()).toThrow(
+      InvalidOrderTransitionError,
+    );
+  });
+
+  it('cancel from SENT_TO_KITCHEN keeps the lines (OR12)', () => {
+    const order = withStatus('SENT_TO_KITCHEN', [line('line-1'), line('line-2')]).cancel();
+
+    expect(order.status).toBe('CANCELLED');
+    expect(order.lines.map((item) => item.id)).toEqual(['line-1', 'line-2']);
+  });
+
+  it('rejects cancel once cooking has begun (OR12b)', () => {
+    expect(() => withStatus('IN_KITCHEN', [line('line-1')]).cancel()).toThrow(
+      InvalidOrderTransitionError,
+    );
+  });
+
+  it('lists allowedActions for OPEN empty and with lines (OR13)', () => {
+    expect(openOrder().allowedActions()).toEqual(['editLines', 'cancel']);
+    expect(openOrder().addLine(line('line-1')).allowedActions()).toEqual([
+      'editLines',
+      'sendToKitchen',
+      'cancel',
+    ]);
+  });
+
+  it('lists allowedActions for SENT, cooking, READY, and CANCELLED (OR14)', () => {
+    expect(withStatus('SENT_TO_KITCHEN', [line('line-1')]).allowedActions()).toEqual([
+      'beginCooking',
+      'cancel',
+    ]);
+    expect(withStatus('IN_KITCHEN', [line('line-1')]).allowedActions()).toEqual(['markReady']);
+    expect(withStatus('READY', [line('line-1')]).allowedActions()).toEqual(['close']);
+    expect(withStatus('CANCELLED', [line('line-1')]).allowedActions()).toEqual([]);
+  });
+
+  it('does not change version on any operation (OR15)', () => {
+    const cooking = withStatus('IN_KITCHEN', [line('line-1')]);
+    expect(cooking.version).toBe(2);
+    expect(cooking.markReady().version).toBe(2);
+
+    const sent = withStatus('SENT_TO_KITCHEN', [line('line-1')]);
+    expect(sent.beginCooking().version).toBe(2);
+    expect(sent.cancel().version).toBe(2);
+
+    const open = openOrder().addLine(line('line-1'));
+    expect(open.version).toBe(0);
+    expect(open.sendToKitchen().version).toBe(0);
+    expect(open.cancelLine('line-1').version).toBe(0);
+    expect(
+      open.replaceLine(
+        line('line-1').recapture({
+          menuItem: tacos(),
+          quantity: Quantity.of(2),
+          modifierIds: [],
+        }),
+      ).version,
+    ).toBe(0);
+  });
+
+  it('rejects restore with an unknown status (OR16)', () => {
+    expect(() =>
+      Order.restore({
+        id: 'order-1',
+        origin: OrderOrigin.table('5'),
+        status: 'COOKING',
+        openedAt: OPENED_AT,
+        lines: [],
+        version: 0,
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
+    ).toThrow(InvalidOrderStatusError);
+  });
+
+  it('rejects restore with duplicate line ids (OR16)', () => {
+    expect(() =>
+      Order.restore({
+        id: 'order-1',
+        origin: OrderOrigin.table('5'),
+        status: 'OPEN',
+        openedAt: OPENED_AT,
+        lines: [line('line-1'), line('line-1')],
+        version: 0,
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
+    ).toThrow(DuplicateLineItemIdError);
+  });
+
+  it('opens with null discount and tip (OA1)', () => {
+    const order = openOrder();
+    expect(order.discount).toBeNull();
+    expect(order.tip).toBeNull();
+  });
+
+  it('setDiscount returns another order and leaves the original untouched (OA2)', () => {
+    const original = openOrder().addLine(line('line-1'));
+    const discount = Discount.percentage(Percentage.of(1000));
+    const updated = original.setDiscount(discount);
+
+    expect(updated.discount).toBe(discount);
+    expect(original.discount).toBeNull();
+    expect(updated.version).toBe(original.version);
+    expect(updated.status).toBe(original.status);
+    expect(updated.lines.map((item) => item.id)).toEqual(original.lines.map((item) => item.id));
+  });
+
+  it('setTip works in SENT_TO_KITCHEN, IN_KITCHEN and READY (OA3)', () => {
+    const tip = Tip.percentage(Percentage.of(1000));
+    const lines = [line('line-1')];
+
+    for (const status of ['SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY'] as const) {
+      const order = withStatus(status, lines).setTip(tip);
+      expect(order.tip).toBe(tip);
+      expect(order.lines.map((item) => item.id)).toEqual(['line-1']);
+      expect(order.status).toBe(status);
+    }
+  });
+
+  it('rejects setDiscount and setTip when CANCELLED or CLOSED (OA4)', () => {
+    const cancelled = withStatus('CANCELLED', [line('line-1')]);
+    expect(() => cancelled.setDiscount(Discount.percentage(Percentage.of(1000)))).toThrow(
+      OrderTotalsNotAdjustableError,
+    );
+    expect(() => cancelled.setTip(Tip.percentage(Percentage.of(1000)))).toThrow(
+      OrderTotalsNotAdjustableError,
+    );
+
+    const closed = closedOrderL();
+    expect(() => closed.setDiscount(Discount.percentage(Percentage.of(1000)))).toThrow(
+      OrderTotalsNotAdjustableError,
+    );
+    expect(() => closed.setTip(Tip.percentage(Percentage.of(1000)))).toThrow(
+      OrderTotalsNotAdjustableError,
+    );
+  });
+
+  it('setDiscount(null) and setTip(null) clear the adjustment (OA5)', () => {
+    const order = openOrder()
+      .addLine(line('line-1'))
+      .setDiscount(Discount.percentage(Percentage.of(1000)))
+      .setTip(Tip.fixedAmount(Money.of(2000, 'MXN')));
+
+    expect(order.setDiscount(null).discount).toBeNull();
+    expect(order.setTip(null).tip).toBeNull();
+  });
+
+  it('totals matches calculateTotals on the order lines and adjustments (OA6)', () => {
+    const order = openOrder()
+      .addLine(
+        LineItem.capture({
+          id: 'line-tacos',
+          menuItem: tacos(),
+          quantity: Quantity.of(2),
+          modifierIds: ['mod-queso'],
+        }),
+      )
+      .addLine(
+        LineItem.capture({
+          id: 'line-agua',
+          menuItem: agua(),
+          quantity: Quantity.of(1),
+          modifierIds: [],
+        }),
+      )
+      .setDiscount(Discount.percentage(Percentage.of(1000)))
+      .setTip(Tip.percentage(Percentage.of(1000)));
+
+    const expected = calculateTotals({
+      lines: order.lines.map((item) => ({
+        lineId: item.id,
+        name: item.name,
+        quantity: item.quantity.amount,
+        unitPrice: item.unitPrice,
+        extras: item.modifiers.map(
+          (modifier) => modifier.price ?? Money.zero(item.unitPrice.currency),
+        ),
+        taxRate: item.applicableTax,
+      })),
+      discount: order.discount,
+      tip: order.tip,
+    });
+
+    expect(totalsSnapshot(order)).toEqual({
+      subtotal: expected.subtotal.amount,
+      discount: expected.discount?.amount.amount ?? null,
+      tip: expected.tip?.amount.amount ?? null,
+      taxTotal: expected.taxTotal.amount,
+      total: expected.total.amount,
+      lines: expected.lines.map((item) => ({
+        lineId: item.lineId,
+        unitAmount: item.unitAmount.amount,
+        lineSubtotal: item.lineSubtotal.amount,
+      })),
+    });
+  });
+
+  it('restore keeps discount and tip (OA7)', () => {
+    const discount = Discount.fixedAmount(Money.of(5000, 'MXN'));
+    const tip = Tip.percentage(Percentage.of(1500));
+    const order = Order.restore({
+      id: 'order-1',
+      origin: OrderOrigin.table('5'),
+      status: 'OPEN',
+      openedAt: OPENED_AT,
+      lines: [line('line-1')],
+      version: 3,
+      discount,
+      tip,
+      payment: null,
+    });
+
+    expect(order.discount).toBe(discount);
+    expect(order.tip).toBe(tip);
+    expect(order.version).toBe(3);
+  });
+
+  it('percentage discount grows with addLine; fixed discount stays capped (OA8)', () => {
+    const percent = openOrder()
+      .addLine(line('line-1'))
+      .setDiscount(Discount.percentage(Percentage.of(1000)));
+    const afterPercent = percent.addLine(line('line-2'));
+    expect(afterPercent.totals().discount!.amount.amount).toBeGreaterThan(
+      percent.totals().discount!.amount.amount,
+    );
+
+    const fixed = openOrder()
+      .addLine(
+        LineItem.capture({
+          id: 'line-tacos',
+          menuItem: tacos(),
+          quantity: Quantity.of(2),
+          modifierIds: ['mod-queso'],
+        }),
+      )
+      .setDiscount(Discount.fixedAmount(Money.of(20000, 'MXN')));
+    expect(fixed.totals().discount!.amount.amount).toBe(fixed.totals().subtotal.amount);
+
+    const afterFixed = fixed.addLine(
+      LineItem.capture({
+        id: 'line-agua',
+        menuItem: agua(),
+        quantity: Quantity.of(1),
+        modifierIds: [],
+      }),
+    );
+    expect(afterFixed.totals().discount!.amount.amount).toBe(afterFixed.totals().subtotal.amount);
+  });
+
+  it('operations preserve discount and tip (OA9)', () => {
+    const discount = Discount.percentage(Percentage.of(1000));
+    const tip = Tip.fixedAmount(Money.of(2000, 'MXN'));
+    const base = openOrder()
+      .addLine(line('line-1'))
+      .addLine(line('line-2'))
+      .setDiscount(discount)
+      .setTip(tip);
+
+    const replaced = base.replaceLine(
+      line('line-1').recapture({
+        menuItem: tacos(),
+        quantity: Quantity.of(2),
+        modifierIds: [],
+      }),
+    );
+    const cancelledLine = base.cancelLine('line-2');
+    const sent = base.sendToKitchen();
+    const cooking = sent.beginCooking();
+    const ready = cooking.markReady();
+    const cancelled = base.cancel();
+
+    for (const order of [replaced, cancelledLine, sent, cooking, ready, cancelled]) {
+      expect(order.discount).toBe(discount);
+      expect(order.tip).toBe(tip);
+    }
+
+    const added = openOrder()
+      .addLine(line('line-1'))
+      .setDiscount(discount)
+      .setTip(tip)
+      .addLine(line('line-2'));
+    expect(added.discount).toBe(discount);
+    expect(added.tip).toBe(tip);
+  });
+
+  it('allowedActions stay the same as Sprint 2 (OA10)', () => {
+    expect(openOrder().allowedActions()).toEqual(['editLines', 'cancel']);
+    expect(openOrder().addLine(line('line-1')).allowedActions()).toEqual([
+      'editLines',
+      'sendToKitchen',
+      'cancel',
+    ]);
+    expect(withStatus('SENT_TO_KITCHEN', [line('line-1')]).allowedActions()).toEqual([
+      'beginCooking',
+      'cancel',
+    ]);
+    expect(withStatus('IN_KITCHEN', [line('line-1')]).allowedActions()).toEqual(['markReady']);
+    expect(withStatus('READY', [line('line-1')]).allowedActions()).toEqual(['close']);
+    expect(withStatus('CANCELLED', [line('line-1')]).allowedActions()).toEqual([]);
+    expect(closedOrderL().allowedActions()).toEqual([]);
+  });
+
+  it('opens with null payment and cannot close (OC1)', () => {
+    const order = openOrder();
+    expect(order.payment).toBeNull();
+    expect(order.canClose()).toBe(false);
+  });
+
+  it('close returns a CLOSED order and leaves the original READY (OC2)', () => {
+    const ready = readyOrderL();
+    const payment = cashPayment(16420);
+    const closed = ready.close(payment);
+
+    expect(closed.status).toBe('CLOSED');
+    expect(closed.payment).toBe(payment);
+    expect(ready.status).toBe('READY');
+    expect(ready.payment).toBeNull();
+    expect(closed.version).toBe(ready.version);
+    expect(closed.lines.map((item) => item.id)).toEqual(ready.lines.map((item) => item.id));
+    expect(closed.discount).toBe(ready.discount);
+    expect(closed.tip).toBe(ready.tip);
+  });
+
+  it('rejects close outside READY (OC3)', () => {
+    const payment = cashPayment(16420);
+    expect(() => openOrder().close(payment)).toThrow(OrderNotClosableError);
+    expect(() => withStatus('SENT_TO_KITCHEN', orderLLines()).close(payment)).toThrow(
+      OrderNotClosableError,
+    );
+    expect(() => withStatus('IN_KITCHEN', orderLLines()).close(payment)).toThrow(
+      OrderNotClosableError,
+    );
+    expect(() => withStatus('CANCELLED', orderLLines()).close(payment)).toThrow(
+      OrderNotClosableError,
+    );
+    expect(() => closedOrderL().close(payment)).toThrow(OrderNotClosableError);
+  });
+
+  it('rejects close when payment amount differs from total (OC4)', () => {
+    expect(() => readyOrderL().close(cashPayment(16000, 20000))).toThrow(
+      PaymentAmountMismatchError,
+    );
+  });
+
+  it('rejects line edits on a closed order (OC5)', () => {
+    const closed = closedOrderL();
+    expect(() => closed.addLine(line('line-extra'))).toThrow(OrderNotEditableError);
+    expect(() =>
+      closed.replaceLine(
+        line('line-tacos').recapture({
+          menuItem: tacos(),
+          quantity: Quantity.of(1),
+          modifierIds: [],
+        }),
+      ),
+    ).toThrow(OrderNotEditableError);
+    expect(() => closed.cancelLine('line-tacos')).toThrow(OrderNotEditableError);
+  });
+
+  it('rejects totals adjustments on a closed order (OC6)', () => {
+    const closed = closedOrderL();
+    expect(() => closed.setDiscount(Discount.percentage(Percentage.of(1000)))).toThrow(
+      OrderTotalsNotAdjustableError,
+    );
+    expect(() => closed.setTip(Tip.percentage(Percentage.of(1000)))).toThrow(
+      OrderTotalsNotAdjustableError,
+    );
+  });
+
+  it('rejects kitchen transitions on a closed order (OC7)', () => {
+    const closed = closedOrderL();
+    expect(() => closed.sendToKitchen()).toThrow(InvalidOrderTransitionError);
+    expect(() => closed.beginCooking()).toThrow(InvalidOrderTransitionError);
+    expect(() => closed.markReady()).toThrow(InvalidOrderTransitionError);
+    expect(() => closed.cancel()).toThrow(InvalidOrderTransitionError);
+  });
+
+  it('rejects restore that breaks the payment invariant (OC8)', () => {
+    expect(() =>
+      Order.restore({
+        id: 'order-1',
+        origin: OrderOrigin.table('5'),
+        status: 'CLOSED',
+        openedAt: OPENED_AT,
+        lines: orderLLines(),
+        version: 2,
+        discount: null,
+        tip: null,
+        payment: null,
+      }),
+    ).toThrow(InvalidOrderPaymentError);
+
+    expect(() =>
+      Order.restore({
+        id: 'order-1',
+        origin: OrderOrigin.table('5'),
+        status: 'READY',
+        openedAt: OPENED_AT,
+        lines: orderLLines(),
+        version: 2,
+        discount: null,
+        tip: null,
+        payment: cashPayment(16420),
+      }),
+    ).toThrow(InvalidOrderPaymentError);
+  });
+
+  it('rejects restore CLOSED when payment amount mismatches total (OC9)', () => {
+    expect(() =>
+      Order.restore({
+        id: 'order-1',
+        origin: OrderOrigin.table('5'),
+        status: 'CLOSED',
+        openedAt: OPENED_AT,
+        lines: orderLLines(),
+        version: 2,
+        discount: null,
+        tip: null,
+        payment: cashPayment(16000, 20000),
+      }),
+    ).toThrow(InvalidOrderPaymentError);
+  });
+
+  it('closes L+ at 16083 and rejects 16420 (OC10)', () => {
+    const ready = readyOrderL({
+      discount: Discount.percentage(Percentage.of(1000)),
+      tip: Tip.percentage(Percentage.of(1000)),
+    });
+    expect(ready.totals().total.amount).toBe(16083);
+    expect(ready.close(cashPayment(16083)).status).toBe('CLOSED');
+    expect(() => ready.close(cashPayment(16420))).toThrow(PaymentAmountMismatchError);
+  });
+
+  it('lists allowedActions for every status including READY close (OC11)', () => {
+    expect(openOrder().allowedActions()).toEqual(['editLines', 'cancel']);
+    expect(openOrder().addLine(line('line-1')).allowedActions()).toEqual([
+      'editLines',
+      'sendToKitchen',
+      'cancel',
+    ]);
+    expect(withStatus('SENT_TO_KITCHEN', [line('line-1')]).allowedActions()).toEqual([
+      'beginCooking',
+      'cancel',
+    ]);
+    expect(withStatus('IN_KITCHEN', [line('line-1')]).allowedActions()).toEqual(['markReady']);
+    expect(withStatus('READY', [line('line-1')]).allowedActions()).toEqual(['close']);
+    expect(withStatus('CANCELLED', [line('line-1')]).allowedActions()).toEqual([]);
+    expect(closedOrderL().allowedActions()).toEqual([]);
+  });
+});
+

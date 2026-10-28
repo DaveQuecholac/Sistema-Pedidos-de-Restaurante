@@ -1,2 +1,9 @@
-/** Money value object — deterministic totals (RF4). Never use float for money. */
-export {};
+/** Money value object. Amount in minor units, currency MXN. */
+export {
+  InvalidAllocationError,
+  InvalidMoneyError,
+  InvalidMultiplierError,
+  Money,
+  MoneyOverflowError,
+  NegativeMoneyError,
+} from './money';

@@ -7,12 +7,18 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:db": "MENU_REPOSITORY_INTEGRATION=1 ORDER_REPOSITORY_INTEGRATION=1 TABLE_REPOSITORY_INTEGRATION=1 vitest run src/infrastructure/persistence/drizzle/drizzle-menu-repository.integration.spec.ts src/infrastructure/persistence/drizzle/drizzle-order-repository.integration.spec.ts src/infrastructure/persistence/drizzle/drizzle-table-repository.integration.spec.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "drizzle-orm": "^0.45.3",
+    "postgres": "^3.4.9",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76"
@@ -22,6 +28,8 @@
     "@nestjs/schematics": "^11.0.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
-    "typescript": "~5.7.2"
+    "drizzle-kit": "^0.31.11",
+    "typescript": "~5.7.2",
+    "vitest": "^5.0.3"
   }
 }

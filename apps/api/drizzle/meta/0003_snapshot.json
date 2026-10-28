@@ -1,0 +1,272 @@
+{
+  "id": "7b1d2d01-2692-40b6-b538-439be19599bb",
+  "prevId": "62c48dca-17de-4e51-80f0-9bb29d258c20",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.menu_item_ingredients": {
+      "name": "menu_item_ingredients",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "menu_item_id": {
+          "name": "menu_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "menu_item_ingredients_menu_item_id_menu_items_id_fk": {
+          "name": "menu_item_ingredients_menu_item_id_menu_items_id_fk",
+          "tableFrom": "menu_item_ingredients",
+          "tableTo": "menu_items",
+          "columnsFrom": [
+            "menu_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "menu_item_ingredients_item_name": {
+          "name": "menu_item_ingredients_item_name",
+          "nullsNotDistinct": false,
+          "columns": [
+            "menu_item_id",
+            "name"
+          ]
+        },
+        "menu_item_ingredients_id_item": {
+          "name": "menu_item_ingredients_id_item",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "menu_item_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "menu_item_ingredients_name_not_blank": {
+          "name": "menu_item_ingredients_name_not_blank",
+          "value": "length(btrim(\"menu_item_ingredients\".\"name\")) > 0"
+        },
+        "menu_item_ingredients_position_gte_0": {
+          "name": "menu_item_ingredients_position_gte_0",
+          "value": "\"menu_item_ingredients\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.menu_item_modifiers": {
+      "name": "menu_item_modifiers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "menu_item_id": {
+          "name": "menu_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ingredient_id": {
+          "name": "ingredient_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_amount": {
+          "name": "price_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_currency": {
+          "name": "price_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "menu_item_modifiers_menu_item_id_menu_items_id_fk": {
+          "name": "menu_item_modifiers_menu_item_id_menu_items_id_fk",
+          "tableFrom": "menu_item_modifiers",
+          "tableTo": "menu_items",
+          "columnsFrom": [
+            "menu_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "menu_item_modifiers_same_item_ingredient_fk": {
+          "name": "menu_item_modifiers_same_item_ingredient_fk",
+          "tableFrom": "menu_item_modifiers",
+          "tableTo": "menu_item_ingredients",
+          "columnsFrom": [
+            "ingredient_id",
+            "menu_item_id"
+          ],
+          "columnsTo": [
+            "id",
+            "menu_item_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "menu_item_modifiers_name_not_blank": {
+          "name": "menu_item_modifiers_name_not_blank",
+          "value": "length(btrim(\"menu_item_modifiers\".\"name\")) > 0"
+        },
+        "menu_item_modifiers_kind": {
+          "name": "menu_item_modifiers_kind",
+          "value": "\"menu_item_modifiers\".\"kind\" in ('extra', 'exclusion')"
+        },
+        "menu_item_modifiers_position_gte_0": {
+          "name": "menu_item_modifiers_position_gte_0",
+          "value": "\"menu_item_modifiers\".\"position\" >= 0"
+        },
+        "menu_item_modifiers_price_by_kind": {
+          "name": "menu_item_modifiers_price_by_kind",
+          "value": "(\n        (\"menu_item_modifiers\".\"kind\" = 'extra' and \"menu_item_modifiers\".\"ingredient_id\" is null and \"menu_item_modifiers\".\"price_amount\" >= 0 and \"menu_item_modifiers\".\"price_currency\" is not null)\n        or\n        (\"menu_item_modifiers\".\"kind\" = 'exclusion' and \"menu_item_modifiers\".\"ingredient_id\" is not null and \"menu_item_modifiers\".\"price_amount\" is null and \"menu_item_modifiers\".\"price_currency\" is null)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.menu_items": {
+      "name": "menu_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_amount": {
+          "name": "price_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_currency": {
+          "name": "price_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tax_basis_points": {
+          "name": "tax_basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "menu_items_name_not_blank": {
+          "name": "menu_items_name_not_blank",
+          "value": "length(btrim(\"menu_items\".\"name\")) > 0"
+        },
+        "menu_items_price_amount_gte_0": {
+          "name": "menu_items_price_amount_gte_0",
+          "value": "\"menu_items\".\"price_amount\" >= 0"
+        },
+        "menu_items_price_currency_len_3": {
+          "name": "menu_items_price_currency_len_3",
+          "value": "length(\"menu_items\".\"price_currency\") = 3"
+        },
+        "menu_items_tax_basis_points_gte_0": {
+          "name": "menu_items_tax_basis_points_gte_0",
+          "value": "\"menu_items\".\"tax_basis_points\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

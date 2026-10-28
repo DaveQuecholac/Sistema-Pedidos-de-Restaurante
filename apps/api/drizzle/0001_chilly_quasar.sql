@@ -1,0 +1,2 @@
+ALTER TABLE "menu_item_modifiers" ADD COLUMN "position" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "menu_item_modifiers" ADD CONSTRAINT "menu_item_modifiers_position_gte_0" CHECK ("menu_item_modifiers"."position" >= 0);

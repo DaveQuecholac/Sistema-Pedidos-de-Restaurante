@@ -1,0 +1,98 @@
+.card {
+  min-width: 0;
+  min-height: 18rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead th {
+  padding: 0.85rem 0.75rem;
+  background: var(--color-table-header);
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.table tbody tr:hover {
+  background: rgb(15 76 92 / 4%);
+}
+
+.table tbody tr:focus-visible {
+  outline: 2px solid var(--color-primary-muted);
+  outline-offset: -2px;
+}
+
+.table tbody tr.rowSelected {
+  background: rgb(15 76 92 / 8%);
+}
+
+.table td {
+  padding: 1rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.table .actionLink {
+  color: var(--color-primary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.table .actionLink:hover {
+  text-decoration: underline;
+}
+
+.table .iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-destructive);
+  cursor: pointer;
+}
+
+.table .iconButton:disabled {
+  color: var(--color-nav-idle);
+  cursor: default;
+  opacity: 1;
+}
+
+.table .iconButton svg {
+  width: 1rem;
+  height: 1rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

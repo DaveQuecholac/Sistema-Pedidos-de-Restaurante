@@ -1,0 +1,387 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+}
+
+.navChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.navChip {
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-sand-soft);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 140ms ease;
+}
+
+.navChip:hover {
+  filter: brightness(0.97);
+}
+
+.notice,
+.error {
+  margin: 0;
+  color: var(--color-destructive);
+}
+
+.error button {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* Tarjetas de sección (Descuentos, Propinas, Medio de pago) */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.sectionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-section-soft);
+}
+
+.sectionCard h2 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.narrow {
+  max-width: 26rem;
+}
+
+/* Chips */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip,
+.chipActive {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-primary-muted);
+  border-radius: var(--radius-sm);
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.chip {
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.chip:hover:not(:disabled) {
+  background: rgb(15 76 92 / 6%);
+}
+
+.chipActive {
+  background: var(--color-primary-muted);
+  color: #fff;
+}
+
+.chip:disabled,
+.chipActive:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Campos */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.field input {
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+/* Botones */
+.solid,
+.solidNavy,
+.ghost {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 1.25rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.solid {
+  background: var(--color-primary-muted);
+  color: #fff;
+}
+
+.solid:hover:not(:disabled) {
+  background: var(--color-primary);
+}
+
+.solidNavy {
+  background: var(--color-navy);
+  color: #fff;
+}
+
+.solidNavy:hover:not(:disabled) {
+  background: var(--color-navy-hover);
+}
+
+.ghost {
+  border: 1px solid var(--color-primary-muted);
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.solid:disabled,
+.solidNavy:disabled,
+.ghost:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sectionCard .solid,
+.sectionCard .solidNavy {
+  width: 100%;
+}
+
+/* Productos en píldoras */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pill {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: 999px;
+  background: var(--color-card-muted);
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.pillTotal {
+  margin-top: 0.4rem;
+}
+
+.pillName {
+  overflow-wrap: anywhere;
+}
+
+.pillQty {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.pillLabel {
+  font-size: 0.6rem;
+  font-weight: 500;
+}
+
+.pillAmount {
+  min-width: 5rem;
+  text-align: right;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* Confirmaciones, avisos y comprobante */
+.confirmCard,
+.lockNotice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-section-soft);
+  font-size: 0.8rem;
+}
+
+.confirmCard p,
+.lockNotice p,
+.lockText {
+  margin: 0;
+}
+
+.lockText {
+  font-weight: 600;
+}
+
+.lockNotice a {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.receipt {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-section-soft);
+}
+
+.receipt h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.receiptList {
+  margin: 0;
+}
+
+.receiptRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8rem;
+}
+
+.receiptRow:first-of-type {
+  border-top: none;
+}
+
+.receiptRow dt {
+  margin: 0;
+  font-weight: 600;
+}
+
+.receiptRow dd {
+  margin: 0;
+  text-align: right;
+}
+
+.receiptTotal {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.lead h1 {
+  margin: 0;
+}
+
+.comandas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.comanda {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-section-soft);
+}
+
+.comanda h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.comanda p {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.comandaStatus {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.header .ghost {
+  min-height: 2.25rem;
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Root PM2 helper for api + web (no portless).
+ * Root PM2 helper: api en :3001 y web en https://restaurante.localhost.
  * Root: pnpm dev | dev:stop | dev:restart | dev:status | dev:logs
  * Usage: node scripts/pm2-root.mjs start|stop|restart|status|logs
  */
@@ -43,22 +43,60 @@ function ensureLogsDir() {
   mkdirSync(logsDir, { recursive: true });
 }
 
+function ensurePostgres() {
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-postgres.mjs")], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+function ensureSalonTables() {
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-salon-tables.mjs")], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+function printUrls() {
+  console.log("API  http://localhost:3001");
+  console.log("Web  https://restaurante.localhost");
+  console.log("Logs: pnpm dev:logs | stop: pnpm dev:stop");
+}
+
 const command = process.argv[2] ?? "start";
 
 switch (command) {
   case "start":
+    ensurePostgres();
+    ensureSalonTables();
     ensureLogsDir();
     runPm2(["start", ecosystem]);
-    console.log("API  http://localhost:3001");
-    console.log("Web  http://localhost:3000");
-    console.log("Logs: pnpm dev:logs | stop: pnpm dev:stop");
+    printUrls();
     break;
   case "stop":
     runPm2(["stop", ...APP_NAMES]);
     break;
   case "restart":
+    ensurePostgres();
+    ensureSalonTables();
     ensureLogsDir();
-    runPm2(["restart", ...APP_NAMES]);
+    runPm2(["restart", ecosystem, "--update-env"]);
+    printUrls();
     break;
   case "status":
     runPm2(["ls"]);

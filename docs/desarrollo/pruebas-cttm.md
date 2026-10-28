@@ -1,0 +1,388 @@
+# Guía de pruebas CTTM
+
+**Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
+**Fecha de esta corrida:** 4 de octubre de 2026.  
+**Alcance de esta corrida:** Sprint 4 completo — `dev/pagos` tareas 1–3 (núcleo RF5, adaptadores/API, pantalla de cobro + demo MVP). Las corridas anteriores quedan abajo y no se borran.
+
+No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
+
+| Letra | Frente | Pregunta |
+|-------|--------|----------|
+| **C** | Código | ¿Las capas están bien y las pruebas de unidad pasan? Se revisa en bloques de hasta 1000 líneas. |
+| **T** | Integración | ¿El caso de uso, el adaptador y Postgres se hablan? |
+| **T** | Sistema | ¿`pnpm dev` deja API, web y Postgres usables a la vez? |
+| **M** | Madurez | ¿La tarea tiene evidencia, huecos anotados y se puede repetir? |
+
+## Cuándo correrla
+
+1. Al cerrar el plan de una tarea, antes de decir que quedó lista.
+2. Al acumular 1000 líneas nuevas de producto desde la revisión anterior. Hoy el repo está por debajo de ese corte, así que cabe en un solo bloque.
+3. Si un doc y el código se contradicen: parar, anotar el choque y no marcar la tarea como madura.
+
+Qué no sustituye esta guía: los casos de menú, órdenes o cobro. Esos entran cuando exista su plan.
+
+## C — Código
+
+Un bloque = como máximo 1000 líneas de `apps/`, `scripts/` y la migración Drizzle. Dentro del bloque:
+
+- [ ] El dominio no importa Nest, Next, Drizzle, HTTP ni Postgres.
+- [ ] El caso de uso solo conoce puertos. El adaptador está en `infrastructure/`. El cableado está en el módulo Nest.
+- [ ] `pnpm --filter @restaurante/api test` pasa sin `DATABASE_URL`.
+- [ ] `pnpm --filter @restaurante/api typecheck` pasa.
+- [ ] En el caso de uso y en su spec no hay imports de `drizzle-orm`, `postgres` ni `@nestjs/*`.
+- [ ] La migración SQL salió de `db:generate`. No hay SQL escrito a mano ni `_journal.json` editado a mano.
+- [ ] Nombres públicos de la API en vocabulario de producto. Los nombres de tabla no salen en el JSON.
+
+Comandos:
+
+```bash
+env -u DATABASE_URL pnpm --filter @restaurante/api test
+pnpm --filter @restaurante/api typecheck
+```
+
+## T — Integración
+
+La API ya arrancó con la URL de `apps/api/.env`. Postgres es el servicio `postgresql-18`.
+
+- [ ] `select 1` contra `restaurante` devuelve 1.
+- [ ] Existen `menu_items` y `menu_item_modifiers` con las columnas del plan de la tarea 1.
+- [ ] Un extra con precio se guarda. Una exclusión se guarda con precios nulos.
+- [ ] La base rechaza nombre vacío, precio negativo, tasa negativa, `kind` inválido, extra sin precio y exclusión con precio.
+- [ ] `GET http://localhost:3001/health` es `{ "status": "ok", "service": "restaurante-api" }`.
+- [ ] `GET http://localhost:3001/health/database` es el mismo cuerpo cuando la base responde.
+- [ ] Si `DATABASE_URL` es imposible, el proceso sale antes de escuchar. `GET /health` no responde en ese puerto.
+
+```bash
+PGPASSWORD=postgres /usr/pgsql-18/bin/psql -h localhost -U postgres -d restaurante -c 'select 1'
+curl -sS http://localhost:3001/health
+curl -sS http://localhost:3001/health/database
+```
+
+El detalle de inserciones (D3–D9) está en `docs/dev/plataforma/01-base-de-datos-y-arranque/plan-de-accion.md`. No son tests de dominio.
+
+## T — Sistema
+
+- [ ] `pnpm dev` enciende Postgres si estaba apagado, y luego API y web.
+- [ ] `https://restaurante.localhost/` muestra la home actual («Sistema de Pedidos»). `pnpm dev:plain` y `pnpm dev:web` siguen en el puerto 3000.
+- [ ] `pnpm dev:stop` para API y web y deja Postgres encendido.
+- [ ] Tras un cambio visible en `apps/web`, `pnpm dev:restart` antes de mirar el navegador.
+
+```bash
+pnpm dev:restart
+curl -sS --cacert "$HOME/.portless/ca.pem" -o /dev/null -w '%{http_code}\n' https://restaurante.localhost/
+```
+
+## M — Madurez
+
+Una tarea está madura para este repo cuando:
+
+- [ ] El plan tiene resultado por prueba (pasó o falló), con fecha.
+- [ ] El núcleo de lo que se afirmó se puede probar sin navegador. La base, cuando el plan la pide, está migrada con Drizzle Kit.
+- [ ] Los huecos quedan escritos aquí o en el cierre del plan. No se esconden.
+- [ ] No se adelantó el alcance de la tarea siguiente.
+
+Niveles usados solo como idioma interno. No son niveles TMMi oficiales.
+
+| Nivel | Significado en este repo |
+|-------|--------------------------|
+| 1 Inicial | Hay código y las pruebas son recuerdos, sin lista ni resultado. |
+| 2 Repetible | Esta guía se ejecutó y el resultado quedó anotado. |
+| 3 Del producto | El requisito de negocio (RF) tiene caso de uso, prueba y demo. La tarea 1 no llega aquí: no incluye el menú. |
+
+## Cómo anotar el resultado
+
+Al final de la corrida, añadir una sección «Corrida» con fecha, rango de líneas y una fila por frente: pasó, falló o no aplica. Si falló, el síntoma y el archivo. No borrar corridas viejas.
+
+## Corrida — 30 de septiembre de 2026
+
+**Bloque de código:** 1 de 1. Unas 760 líneas entre `apps/`, `scripts/`, el ecosystem y la migración (el spec de Vitest va aparte, 28 líneas). No hace falta un segundo bloque de 1000.
+
+**Comandos de esta corrida:** test de la API sin `DATABASE_URL`, typecheck de la API, `GET /health`, `GET /health/database`, home en el puerto 3000, y `\dt` de las dos tablas. U1, U2, D1–D9 y S1–S4 ya estaban anotados el mismo día en el plan de la tarea 1; esta corrida volvió a ver en vivo S1, la home y las tablas.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | 2 tests, typecheck limpio. Dominio sin imports. Drizzle y Nest solo en adaptador, HTTP y arranque. |
+| T Integración | Pasó | `/health` y `/health/database` en 200 con el cuerpo del plan. Las dos tablas existen. |
+| T Sistema | Pasó | La home responde 200 y muestra «Sistema de Pedidos». API y web estaban arriba. |
+| M Madurez | Nivel 2 para la tarea 1 | Evidencia en el plan y en esta guía. El producto (RF1–RF5) sigue en nivel 1: no hay casos de menú. |
+
+### Huecos de esa corrida, corregidos el mismo día
+
+1. `GET /health/database` ahora se prueba con la API escuchando en un puerto libre: 200 si el puerto de base responde, y 503 con `{ "status": "unavailable", "service": "restaurante-api" }` si falla. El cuerpo no incluye el mensaje del driver. Archivo: `apps/api/src/interface/http/controllers/database-health.controller.spec.ts`.
+2. `pnpm dev:restart` vuelve a leer `ecosystem.config.cjs` (`--update-env`). Antes reiniciaba por nombre y PM2 avisaba que las variables no se actualizaban.
+3. El lector de `apps/api/.env` acepta `export` y comillas simples o dobles, y no pisa una variable que el proceso ya traiga. Prueba: `apps/api/src/load-api-env.spec.ts`.
+
+Nada de eso adelanta menú, órdenes ni cobro.
+
+## Corrida — 30 de septiembre de 2026, menú tareas 1 y 2
+
+**Bloques de código:** 2. Unas 1711 líneas de producto en `apps/`, `scripts/`, `ecosystem.config.cjs` y las migraciones SQL, sin specs y sin `drizzle/meta`. Los specs van aparte (unas 900 líneas ya rastreadas, más los nuevos de menú).
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 940 | Dominio, casos de uso, web, scripts, ecosystem y config de la API |
+| 2 | 733 | `main.ts`, carga de `.env`, `AppModule`, Drizzle, HTTP de menú y las migraciones `0000` y `0001` |
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 12 archivos, 66 pruebas; 8 skipped a propósito (P1–P8). Typecheck de la API pasó. Dominio y casos sin Nest, Drizzle, Postgres ni Zod. El JSON de `GET /menu-items` usa `MenuItem`, `price`, `applicableTax` y `modifiers`; no salen nombres de tabla. `0001_chilly_quasar.sql` salió de `db:generate`. |
+| T Integración | Pasó | `select 1` devolvió 1. Las dos tablas están, con `position` en los modificadores. El plato `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` sigue con extra en posición 0 y exclusión con precios nulos. Nombre en blanco, precio negativo, tasa negativa, `kind` inválido, extra sin precio y exclusión con precio caen en check `23514`; esa prueba hizo rollback. `test:db`: 8 pruebas, P1–P8. Health y health/database en 200 con `{"status":"ok","service":"restaurante-api"}`. Una API aparte con URL imposible salió con código 1 y no escuchó el puerto 3099. La de 3001 siguió arriba. |
+| T Sistema | Pasó | Postgres ya estaba encendido; `pnpm dev` lo dejó así y volvió a levantar API y web. La home responde 200 y muestra «Sistema de Pedidos». `pnpm dev:stop` apagó API y web; `select 1` siguió respondiendo. Después `pnpm dev` dejó otra vez health y home en 200. No hubo cambio en `apps/web`, así que no aplica un reinicio extra para mirar el navegador. |
+| M Madurez | Nivel 2 de la rama | Los planes de las tareas 1 y 2 tienen resultado y fecha. El núcleo de menú se prueba sin navegador. La pantalla admin no está: es la tarea 3 y no se adelantó. RF1 no llega a nivel 3 hasta esa demo. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja P1–P8 en skipped. No es un fallo: `pnpm test:db` las corre y pasaron en esta misma corrida.
+2. Queda la fila `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` (`Tacos de suadero`, inactiva). Es el plato del smoke de la tarea 2, no un seed. No se borró.
+3. El cierre de la tarea 1 dice que `AppModule` no menciona el menú. Eso era cierto al cerrarla. La tarea 2 lo cablea a propósito. El plan de la tarea 2 manda.
+4. No se apagó el servicio `postgresql-18` para ver el encendido en frío. El script avisó que ya estaba encendido.
+
+## Corrida — 30 de septiembre de 2026, por la tarde
+
+**Alcance:** ingredientes del plato, la regla de que un omitir nombra un ingrediente, la pantalla admin y el enlace `https://restaurante.localhost`.  
+**Bloques de código:** 4. Unas 3594 líneas de producto en `apps/`, `scripts/`, `ecosystem.config.cjs` y los SQL de `apps/api/drizzle/`, sin specs y sin `drizzle/meta`. Los cuatro bloques quedan en 873, 982, 982 y 757 líneas.
+
+La revisión de capas miró los imports de dominio, casos de uso y web. El dominio de producto no importa Nest, Next, Drizzle ni Postgres. Los specs de dominio sí importan Vitest. Los casos de uso solo ven `MenuRepository`. `AppModule` elige `DrizzleMenuRepository`. La web llama el HTTP; no importa el dominio.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | API sin `DATABASE_URL`: 12 archivos, 67 pruebas, 8 skipped (P1–P8). Typecheck de API y web limpio. Web: 2 archivos, 14 pruebas. `GET /menu-items` usa `id`, `name`, `price`, `applicableTax`, `active`, `ingredients`, `modifiers`. No salen nombres de tabla. La tabla `menu_item_ingredients` salió de `db:generate` (`0002_glossy_master_mold.sql`). |
+| T Integración | Pasó | `select 1` devolvió 1. Están `menu_items`, `menu_item_modifiers` y `menu_item_ingredients`. Los cinco platos guardan extra con precio y exclusión con precio nulo, y los ingredientes del plato. Nombre vacío, precio negativo, tasa negativa, `kind` inválido, extra sin precio, exclusión con precio e ingrediente en blanco caen en `23514`; el caso hace rollback. `test:db`: 8 pruebas. Health y health/database en 200 con `{"status":"ok","service":"restaurante-api"}`. Una API en el puerto 3099 con URL imposible salió con código 1 y no escuchó. La de 3001 siguió arriba. |
+| T Sistema | Pasó | Postgres ya estaba encendido. `pnpm dev:stop` apagó API y web; `select 1` siguió. `pnpm dev` los volvió a levantar. Health en 200. La home en `https://restaurante.localhost/` responde 200 y muestra «Sistema de Pedidos» y «Administrar menú». El puerto 3000 no abre: con `pnpm dev` la web va por portless. |
+| M Madurez | Nivel 3 para el catálogo de menú | Hay caso de uso, prueba sin navegador y pantalla. Órdenes, cocina, totales y cobro siguen sin construir. |
+
+### Huecos de esta corrida, cerrados el mismo día
+
+1. Se quitó el `INSERT` a mano de `0002_glossy_master_mold.sql`. Esa copia ya no hace falta: una base nueva no tiene exclusiones al crear la tabla, y el catálogo actual se cargó por el API.
+2. `0003_unknown_rick_jones.sql` liga cada exclusión al ingrediente del mismo plato. La columna `ingredient_id` es nula en el extra y obligatoria en el omitir. La llave `menu_item_modifiers_same_item_ingredient_fk` rechaza el ingrediente de otro plato (`23503`). El check `menu_item_modifiers_price_by_kind` rechaza el omitir sin ingrediente (`23514`). El `UPDATE` de esa migración rellena los cinco platos que ya estaban, para que el check no los tire. Al leer, si el nombre no coincide con ese ingrediente, el mapper no arma el plato.
+3. El plato `d11d0b9f-dd9b-4010-b0fe-1ad1a63a62fa` no se restaura. El catálogo pedido son los cinco platos de la demo.
+4. No se apaga `postgresql-18`. Es el servicio del sistema, y `scripts/ensure-postgres.mjs` solo lo enciende si está apagado.
+
+## Corrida — 4 de octubre de 2026, comanda tarea 1 (núcleo)
+
+**Alcance:** `Order`, `LineItem`, estados de cocina, puerto `OrderRepository`, doble en memoria y nueve casos de uso (RF2–RF3). Sin Drizzle de órdenes, sin HTTP de órdenes, sin pantallas `/orders` ni `/kitchen`.  
+**Plan cerrado:** `docs/dev/comanda/01-orden-y-cocina/plan-de-accion.md` (sección 11).  
+**Bloques de código nuevo de producto (sin specs ni fixtures):** 2. Unas **1150** líneas en `domain/order`, `application/order` y `ports/order-repository.ts`.
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 575 | Dominio: origen, cantidad, línea, estados, agregado, errores |
+| 2 | 575 | Application: puerto, doble, errores de repo, nueve casos de uso |
+
+### Hexagonal (revisión de capas)
+
+- Dominio de orden: sin Nest, Next, Drizzle, postgres, Zod ni `infrastructure/`.
+- Casos de uso: solo `OrderRepository` / `MenuRepository` y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `AppModule` **no** cablea órdenes (correcto para esta tarea; el composition root llega en la tarea 2).
+- No hay adaptador HTTP ni tablas `order*` en Postgres.
+- Web intacta: home con «Administrar menú»; sin enlaces de comanda todavía.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 27 archivos, **177 pruebas**, 8 skipped (P1–P8 menú). Typecheck API y web limpios. Web: 2 archivos, 14 pruebas. Capas hexagonales OK. |
+| T Integración | Pasó (regresión menú/plataforma) | `select 1` = 1. Tablas: `menu_items`, `menu_item_modifiers`, `menu_item_ingredients`. **Cero** tablas `order*`. `test:db` con `DATABASE_URL` de `.env`: 8 pruebas P1–P8. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos. API con `DATABASE_URL` imposible no escuchó el puerto 3099. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó API y web online; Postgres ya estaba encendido. Home en `https://restaurante.localhost/` muestra «Sistema de Pedidos» y «Administrar menú». `/menu` responde 200. |
+| M Madurez | Nivel 2 para la tarea 1 de comanda | Plan con cierre y fecha. Núcleo testeable sin navegador ni Postgres. RF2–RF3 no llegan a nivel 3 hasta API + pantalla (tareas 2 y 3). No se adelantó persistencia ni UI. |
+
+### Huecos de esta corrida
+
+1. `pnpm test:db` sin exportar `DATABASE_URL` falla al cargar el spec. Hay que cargar `apps/api/.env` (o exportarla) antes. No es un fallo del menú: con la URL, P1–P8 pasaron.
+2. No hay endpoints ni tablas de órdenes. Es el alcance acordado de la tarea 1; la tarea 2 los construye.
+3. El menú de demo sigue con 5 platos activos. No se tocaron.
+4. No se apagó `postgresql-18` para probar el encendido en frío.
+
+## Corrida — 4 de octubre de 2026, comanda tarea 2 (persistencia y API)
+
+**Alcance:** tablas `orders` / `order_lines` / `order_line_modifiers`, `DrizzleOrderRepository`, HTTP `/orders`, cableado en `AppModule`. Sin pantallas `/orders` ni `/kitchen`.  
+**Plan cerrado:** `docs/dev/comanda/02-persistencia-y-api/plan-de-accion.md` (sección 11).  
+**Bloques de código nuevo de producto (sin specs ni `drizzle/meta`):** 2. Unas **935** líneas (schema, mapper, repo, migración `0004`, Zod/presenter/errors/controller). El cableado en `AppModule` y `OrderMappingError` van aparte y son pequeños.
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 539 | Driven: `schema/order.ts`, mapper, `DrizzleOrderRepository`, SQL `0004_blushing_adam_destine.sql` |
+| 2 | 396 | Driving: schema Zod, presenter, errores HTTP, `OrderController` |
+
+### Hexagonal (revisión de capas)
+
+- Dominio: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de orden: solo puertos y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `new DrizzleOrderRepository` solo en `AppModule.register` (el spec de integración instancia el adaptador a propósito).
+- JSON de `GET /orders/:id`: `id`, `tableId`, `externalOrderId`, `status`, `openedAt`, `allowedActions`, `lines`. Sin `version`, sin nombres de tabla.
+- Web intacta: home con «Administrar menú»; sin UI de comanda.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 28 archivos, **203** pruebas, 22 skipped (P menú + P órdenes). Typecheck API y web limpios. Web: 2 archivos, 14 pruebas. Capas OK. Migración `0004` generada por Drizzle Kit. |
+| T Integración | Pasó | `select 1` = 1. Tablas: menú (3) + `orders`, `order_lines`, `order_line_modifiers`. `test:db`: **22** (8 menú + 14 órdenes P1–P14). Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos. API con `DATABASE_URL` imposible en 3099: «Database connection failed», no escuchó. Smoke S1–S9 del plan ya pasó en el cierre de la tarea. |
+| T Sistema | Pasó | API y web online (Postgres ya encendido). Home `https://restaurante.localhost/` 200 con «Sistema de Pedidos» y «Administrar menú». `/menu` 200. |
+| M Madurez | Nivel 2 para la tarea 2 de comanda | Plan con cierre, fecha, ids de smoke. Núcleo + adaptador testeables sin navegador. RF2–RF3 no llegan a nivel 3 hasta la pantalla (tarea 3). No se adelantó UI. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja P menú y P órdenes en skipped. No es fallo: `test:db` las corre (22 verdes).
+2. Antes del smoke S2, `Agua de jamaica` estaba inactiva; se reactivó con `PATCH` para armar la comanda del plan. El catálogo sigue con 5 platos; al cierre de esta CTTM hay **4 activos** (Consomé sigue inactivo).
+3. Órdenes del smoke quedan en la BD (no son seeds): `3f2325fe-…` READY, `7844ce85-…` OPEN, `af1ee99d-…` CANCELLED, más el intento fallido `3a928775-…` OPEN. Detalle en el plan §11.
+4. No se apagó `postgresql-18` para probar el encendido en frío.
+
+## Corrida — 4 de octubre de 2026, comanda tarea 3 (pantallas + RF3)
+
+**Alcance:** UI `/orders`, `/orders/[id]`, `/kitchen`, home con enlaces; cliente `order-api` / vista pura; ajuste RF3 `OPEN → SENT_TO_KITCHEN → IN_KITCHEN → READY` (`SendToKitchen`, `BeginCooking`); migración `0005` (check de status).  
+**Plan:** `docs/dev/comanda/03-pantalla-comanda-y-demo/plan-de-accion.md`.  
+**Bloques de código de producto de órdenes (sin specs ni `drizzle/meta`):** 5. Unas **4035** líneas en dominio/application/infra/HTTP de orden, migraciones `0004`/`0005`, y web `orders`/`kitchen`/`page.tsx`.
+
+| Bloque | Líneas | Qué se revisó |
+|--------|--------|----------------|
+| 1 | 807 | Web: `order-api`, `order-view`, `orders-screen`, `page` de orders |
+| 2 | 985 | Web: detalle de comanda + `orders.module.css` |
+| 3 | 273 | Web: cocina |
+| 4 | 800 | Dominio RF3 + casos `SendToKitchen` / `BeginCooking` / cancel / markReady |
+| 5 | 1170 | Driven/HTTP/migración (`schema`, mapper, repo, controller, `0004`+`0005`) + restos |
+
+### Hexagonal (revisión de capas)
+
+- Dominio de orden: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de orden: solo puertos y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `SendToKitchen` / `BeginCooking` / `MarkOrderReady` cableados en `AppModule`; JSON sin `version` ni nombres de tabla.
+- Web: fetch al API; no importa dominio ni Drizzle. `apps/web/app/menu/` no importa orders/kitchen.
+- R1: `rg "@restaurante/api|drizzle" apps/web/app` solo encuentra la frase de la home («el núcleo… vive en @restaurante/api»), no un import.
+- R2: sin cálculo de importes por `quantity *` / `reduce` en orders/kitchen.
+- Botones de acción usan `can(...)`; columnas de cocina y textos de aviso usan `status` solo para presentación (tablero / `lockNotice`).
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: 29 archivos, **210** pruebas, 22 skipped (P menú + P órdenes). Typecheck API limpio. Web: 4 archivos, **36** pruebas (W1–W9, V1–V13), typecheck limpio. Capas OK. `0005_hot_omega_sentinel.sql` salió de `db:generate`. |
+| T Integración | Pasó | `select 1` = 1. Tablas: 3 menú + `orders` / `order_lines` / `order_line_modifiers`. `test:db`: **22**. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. `GET /menu-items`: 5 platos (**5 activos** en esta corrida). API con `DATABASE_URL` imposible en 3099: «Database connection failed», no escuchó. Smoke RF3: `send-to-kitchen` → `SENT_TO_KITCHEN` → `begin-cooking` → cancel 409 → `mark-ready` → `READY` (orden `0b315ee5-8e3b-41a0-9b92-f172b6ac6476`, mesa `D2-CTTM`). |
+| T Sistema | Pasó | `pnpm dev:restart`: API y web online (Postgres ya encendido). Home 200 con «Sistema de Pedidos», «Administrar menú», «Comandas», «Cocina». `/menu`, `/orders`, `/kitchen` → 200. |
+| M Madurez | Nivel 3 para RF2–RF3 (comanda) | Hay casos de uso, pruebas sin navegador, API y pantallas. Totales (RF4) y cobro (RF5) siguen fuera. B1–B22 anotados el mismo día en el plan §7 (API + páginas + CSS + PM2). |
+
+### Huecos de esta corrida
+
+1. El plan de la tarea 3 decía «no tocar `apps/api/**`»; el ajuste RF3 acordado con Hector sí tocó dominio, application, HTTP y migración `0005`. Manda el acuerdo RF3 + Gen 1 actualizado.
+2. B13–B16 del plan §7 se actualizaron al flujo `SENT_TO_KITCHEN` → `beginCooking` → `markReady`.
+3. R1 no queda literalmente vacío por el texto de la home; no es dependencia de código.
+4. `pnpm test` deja P* en skipped; `test:db` las corre (22 verdes).
+5. No se apagó `postgresql-18` para probar el encendido en frío.
+6. Órdenes de smoke/demo siguen en la BD (no seeds), p. ej. `1fd99515-…` READY (recorrido B) y `0b315ee5-…` READY (CTTM).
+7. Deuda: CSS de comandas/cocina copiado del menú hasta la UI final.
+
+## Corrida — 4 de octubre de 2026, totales tarea 3 (pantalla de cuenta + demo Sprint 3)
+
+**Alcance:** UI `/orders/[id]/totals`, cliente `totals-api` / vista `totals-view`, enlace «Ver cuenta»; cierre demo RF4. No se tocó `apps/api/**` en esta tarea (solo se corrieron sus pruebas).  
+**Planes del sprint:** `docs/dev/totales/01-calculo-en-el-nucleo/`, `02-persistencia-y-api/`, `03-pantalla-cuenta-y-demo/`.  
+**Bloques de código de producto de la tarea 3 (web, sin specs):** 1. Unas **~900** líneas en `orders/[orderId]/totals/*`, CSS de desglose y el enlace en el detalle.
+
+| Bloque | Líneas (aprox.) | Qué se revisó |
+|--------|-----------------|---------------|
+| 1 | 900 | `totals-api`, `totals-view`, `totals-screen`, `page`, CSS breakdown, enlace «Ver cuenta» |
+
+### Hexagonal (revisión de capas)
+
+- Web: fetch a `NEXT_PUBLIC_API_URL`; sin dominio, sin Drizzle, sin Nest.
+- Importes solo con `centavosToLabel` sobre `amount` del servidor (R9 limpio).
+- Formularios condicionados a `totals.adjustable` (R12), no a `order.status`.
+- R8: `rg "@restaurante/api|drizzle" apps/web/app` solo el texto de la home.
+- R10/R11: menú/cocina/`orders-screen`/`order-view` sin diff; detalle solo +1 enlace.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | API sin `DATABASE_URL`: **309** pruebas, 30 skipped. Typecheck API OK. Web: **54** pruebas (36 + W10–W16 + V14–V24), typecheck OK. |
+| T Integración | Pasó | `select 1` = 1. `test:db`: **30**. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. Totales HTTP ya cerrados en la tarea 2 (S1–S8). |
+| T Sistema | Pasó | `pnpm dev:restart`: API y web online. Home/`/menu`/`/orders`/`/kitchen`/`/orders/:id/totals` → 200. |
+| M Madurez | Nivel 3 para RF4 (totales) | Núcleo + API + pantalla + demo B1–B18. Cobro (RF5) sigue fuera. |
+
+### Huecos de esta corrida
+
+1. B13 en navegador: cada `PUT` relee la orden, así que el 409 de concurrencia casi no aparece entre pestañas; quedó tip 20 % + descuento 5 % en la pestaña 2. El 409 estable está en H38 (API).
+2. `pnpm test` deja P* en skipped; `test:db` las corre (30 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío.
+4. Órdenes del recorrido B quedan en la BD (no seeds), p. ej. `4a411348-…` / `6fe5217d-…` (`D3-1`) y `9ada84d4-…` / `d74f9286-…` (`D3-2`).
+5. `cierre-del-modulo.md` de totales no se escribió: el plan lo deja solo si Hector lo pide.
+
+## Corrida — 4 de octubre de 2026, Sprint 3 completo (`dev/totales` 01–03)
+
+**Alcance:** re-ejecución CTTM de todo RF4: cálculo en el núcleo, persistencia/API (`0006`/`0007`, `TotalsController`) y pantalla `/orders/[id]/totals`.  
+**Planes:** `docs/dev/totales/01-calculo-en-el-nucleo/`, `02-persistencia-y-api/`, `03-pantalla-cuenta-y-demo/`.  
+**Bloques de código de producto del sprint (sin specs ni `drizzle/meta`):** 2. Unas **~1990** líneas añadidas en los commits `1105680` (~631), `1a78046` (~588) y `61b975f` (~750).
+
+| Bloque | Líneas (aprox.) | Qué se revisó |
+|--------|-----------------|---------------|
+| 1 | 990 | Dominio `money`/`totals` + ajustes en `Order`/`canAdjustTotals` + casos `CalculateTotals` / `SetOrderDiscount` / `SetOrderTip` + schema/mapper/repo + SQL `0006`/`0007` |
+| 2 | 1000 | HTTP `totals.*` + `AppModule` + web `totals-api` / `totals-view` / `totals-screen` / page + CSS breakdown + enlace «Ver cuenta» |
+
+### Hexagonal (revisión de capas)
+
+- Dominio `money`/`totals`/`order`: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de totales: solo `OrderRepository` y dominio. Sin `@nestjs/*`, `drizzle-orm` ni `postgres`.
+- `TotalsController` + providers de totales solo en `AppModule.register`. Migraciones `0006`/`0007` salieron de `db:generate`.
+- JSON de `GET /orders/:id/totals`: `orderId`, `currency`, `adjustable`, `lines`, `subtotal`, `discount`, `taxes`, `taxTotal`, `tip`, `total`. Sin `version` ni nombres de columna (`discount_kind`, etc.).
+- `GET /orders/:id` sigue sin `discount` / `tip` / `totals`.
+- Web: fetch a `NEXT_PUBLIC_API_URL`; importes con `centavosToLabel` sobre `amount` del servidor; formularios si `totals.adjustable`. `rg "@restaurante/api|drizzle" apps/web/app` solo el texto de la home.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **309** passed, **30** skipped. Typecheck API y web OK. Web: **54** pruebas. Capas OK. |
+| T Integración | Pasó | `select 1` = 1. Tablas menú (3) + órdenes (3). `\d orders` con 8 columnas de ajuste y checks `orders_discount_*` / `orders_tip_*`. `test:db`: **30**. Health y health/database: `{"status":"ok","service":"restaurante-api"}`. Carta: 5 platos; Tacos `4500`/`1600` + Queso `1500`; Agua `2500`/`0`. Smoke S1–S8 en vivo: total base **16420** → desc. 10 % **14778** → tip 10 % **16083** → tras restart igual → tip 15 % **16736** + línea 409; cancelada tip 409 / `adjustable` false; columnas `percentage|1000|percentage|1500`. API con `DATABASE_URL` imposible en 3099: «Database connection failed», no escuchó; la de 3001 siguió. |
+| T Sistema | Pasó | Al empezar la corrida la API en PM2 estaba rota (watch con errores TS a las 10:46; `GET …/totals` 404). `pnpm dev:restart` recompiló con 0 errores y mapeó `TotalsController`. `pnpm dev:stop` dejó Postgres; `select 1` OK; API caída. `pnpm dev` volvió a levantar health y home 200. `/menu`, `/orders`, `/kitchen`, `/orders/:id/totals` → 200. Home con «Sistema de Pedidos», «Administrar menú», «Comandas», «Cocina». |
+| M Madurez | Nivel 3 para RF4 (Sprint 3) | Planes 01–03 con cierre y fecha. Núcleo + adaptador + pantalla demostrables. Cobro (RF5) fuera. |
+
+### Smoke de esta corrida (no seeds)
+
+| Id | order id | Estado final |
+|----|----------|--------------|
+| S2–S5, S7–S8 | `1cb88885-f794-469a-9977-8a9c5504221e` (mesa `D3-CTTM-1`) | `SENT_TO_KITCHEN`; descuento 10 %; propina 15 %; total **16736** |
+| S6 | `71650cbc-d824-4218-bb5e-e3c6f358c103` (mesa `D3-CTTM-2`) | `CANCELLED`; tip 409; `adjustable` false |
+
+### Huecos de esta corrida
+
+1. Antes del restart, el proceso PM2 no servía totales (build roto / rutas no mapeadas). Sintoma: `Cannot GET /orders/:id/totals`. Se corrigió reiniciando; no hizo falta cambiar código.
+2. `pnpm test` deja P* en skipped; `test:db` las corre (30 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío.
+4. Órdenes de smoke/demo (incl. `D3-API-*` del plan 02 y `D3-CTTM-*` de esta corrida) quedan en la BD; no son seeds.
+5. `cierre-del-modulo.md` de totales no se escribió: el plan lo deja solo si Hector lo pide.
+6. La corrida «totales tarea 3» de más arriba quedó anotada el mismo día; esta corrida revalida en vivo todo el sprint.
+
+## Corrida — 4 de octubre de 2026, Sprint 4 completo (`dev/pagos` 01–03)
+
+**Alcance:** RF5 de punta a punta: cobro en el núcleo, adaptadores simulados + `order_payments` + API de cierre, pantalla `/orders/[id]/payment` y recorrido B1–B20.  
+**Planes:** `docs/dev/pagos/01-cobro-en-el-nucleo/`, `02-adaptadores-persistencia-y-api/`, `03-pantalla-cobro-y-demo/`.  
+**Bloques de código de producto del sprint (sin specs ni `drizzle/meta`):** 2. Unas **~1900+** líneas (núcleo pago + adaptadores/migración `0008`/HTTP + web cobro).
+
+| Bloque | Líneas (aprox.) | Qué se revisó |
+|--------|-----------------|---------------|
+| 1 | ~950 | Dominio `payment` + `Order.close`/`canClose` + `CloseOrder`/`GetOrderPayment` + `PaymentPort` + adaptadores cash/card/gateway + schema `order_payments` + mapper/repo |
+| 2 | ~950 | HTTP `payment.*` + `AppModule` PAYMENT_PORTS + web `payment-api` / `payment-view` / `payment-screen` + enlaces U1–U4 + CSS |
+
+### Hexagonal (revisión de capas)
+
+- Dominio `payment`/`order`: sin Nest, Next, Drizzle, postgres, Zod ni HTTP.
+- Casos de uso de cobro: solo `OrderRepository` + `PaymentPort`. Sin `@nestjs/*` ni `drizzle-orm`.
+- Adaptadores de cobro en `infrastructure/payment/`; cableado solo en `AppModule`. Migración `0008` de `db:generate`.
+- JSON de cierre/pago: `orderId`, `status`, `payment` (llaves fijas, `null` donde no aplica). Sin `version` ni nombres de columna.
+- Web: fetch a `NEXT_PUBLIC_API_URL`; cambio solo de `payment.change`; formulario si `can(order, 'close')`. R13–R18 OK.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | API: **408** passed, **41** skipped. Web: **73**. Typecheck API y web OK. Capas OK. |
+| T Integración | Pasó | `test:db` **41**. Health / health/database 200. Carta Tacos/Agua sin cambio. Smoke API tarea 2 (S1–S10) y B1–B20 en vivo. |
+| T Sistema | Pasó | `pnpm dev:restart`. Home con flujo comanda→cocina→cuenta→cobro. `/menu`, `/orders`, `/kitchen`, `/orders/:id/payment` → 200. B16: API caída → web 200; al volver, payment OK. |
+| M Madurez | Nivel 3 para RF5 (Sprint 4 / MVP) | Planes 01–03 con cierre. Núcleo + adaptadores + pantalla + demo B. RF1–RF5 demostrables. |
+
+### Smoke B de esta corrida (no seeds)
+
+| Id | order id | Origen |
+|----|----------|--------|
+| B2–B9 | `a9ea9210-d20b-4105-91ac-b514c84e8cc1` | `D4-1` CLOSED cash |
+| B10 | `50420a8f-4aae-4568-82b2-b65aa53618de` | `D4-2` CLOSED card |
+| B11 | `0d22725f-a90f-40a1-b5ac-93dd9658468e` | `D4-EXT-1` CLOSED gateway |
+| B12 | `9635bb5e-cf5d-4eb9-a341-6f591175af4b` | `D4-3` tip + cash |
+| B13 | `ab23f126-d416-4dcc-b1c7-484158695e07` | `D4-4` exact |
+| B14 | `6ee07a9a-624d-44b9-bd44-9e585f31e358` | `D4-5` CANCELLED |
+| B19–B20 | `8aa8b7dd-decd-44e6-959f-4eb5ebc04d89` | `D4-B19` 16083 → change 3917 |
+
+### Huecos de esta corrida
+
+1. B17: sin navegador headed en el agente; layout verificado por CSS (`flex`/`overflow-x: clip`) y HTTP 200. Conviene mirar 1280/390 a ojo en demo.
+2. `pnpm test` deja P* en skipped; `test:db` las corre (41 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío.
+4. Órdenes `D4-*` / `D4-API-*` quedan en la BD; no son seeds.
+5. `cierre-del-modulo.md` de pagos no se escribió: el plan lo deja solo si Hector lo pide.
