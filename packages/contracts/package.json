@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "files": [
-    "payment.proto"
+    "payment.proto",
+    "menu.proto"
   ],
   "exports": {
-    "./payment.proto": "./payment.proto"
+    "./payment.proto": "./payment.proto",
+    "./menu.proto": "./menu.proto"
   }
 }

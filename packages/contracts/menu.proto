@@ -1,0 +1,37 @@
+syntax = "proto3";
+package restaurante.menu.v1;
+
+service MenuCatalogService {
+  rpc GetMenuItem(GetMenuItemRequest) returns (MenuItemSnapshot);
+}
+
+message GetMenuItemRequest {
+  string id = 1;
+}
+
+message MoneySnapshot {
+  int32 amount = 1;
+  string currency = 2;
+}
+
+message IngredientSnapshot {
+  string id = 1;
+  string name = 2;
+}
+
+message ModifierSnapshot {
+  string id = 1;
+  string name = 2;
+  string kind = 3;
+  MoneySnapshot price = 4;
+}
+
+message MenuItemSnapshot {
+  string id = 1;
+  string name = 2;
+  MoneySnapshot price = 3;
+  int32 tax_basis_points = 4;
+  bool active = 5;
+  repeated IngredientSnapshot ingredients = 6;
+  repeated ModifierSnapshot modifiers = 7;
+}

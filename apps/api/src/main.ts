@@ -22,6 +22,12 @@ async function bootstrap() {
     process.exit(1);
   }
 
+  const menuGrpcUrl = process.env.MENU_GRPC_URL;
+  if (!menuGrpcUrl) {
+    console.error('MENU_GRPC_URL is required');
+    process.exit(1);
+  }
+
   const { client, db } = createDatabase(databaseUrl);
 
   try {
@@ -32,7 +38,7 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  const app = await NestFactory.create(AppModule.register(db, paymentsGrpcUrl));
+  const app = await NestFactory.create(AppModule.register(db, paymentsGrpcUrl, menuGrpcUrl));
   app.enableCors();
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 3001);
 }

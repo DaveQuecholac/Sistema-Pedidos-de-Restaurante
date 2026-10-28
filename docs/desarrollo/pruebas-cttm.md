@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 28 de octubre de 2026.  
-**Alcance de esta corrida:** Fase 2 de microservicios — extraer pagos por gRPC. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `apps/payments/drizzle/0000_military_mac_gargan.sql`. La corrida de la fase 1 (`0011_talented_scorpion.sql`) queda abajo y no se borra.
+**Alcance de esta corrida:** Fase 3 de microservicios — extraer el menú. Migraciones `apps/menu/drizzle/0000_absurd_solo.sql` y `apps/api/drizzle/0014_real_infant_terrible.sql`. Las corridas de la fase 1 (`0011_talented_scorpion.sql`) y de la fase 2 (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `apps/payments/drizzle/0000_military_mac_gargan.sql`) quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -446,3 +446,37 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 2. No se apagó `postgresql-18` para el encendido en frío. No se tocó `apps/web`.
 3. Quedan en la BD el plato «Plato demo paso 10», la orden cerrada `9716fbee-…` y la orden `e9d6578c-…` en `READY`. No son seeds.
 4. Los adaptadores simulados de la API (`cash-payment-adapter.ts`, `card-payment-adapter.ts`, `digital-gateway-fake-adapter.ts`) siguen en el paquete porque `payment.controller.spec.ts` los importa. El arranque ya no los construye.
+
+## Corrida — 28 de octubre de 2026, fase 3 extraer el menú
+
+**Alcance:** el catálogo sale del proceso de la API. Platos, ingredientes y modificadores viven en `apps/menu`, base `menu`, REST `http://localhost:3002` y gRPC `localhost:50052`. La API pide el plato por `MenuCatalog` y congela la línea. `order_lines.menu_item_id` sigue `NOT NULL` y sin clave foránea. En la base de la API ya no están `menu_items`, `menu_item_ingredients` ni `menu_item_modifiers`.  
+**Plan:** `docs/microservicios/03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md`.  
+**Migraciones:** las dos salieron de `db:generate`.
+
+- `apps/menu/drizzle/0000_absurd_solo.sql`: crea `menu_items`, `menu_item_ingredients` y `menu_item_modifiers` en la base `menu`, con los checks de nombre, precio, moneda, tasa y la forma del precio según el kind.
+- `apps/api/drizzle/0014_real_infant_terrible.sql`: `DROP TABLE "menu_item_ingredients" CASCADE`, `DROP TABLE "menu_item_modifiers" CASCADE` y `DROP TABLE "menu_items" CASCADE`. No toca `order_lines`.
+
+**Bloque de código:** 1 de 1 en esta nota. Unas 2000 líneas de producto (`apps/menu`, el cliente gRPC, `menu.proto`, los dos SQL y el cliente de platos de la web), sin specs. Pasa el corte de 1000 líneas de la guía. El plan pidió una sola nota de la corrida, no partir la revisión.
+
+### Hexagonal (revisión de capas)
+
+- `LineItem.capture` y `recapture` reciben el snapshot. No conocen gRPC. Siguen rechazando plato inactivo y modificador desconocido.
+- Puerto `MenuCatalog` en la API. `AddLine` y `ModifyLine` lo usan. Si el id no existe, `MenuItemNotFoundError`. Si Menú no contesta, `MenuCatalogUnavailableError` y no se guarda la línea.
+- `GrpcMenuCatalog` es el adaptador. `NOT_FOUND` vuelve `null`. Canal caído lanza el error de aplicación. `MENU_GRPC_URL` se lee al arrancar.
+- El módulo de la API ya no registra `MenuItemController` ni `DrizzleMenuRepository`. El CRUD de platos queda en Menú. La web de platos lee `NEXT_PUBLIC_MENU_API_URL`. Órdenes, mesas, cuenta y cobro siguen en `NEXT_PUBLIC_API_URL`.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **472** passed, **56** skipped. Typecheck de la API limpio. `pnpm --filter @restaurante/menu test` con `MENU_REPOSITORY_INTEGRATION=1`: **67** passed, incluidos M3-1, M3-2 y M3-3. Typecheck de Menú limpio. `pnpm --filter @restaurante/web test`: **91** passed. El cliente de platos pide `http://localhost:3002`. |
+| T Integración | Pasó | `pnpm --filter @restaurante/api test:db`: **44** (órdenes y mesas), incluidos F1, F2 y F3. Ya no corre el spec de menú de la API: esos 8 casos se fueron con el paquete. `menu_item_id` sigue `NOT NULL`. En `public` de la API no están las tres tablas del catálogo. Con Menú en `3002`/`50052` y Pagos en `50051`, M3-7 y M3-8 pasaron (`MENU_GRPC_INTEGRATION=1`): la línea congela 1000, un `PATCH` a 2500 no la reescribe, una línea nueva toma 2500; con Menú apagado no entra otra línea y el cierre en efectivo deja la fila `approved` en `payments`. |
+| T Sistema | Pasó con hueco | `pnpm dev:restart` dejó API `3001`, Pagos `50051`, Menú `3002`/`50052` y la web. `GET /health` respondió 200. Demo: plato «Plato demo fase 3» (`cb144cb5-fec5-4b62-80a2-c6c68b97ebed`, 1000 MXN, impuesto 0) → orden `f8e61296-7a1a-46fe-b867-5f5363accbee` (`fase3-demo-1793221439343`) → línea en **1000** → `PATCH` del plato a 2500 → `GET` de la orden sigue en 1000 → cocina → total **1000** → cierre cash `CLOSED`. `GET /payment` devolvió la referencia `cash-c636c014-3dd6-41df-aaf9-89c18afafc46`, entregado 1000 y cambio 0. El `payment_id` de la orden es `5a1ba85c-18b9-4ab7-a5b6-79ba1cc1ab90`, el mismo de la fila `approved` en `payments`. Con Menú apagado, la orden `71844805-8996-4cb0-a7f8-7102a2c81e77` rechazó la línea (500) y quedó con 0 líneas; la cerrada siguió `CLOSED` y `GET /payment` respondió. En el navegador, como Mesero, esa orden cerrada muestra **Plato demo fase 3 × 1 $10.00**. `/menu` no se queda abierto: Mesero vuelve a mesas. La baja del plato se hizo por `POST http://localhost:3002/menu-items/:id/deactivate`. Después, una orden abierta ya no lo ofrece. El plato sigue en la base `menu` con precio 2500 y `active = false`. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de las dos bases y del recorrido de venta. La fase queda cerrada en el plan general el 28 de octubre de 2026. Los huecos de abajo siguen. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja la integración en skipped. `test:db` corre órdenes y mesas (44). Menú corre en `@restaurante/menu` con `MENU_REPOSITORY_INTEGRATION=1` (67). M3-7 y M3-8 piden `MENU_GRPC_INTEGRATION=1` y los procesos encendidos.
+2. `test:db` bajó de 52 a 44 porque salieron los 8 casos de menú de la API. F1, F2 y F3 siguen en el spec de órdenes.
+3. No se apagó `postgresql-18` para el encendido en frío. `apps/payments` no se editó. P2-8 y P2-9 no se volvieron a correr. El spec de cobro por gRPC de la API ya no inserta en `menu_items`.
+4. El typecheck de la web sigue fallando por el campo `lable` en `apps/web/app/components/ui/tabs.tsx`. Esta fase no lo tocó. Las 91 pruebas de la web pasaron.
+5. Quedan en la base el plato «Plato demo fase 3» inactivo, la orden cerrada `f8e61296-…` y la orden abierta `71844805-…` sin líneas. No son seeds. «Plato cruce M3» también quedó inactivo.
+6. Mesero, Cobro y Cocina no pueden abrir `/menu`. La pantalla existe y llama a `NEXT_PUBLIC_MENU_API_URL`, pero el recorrido del navegador usó la comanda y el `POST` de baja en el 3002.

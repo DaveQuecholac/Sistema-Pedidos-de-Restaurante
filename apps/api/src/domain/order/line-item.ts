@@ -1,4 +1,3 @@
-import type { MenuItem } from '../menu/menu-item';
 import {
   BlankIdError,
   BlankNameError,
@@ -6,9 +5,10 @@ import {
   ExtraMissingPriceError,
   InvalidModifierKindError,
 } from '../menu/menu-item.errors';
-import type { Modifier, ModifierKind } from '../menu/modifier';
+import type { ModifierKind } from '../menu/modifier';
 import type { TaxRate } from '../menu/tax-rate';
 import type { Money } from '../money/money';
+import type { MenuItemSnapshot, MenuModifierSnapshot } from './menu-item-snapshot';
 import {
   DuplicateModifierSelectionError,
   MenuItemUnavailableError,
@@ -42,8 +42,13 @@ export class LineModifier {
     private readonly priceValue: Money | null,
   ) {}
 
-  static fromMenuModifier(modifier: Modifier): LineModifier {
-    return new LineModifier(modifier.id, modifier.name, modifier.kind, modifier.price);
+  static fromMenuModifier(modifier: MenuModifierSnapshot): LineModifier {
+    return LineModifier.restore({
+      modifierId: modifier.id,
+      name: modifier.name,
+      kind: modifier.kind,
+      price: modifier.price,
+    });
   }
 
   static restore(input: LineModifierRestoreInput): LineModifier {
@@ -98,7 +103,7 @@ export class LineItem {
 
   static capture(input: {
     id: string;
-    menuItem: MenuItem;
+    menuItem: MenuItemSnapshot;
     quantity: Quantity;
     modifierIds: readonly string[];
   }): LineItem {
@@ -118,7 +123,7 @@ export class LineItem {
   }
 
   recapture(input: {
-    menuItem: MenuItem;
+    menuItem: MenuItemSnapshot;
     quantity: Quantity;
     modifierIds: readonly string[];
   }): LineItem {
@@ -155,7 +160,7 @@ export class LineItem {
 
   private static buildFromMenu(
     id: string,
-    menuItem: MenuItem,
+    menuItem: MenuItemSnapshot,
     quantity: Quantity,
     modifierIds: readonly string[],
   ): LineItem {

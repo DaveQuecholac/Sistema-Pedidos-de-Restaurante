@@ -1,0 +1,594 @@
+{
+  "id": "6746c0e2-02dd-410e-afe2-3980a26a2119",
+  "prevId": "a4d69866-0e59-4f4f-92e9-f73e0738f2e0",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.order_line_modifiers": {
+      "name": "order_line_modifiers",
+      "schema": "",
+      "columns": {
+        "order_line_id": {
+          "name": "order_line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "modifier_id": {
+          "name": "modifier_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_amount": {
+          "name": "price_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_currency": {
+          "name": "price_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_line_modifiers_order_line_id_order_lines_id_fk": {
+          "name": "order_line_modifiers_order_line_id_order_lines_id_fk",
+          "tableFrom": "order_line_modifiers",
+          "tableTo": "order_lines",
+          "columnsFrom": [
+            "order_line_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "order_line_modifiers_pkey": {
+          "name": "order_line_modifiers_pkey",
+          "columns": [
+            "order_line_id",
+            "position"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "order_line_modifiers_name_not_blank": {
+          "name": "order_line_modifiers_name_not_blank",
+          "value": "length(btrim(\"order_line_modifiers\".\"name\")) > 0"
+        },
+        "order_line_modifiers_kind": {
+          "name": "order_line_modifiers_kind",
+          "value": "\"order_line_modifiers\".\"kind\" in ('extra', 'exclusion')"
+        },
+        "order_line_modifiers_position_gte_0": {
+          "name": "order_line_modifiers_position_gte_0",
+          "value": "\"order_line_modifiers\".\"position\" >= 0"
+        },
+        "order_line_modifiers_price_by_kind": {
+          "name": "order_line_modifiers_price_by_kind",
+          "value": "(\n        (\"order_line_modifiers\".\"kind\" = 'extra' and \"order_line_modifiers\".\"price_amount\" >= 0 and \"order_line_modifiers\".\"price_currency\" is not null)\n        or\n        (\"order_line_modifiers\".\"kind\" = 'exclusion' and \"order_line_modifiers\".\"price_amount\" is null and \"order_line_modifiers\".\"price_currency\" is null)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.order_lines": {
+      "name": "order_lines",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "menu_item_id": {
+          "name": "menu_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_price_amount": {
+          "name": "unit_price_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_price_currency": {
+          "name": "unit_price_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tax_basis_points": {
+          "name": "tax_basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_lines_order_id_orders_id_fk": {
+          "name": "order_lines_order_id_orders_id_fk",
+          "tableFrom": "order_lines",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "order_lines_order_id_position": {
+          "name": "order_lines_order_id_position",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id",
+            "position"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "order_lines_name_not_blank": {
+          "name": "order_lines_name_not_blank",
+          "value": "length(btrim(\"order_lines\".\"name\")) > 0"
+        },
+        "order_lines_unit_price_amount_gte_0": {
+          "name": "order_lines_unit_price_amount_gte_0",
+          "value": "\"order_lines\".\"unit_price_amount\" >= 0"
+        },
+        "order_lines_unit_price_currency_len_3": {
+          "name": "order_lines_unit_price_currency_len_3",
+          "value": "length(\"order_lines\".\"unit_price_currency\") = 3"
+        },
+        "order_lines_tax_basis_points_gte_0": {
+          "name": "order_lines_tax_basis_points_gte_0",
+          "value": "\"order_lines\".\"tax_basis_points\" >= 0"
+        },
+        "order_lines_quantity_range": {
+          "name": "order_lines_quantity_range",
+          "value": "\"order_lines\".\"quantity\" between 1 and 99"
+        },
+        "order_lines_position_gte_0": {
+          "name": "order_lines_position_gte_0",
+          "value": "\"order_lines\".\"position\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.orders": {
+      "name": "orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "table_id": {
+          "name": "table_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_order_id": {
+          "name": "external_order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "discount_kind": {
+          "name": "discount_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_basis_points": {
+          "name": "discount_basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_amount": {
+          "name": "discount_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_currency": {
+          "name": "discount_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_kind": {
+          "name": "tip_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_basis_points": {
+          "name": "tip_basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_amount": {
+          "name": "tip_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_currency": {
+          "name": "tip_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sitting_id": {
+          "name": "sitting_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "table_settlement_id": {
+          "name": "table_settlement_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_reference": {
+          "name": "payment_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "orders_status_opened_at_idx": {
+          "name": "orders_status_opened_at_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "opened_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "orders_external_order_id_unique": {
+          "name": "orders_external_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "external_order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "orders_table_id_len": {
+          "name": "orders_table_id_len",
+          "value": "\"orders\".\"table_id\" is null or (length(btrim(\"orders\".\"table_id\")) between 1 and 40)"
+        },
+        "orders_external_order_id_len": {
+          "name": "orders_external_order_id_len",
+          "value": "\"orders\".\"external_order_id\" is null or (length(btrim(\"orders\".\"external_order_id\")) between 1 and 64)"
+        },
+        "orders_origin_exactly_one": {
+          "name": "orders_origin_exactly_one",
+          "value": "(\"orders\".\"table_id\" is null) <> (\"orders\".\"external_order_id\" is null)"
+        },
+        "orders_status": {
+          "name": "orders_status",
+          "value": "\"orders\".\"status\" in ('OPEN', 'SENT_TO_KITCHEN', 'IN_KITCHEN', 'READY', 'CLOSED', 'CANCELLED')"
+        },
+        "orders_version_gte_0": {
+          "name": "orders_version_gte_0",
+          "value": "\"orders\".\"version\" >= 0"
+        },
+        "orders_discount_kind": {
+          "name": "orders_discount_kind",
+          "value": "\"orders\".\"discount_kind\" is null or \"orders\".\"discount_kind\" in ('percentage', 'fixedAmount')"
+        },
+        "orders_discount_shape": {
+          "name": "orders_discount_shape",
+          "value": "(\n        (\n          \"orders\".\"discount_kind\" is null\n          and \"orders\".\"discount_basis_points\" is null\n          and \"orders\".\"discount_amount\" is null\n          and \"orders\".\"discount_currency\" is null\n        )\n        or\n        (\n          \"orders\".\"discount_kind\" = 'percentage'\n          and \"orders\".\"discount_basis_points\" between 1 and 10000\n          and \"orders\".\"discount_amount\" is null\n          and \"orders\".\"discount_currency\" is null\n        )\n        or\n        (\n          \"orders\".\"discount_kind\" = 'fixedAmount'\n          and \"orders\".\"discount_basis_points\" is null\n          and \"orders\".\"discount_amount\" is not null\n          and \"orders\".\"discount_amount\" > 0\n          and \"orders\".\"discount_currency\" is not null\n          and length(\"orders\".\"discount_currency\") = 3\n        )\n      )"
+        },
+        "orders_tip_kind": {
+          "name": "orders_tip_kind",
+          "value": "\"orders\".\"tip_kind\" is null or \"orders\".\"tip_kind\" in ('percentage', 'fixedAmount')"
+        },
+        "orders_tip_shape": {
+          "name": "orders_tip_shape",
+          "value": "(\n        (\n          \"orders\".\"tip_kind\" is null\n          and \"orders\".\"tip_basis_points\" is null\n          and \"orders\".\"tip_amount\" is null\n          and \"orders\".\"tip_currency\" is null\n        )\n        or\n        (\n          \"orders\".\"tip_kind\" = 'percentage'\n          and \"orders\".\"tip_basis_points\" between 1 and 10000\n          and \"orders\".\"tip_amount\" is null\n          and \"orders\".\"tip_currency\" is null\n        )\n        or\n        (\n          \"orders\".\"tip_kind\" = 'fixedAmount'\n          and \"orders\".\"tip_basis_points\" is null\n          and \"orders\".\"tip_amount\" is not null\n          and \"orders\".\"tip_amount\" > 0\n          and \"orders\".\"tip_currency\" is not null\n          and length(\"orders\".\"tip_currency\") = 3\n        )\n      )"
+        },
+        "orders_table_settlement_when_closed": {
+          "name": "orders_table_settlement_when_closed",
+          "value": "\"orders\".\"table_settlement_id\" is null or \"orders\".\"status\" = 'CLOSED'"
+        },
+        "orders_payment_id_and_reference": {
+          "name": "orders_payment_id_and_reference",
+          "value": "(\n        (\"orders\".\"payment_id\" is null and \"orders\".\"payment_reference\" is null)\n        or\n        (\n          \"orders\".\"payment_id\" is not null\n          and length(btrim(\"orders\".\"payment_id\")) > 0\n          and \"orders\".\"payment_reference\" is not null\n          and length(btrim(\"orders\".\"payment_reference\")) > 0\n        )\n      )"
+        },
+        "orders_no_payment_when_settled": {
+          "name": "orders_no_payment_when_settled",
+          "value": "\"orders\".\"table_settlement_id\" is null or (\"orders\".\"payment_id\" is null and \"orders\".\"payment_reference\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.table_sittings": {
+      "name": "table_sittings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "table_id": {
+          "name": "table_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "billing_mode": {
+          "name": "billing_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discount_kind": {
+          "name": "discount_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_basis_points": {
+          "name": "discount_basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_amount": {
+          "name": "discount_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discount_currency": {
+          "name": "discount_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_kind": {
+          "name": "tip_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_basis_points": {
+          "name": "tip_basis_points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_amount": {
+          "name": "tip_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tip_currency": {
+          "name": "tip_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_reference": {
+          "name": "payment_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "table_sittings_status": {
+          "name": "table_sittings_status",
+          "value": "\"table_sittings\".\"status\" in ('OPEN', 'CLOSED')"
+        },
+        "table_sittings_billing_mode": {
+          "name": "table_sittings_billing_mode",
+          "value": "\"table_sittings\".\"billing_mode\" in ('combined', 'separate')"
+        },
+        "table_sittings_table_id_len": {
+          "name": "table_sittings_table_id_len",
+          "value": "length(btrim(\"table_sittings\".\"table_id\")) between 1 and 40"
+        },
+        "table_sittings_payment_id_and_reference": {
+          "name": "table_sittings_payment_id_and_reference",
+          "value": "(\n        (\"table_sittings\".\"payment_id\" is null and \"table_sittings\".\"payment_reference\" is null)\n        or\n        (\n          \"table_sittings\".\"payment_id\" is not null\n          and length(btrim(\"table_sittings\".\"payment_id\")) > 0\n          and \"table_sittings\".\"payment_reference\" is not null\n          and length(btrim(\"table_sittings\".\"payment_reference\")) > 0\n        )\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tables": {
+      "name": "tables",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "tables_id_len": {
+          "name": "tables_id_len",
+          "value": "length(btrim(\"tables\".\"id\")) between 1 and 40"
+        },
+        "tables_label_not_blank": {
+          "name": "tables_label_not_blank",
+          "value": "length(btrim(\"tables\".\"label\")) > 0"
+        },
+        "tables_zone_not_blank": {
+          "name": "tables_zone_not_blank",
+          "value": "length(btrim(\"tables\".\"zone\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

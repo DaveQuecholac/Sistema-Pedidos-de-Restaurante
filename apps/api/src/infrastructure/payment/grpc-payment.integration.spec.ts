@@ -12,9 +12,7 @@ import { Order } from '../../domain/order/order';
 import { OrderOrigin } from '../../domain/order/order-origin';
 import { Quantity } from '../../domain/order/quantity';
 import { type AppDatabase, createDatabase } from '../persistence/drizzle/client';
-import { DrizzleMenuRepository } from '../persistence/drizzle/drizzle-menu-repository';
 import { DrizzleOrderRepository } from '../persistence/drizzle/drizzle-order-repository';
-import { menuItems } from '../persistence/drizzle/schema/menu';
 import { orders } from '../persistence/drizzle/schema/order';
 import { GrpcPaymentAdapter, createPaymentGrpcCaller } from './grpc-payment-adapter';
 
@@ -51,7 +49,6 @@ describeIntegration('payment gRPC across processes', () => {
   afterEach(async () => {
     for (const row of created) {
       await db.delete(orders).where(eq(orders.id, row.orderId));
-      await db.delete(menuItems).where(eq(menuItems.id, row.menuItemId));
       await paymentsClient`delete from payments where subject_id = ${row.orderId}`;
     }
     created.length = 0;
@@ -67,7 +64,7 @@ describeIntegration('payment gRPC across processes', () => {
     const menuItemId = id();
     created.push({ orderId, menuItemId });
     const ordersRepo = new DrizzleOrderRepository(db, receiptQuery());
-    const ready = await seedReady(ordersRepo, new DrizzleMenuRepository(db), orderId, menuItemId);
+    const ready = await seedReady(ordersRepo, orderId, menuItemId);
     const total = ready.totals().total.amount;
 
     const closed = await closeOrder(ordersRepo).execute({
@@ -111,7 +108,7 @@ describeIntegration('payment gRPC across processes', () => {
     const menuItemId = id();
     created.push({ orderId, menuItemId });
     const ordersRepo = new DrizzleOrderRepository(db, receiptQuery());
-    const ready = await seedReady(ordersRepo, new DrizzleMenuRepository(db), orderId, menuItemId);
+    const ready = await seedReady(ordersRepo, orderId, menuItemId);
     const boom = new Error('save failed');
     const failing: OrderRepository = {
       add: (order) => ordersRepo.add(order),
@@ -174,7 +171,6 @@ function receiptQuery() {
 
 async function seedReady(
   ordersRepo: DrizzleOrderRepository,
-  menuRepo: DrizzleMenuRepository,
   orderId: string,
   menuItemId: string,
 ): Promise<Order> {
@@ -186,7 +182,6 @@ async function seedReady(
     ingredients: [Ingredient.of({ id: `ing-${menuItemId}`, name: 'Masa' })],
     modifiers: [],
   });
-  await menuRepo.add(dish);
   await ordersRepo.add(
     Order.open({
       id: orderId,

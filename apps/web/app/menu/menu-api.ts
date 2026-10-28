@@ -1,6 +1,6 @@
 export class MenuApiConfigError extends Error {
   constructor() {
-    super('Falta NEXT_PUBLIC_API_URL.');
+    super('Falta NEXT_PUBLIC_MENU_API_URL.');
     this.name = 'MenuApiConfigError';
   }
 }
@@ -103,7 +103,7 @@ async function request<T>(
 }
 
 function requireApiUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_API_URL;
+  const raw = process.env.NEXT_PUBLIC_MENU_API_URL;
   if (typeof raw !== 'string' || raw.trim() === '') {
     throw new MenuApiConfigError();
   }

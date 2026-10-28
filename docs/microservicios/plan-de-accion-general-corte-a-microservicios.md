@@ -3,7 +3,7 @@
 
 **Fecha:** 28 de octubre de 2026  
 **Análisis:** `analisis.md` en esta carpeta. El corte, los cuatro servicios y gRPC están ahí (secciones 3, 5 y 6).  
-**Estado:** plan general. La fase 0 está hecha. La fase 1 está cerrada en código (`0011_talented_scorpion.sql`). La fase 2 está cerrada en código (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `0000_military_mac_gargan.sql`). Faltan los planes de las fases 3 a 5.  
+**Estado:** plan general. Las fases 1, 2 y 3 están cerradas en código. Faltan los planes de las fases 4 y 5.  
 **Alcance:** orden, dependencia y el contenido obligatorio de cada plan. Este archivo no lista archivos de código ni mensajes `.proto`.
 
 Para retomar el trabajo con el contexto perdido: leer este archivo entero y después `analisis.md`. No inventar un sexto plan, no engordar este documento con el detalle de una fase y no codear una fase cuyo plan todavía no exista.
@@ -36,11 +36,11 @@ Cada plan vive junto a un análisis corto de esa fase. El análisis de la fase f
 |------|---------|------|------------|--------|
 | 1 | `01-soltar-fk/` | `plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md` | Fase 0, hecha | Cerrada en código el 28 de octubre de 2026. Migración `0011_talented_scorpion.sql` |
 | 2 | `02-extraer-pagos/` | `plan-de-accion-fase-2-extrae-pagos-por-grpc.md` | Fase 1 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `0000_military_mac_gargan.sql` |
-| 3 | `03-extraer-menu/` | `plan-de-accion-fase-3-extrae-el-menu.md` | Fase 2 cerrada en código | Se escribe al cerrar la fase 2 en código, cuando se pida |
+| 3 | `03-extraer-menu/` | `plan-de-accion-fase-3-extrae-el-menu.md` | Fase 2 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0000_absurd_solo.sql` y `0014_real_infant_terrible.sql` |
 | 4 | `04-salon-y-gateway/` | `plan-de-accion-fase-4-extrae-salon-y-el-gateway.md` | Fase 3 cerrada en código | Se escribe al cerrar la fase 3, cuando se pida |
 | 5 | `05-evento-cocina/` | `plan-de-accion-fase-5-publica-el-evento-de-cocina.md` | Fase 4 cerrada en código | Se escribe al cerrar la fase 4, cuando se pida |
 
-Escribir los cinco de una vez está fuera de este plan. La fase 1 y la fase 2 están cerradas en código. El plan de la fase 3 no se escribe en este turno.
+Escribir los cinco de una vez está fuera de este plan. Las fases 1, 2 y 3 están cerradas en código. El plan de la fase 4 no se escribe hasta que se pida.
 
 La fase 4 es un solo plan. Si al redactarlo el gateway no cabe junto con Salón, ese plan parte el trabajo en dos pasos. Siguen siendo la fase 4. No nace una fase 6.
 
@@ -80,7 +80,7 @@ Cerrada en código. Órdenes sigue orquestando `CloseOrder` y `CloseTableAccount
 
 ### Fase 3 — Menú
 
-Menú se queda con el CRUD de platos y modificadores y con su base `menu`. Órdenes pide el snapshot por `MenuCatalog` (gRPC) y congela la línea como hoy. El `.proto` del snapshot se suma a `packages/contracts`. El admin de platos habla REST con Menú. El gateway todavía no existe: la web puede apuntar a Menú solo en las rutas de platos, o el plan específico elige un proxy mínimo. Esa elección se escribe en el plan de la fase 3. No se adelanta el gateway completo.
+Cerrada en código. Menú se queda con el CRUD de platos y modificadores y con su base `menu`. Órdenes pide el snapshot por `MenuCatalog` (gRPC) y congela la línea como hoy. El `.proto` del snapshot se suma a `packages/contracts`. El admin de platos habla REST con Menú en el puerto 3002. La web de platos usa `NEXT_PUBLIC_MENU_API_URL`. Órdenes, mesas y cobro siguen en la API. El plan por pasos, con las pruebas M3-1 a M3-8, está en `03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md`.
 
 **Señal:** con Menú apagado no entran líneas nuevas, y sí se puede cobrar lo ya capturado.
 
@@ -124,4 +124,4 @@ Cuando se pida implementar una fase:
 
 ## 7. Siguiente paso
 
-La fase 2 está cerrada. El siguiente paso es escribir el plan de la fase 3 cuando se pida. No se escribe en este turno.
+La fase 3 está cerrada en código. El plan de la fase 4 se escribe cuando se pida. No se escribe en este turno.

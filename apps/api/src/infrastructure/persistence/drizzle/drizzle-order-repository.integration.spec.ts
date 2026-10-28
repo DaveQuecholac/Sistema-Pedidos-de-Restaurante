@@ -27,7 +27,6 @@ import type { PaymentReceiptQuery } from '../../../application/ports/payment-rec
 import { type AppDatabase, createDatabase } from './client';
 import { DrizzleMenuRepository, type MenuDatabase } from './drizzle-menu-repository';
 import { DrizzleOrderRepository, type OrderDatabase } from './drizzle-order-repository';
-import { menuItems } from './schema/menu';
 import { orderLineModifiers, orderLines, orders } from './schema/order';
 
 const integrationOn = process.env.ORDER_REPOSITORY_INTEGRATION === '1';
@@ -112,8 +111,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo) => {
       const dish = tacosDish(menuItemId, quesoId, cilantroId);
-      await menuRepo.add(dish);
-
       await ordersRepo.add(
         Order.open({ id: orderId, origin: OrderOrigin.table('7'), openedAt: OPENED_AT }),
       );
@@ -167,8 +164,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
       const dish = tacosDish(menuItemId, quesoId, cilantroId);
-      await menuRepo.add(dish);
-
       await ordersRepo.add(
         Order.open({ id: orderId, origin: OrderOrigin.table('8'), openedAt: OPENED_AT }),
       );
@@ -217,7 +212,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo) => {
       const dish = tacosDish(menuItemId);
-      await menuRepo.add(dish);
       await ordersRepo.add(
         Order.open({ id: orderId, origin: OrderOrigin.table('9'), openedAt: OPENED_AT }),
       );
@@ -265,8 +259,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
       const dish = tacosDish(menuItemId);
-      await menuRepo.add(dish);
-
       const missing = Order.open({
         id: orderId,
         origin: OrderOrigin.table('10'),
@@ -389,8 +381,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo) => {
       const dish = tacosDish(menuItemId, quesoId, cilantroId);
-      await menuRepo.add(dish);
-
       await ordersRepo.add(
         Order.open({ id: orderId, origin: OrderOrigin.table('13'), openedAt: OPENED_AT }),
       );
@@ -407,20 +397,16 @@ describeIntegration('DrizzleOrderRepository', () => {
         ),
       );
 
-      await menuRepo.save(
-        MenuItem.restore({
-          id: menuItemId,
-          name: 'Tacos nuevos',
-          price: Money.of(9900, 'MXN'),
-          applicableTax: TaxRate.of(1600),
-          active: true,
-          ingredients: [Ingredient.of({ id: id(), name: 'Cebolla' })],
-          modifiers: [
-            Modifier.extra({ id: id(), name: 'Salsa', price: Money.of(300, 'MXN') }),
-            Modifier.exclusion({ id: id(), name: 'Cebolla' }),
-          ],
-        }),
-      );
+      const changed = dish.replace({
+        name: 'Tacos nuevos',
+        price: Money.of(9900, 'MXN'),
+        applicableTax: dish.applicableTax,
+        active: true,
+        ingredients: dish.ingredients,
+        modifiers: dish.modifiers,
+      });
+      expect(changed.price.amount).toBe(9900);
+      expect(changed.name).toBe('Tacos nuevos');
 
       const found = await ordersRepo.findById(orderId);
       expect(found?.lines[0]?.name).toBe('Tacos');
@@ -441,8 +427,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo) => {
       const dish = tacosDish(id());
-      await menuRepo.add(dish);
-
       await ordersRepo.add(
         Order.open({
           id: kitchenLate,
@@ -504,8 +488,6 @@ describeIntegration('DrizzleOrderRepository', () => {
     const menuItemId = id();
 
     await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
-      await menuRepo.add(tacosDish(menuItemId));
-
       await expectCheckViolation(tx, async () => {
         await tx.insert(orders).values({
           id: cookingId,
@@ -550,8 +532,6 @@ describeIntegration('DrizzleOrderRepository', () => {
 
     await inTransaction(db, async (ordersRepo, menuRepo, tx) => {
       const dish = tacosDish(menuItemId, quesoId, cilantroId);
-      await menuRepo.add(dish);
-
       await ordersRepo.add(
         Order.open({ id: orderId, origin: OrderOrigin.table('19'), openedAt: OPENED_AT }),
       );
@@ -1238,11 +1218,13 @@ describeIntegration('DrizzleOrderRepository', () => {
       expect(line?.unitPrice.currency).toBe('MXN');
       expect(line?.applicableTax.basisPoints).toBe(1600);
 
-      const menuRows = await tx
-        .select({ id: menuItems.id })
-        .from(menuItems)
-        .where(eq(menuItems.id, menuItemId));
-      expect(menuRows).toHaveLength(0);
+      const menuTables = await tx.execute<{ table_name: string }>(sql`
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'menu_items'
+      `);
+      expect(menuTables).toHaveLength(0);
     });
   });
 });
@@ -1334,8 +1316,6 @@ async function seedReadyOrderL(
   const aguaId = id();
   const tacos = tacosDish(tacosId, quesoId, cilantroId);
   const agua = aguaDish(aguaId);
-  await menuRepo.add(tacos);
-  await menuRepo.add(agua);
 
   await ordersRepo.add(
     Order.open({ id: orderId, origin: OrderOrigin.table(tableId), openedAt: OPENED_AT }),

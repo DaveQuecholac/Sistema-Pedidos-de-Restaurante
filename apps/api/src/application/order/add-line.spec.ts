@@ -58,6 +58,8 @@ describe('AddLine', () => {
     expect(order.lines[0]?.id).toBe('line-1');
     expect(order.lines[0]?.quantity.amount).toBe(2);
     expect(order.lines[0]?.modifiers[0]?.name).toBe('Queso');
+    expect(order.lines[0]?.unitPrice.amount).toBe(4500);
+    expect(order.lines[0]?.applicableTax.basisPoints).toBe(1600);
     expect(order.version).toBe(1);
   });
 

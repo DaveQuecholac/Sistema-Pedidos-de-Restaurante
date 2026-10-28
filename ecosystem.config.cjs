@@ -1,5 +1,6 @@
 /**
- * PM2: api (Nest :3001) + pagos (gRPC localhost:50051) + web (Next vía portless, https://restaurante.localhost).
+ * PM2: api (Nest :3001) + pagos (gRPC localhost:50051) + menú (REST :3002, gRPC localhost:50052)
+ * + web (Next vía portless, https://restaurante.localhost).
  * Root scripts: pnpm dev | dev:stop | dev:status | dev:logs | dev:restart
  */
 const { existsSync } = require("node:fs");
@@ -50,6 +51,7 @@ module.exports = {
           process.env.DATABASE_URL ??
           "postgresql://postgres:postgres@localhost:5432/restaurante",
         PAYMENTS_GRPC_URL: process.env.PAYMENTS_GRPC_URL ?? "localhost:50051",
+        MENU_GRPC_URL: process.env.MENU_GRPC_URL ?? "localhost:50052",
       },
     },
     {
@@ -72,6 +74,29 @@ module.exports = {
           process.env.PAYMENTS_DATABASE_URL ??
           "postgresql://postgres:postgres@localhost:5432/payments",
         PAYMENTS_GRPC_URL: process.env.PAYMENTS_GRPC_URL ?? "localhost:50051",
+      },
+    },
+    {
+      name: "restaurante-menu",
+      cwd: root,
+      script: pnpm,
+      args: ["--filter", "@restaurante/menu", "dev"],
+      interpreter: "none",
+      autorestart: true,
+      watch: false,
+      max_restarts: 10,
+      min_uptime: "5s",
+      out_file: resolve(root, "logs/pm2/menu-out.log"),
+      error_file: resolve(root, "logs/pm2/menu-error.log"),
+      merge_logs: true,
+      time: true,
+      env: {
+        NODE_ENV: "development",
+        PORT: "3002",
+        MENU_DATABASE_URL:
+          process.env.MENU_DATABASE_URL ??
+          "postgresql://postgres:postgres@localhost:5432/menu",
+        MENU_GRPC_URL: process.env.MENU_GRPC_URL ?? "localhost:50052",
       },
     },
     {

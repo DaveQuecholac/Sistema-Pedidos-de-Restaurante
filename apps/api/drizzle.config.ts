@@ -8,7 +8,6 @@ if (!url) {
 
 export default defineConfig({
   schema: [
-    './src/infrastructure/persistence/drizzle/schema/menu.ts',
     './src/infrastructure/persistence/drizzle/schema/order.ts',
     './src/infrastructure/persistence/drizzle/schema/table.ts',
   ],

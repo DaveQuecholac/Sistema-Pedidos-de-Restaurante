@@ -17,4 +17,4 @@ logs/
 .DS_Store
 
 # Las migraciones de Drizzle sí se versionan:
-# apps/api/drizzle y apps/payments/drizzle (sql, journal y snapshots).
+# apps/api/drizzle, apps/payments/drizzle y apps/menu/drizzle (sql, journal y snapshots).

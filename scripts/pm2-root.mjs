@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Root PM2 helper: api en :3001, pagos en gRPC localhost:50051 y web en https://restaurante.localhost.
+ * Root PM2 helper: api en :3001, pagos en gRPC localhost:50051, menú en :3002 y gRPC localhost:50052, web en https://restaurante.localhost.
  * Root: pnpm dev | dev:stop | dev:restart | dev:status | dev:logs
  * Usage: node scripts/pm2-root.mjs start|stop|restart|status|logs
  */
@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 const ecosystem = resolve(root, "ecosystem.config.cjs");
 const logsDir = resolve(root, "logs/pm2");
-const APP_NAMES = ["restaurante-api", "restaurante-payments", "restaurante-web"];
+const APP_NAMES = ["restaurante-api", "restaurante-payments", "restaurante-menu", "restaurante-web"];
 
 function resolvePm2Bin() {
   const candidate = resolve(root, "node_modules/pm2/bin/pm2");
@@ -75,6 +75,7 @@ function ensureSalonTables() {
 function printUrls() {
   console.log("API    http://localhost:3001");
   console.log("Pagos  grpc://localhost:50051");
+  console.log("Menú   http://localhost:3002  grpc://localhost:50052");
   console.log("Web    https://restaurante.localhost");
   console.log("Logs: pnpm dev:logs | stop: pnpm dev:stop");
 }
