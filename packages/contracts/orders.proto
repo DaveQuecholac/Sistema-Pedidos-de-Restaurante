@@ -1,0 +1,14 @@
+syntax = "proto3";
+package restaurante.orders.v1;
+
+service ActiveOrdersService {
+  rpc HasActiveOrder(HasActiveOrderRequest) returns (HasActiveOrderReply);
+}
+
+message HasActiveOrderRequest {
+  string table_id = 1;
+}
+
+message HasActiveOrderReply {
+  bool active = 1;
+}

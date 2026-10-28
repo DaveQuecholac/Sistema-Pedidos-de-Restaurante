@@ -43,10 +43,10 @@ afterEach(() => {
 describe('menu HTTP client', () => {
   it('throws a config error before fetch when the API URL is missing or blank', async () => {
     vi.stubGlobal('fetch', fetchMock);
-    vi.stubEnv('NEXT_PUBLIC_MENU_API_URL', undefined);
+    vi.stubEnv('NEXT_PUBLIC_API_URL', undefined);
     await expect(listMenuItems()).rejects.toBeInstanceOf(MenuApiConfigError);
 
-    vi.stubEnv('NEXT_PUBLIC_MENU_API_URL', '   ');
+    vi.stubEnv('NEXT_PUBLIC_API_URL', '   ');
     await expect(listMenuItems()).rejects.toBeInstanceOf(MenuApiConfigError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -56,7 +56,7 @@ describe('menu HTTP client', () => {
 
     const items = await listMenuItems();
 
-    expect(requestOf(0)).toEqual({ url: 'http://localhost:3002/menu-items', method: 'GET', body: undefined });
+    expect(requestOf(0)).toEqual({ url: 'http://localhost:3000/menu-items', method: 'GET', body: undefined });
     expect(items).toEqual([dish]);
     expect(items[0]?.modifiers[1]?.price).toBeNull();
   });
@@ -65,7 +65,7 @@ describe('menu HTTP client', () => {
     stubApi(201, { ...dish, name: 'Quesadilla' });
     await createMenuItem(createBody);
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3002/menu-items',
+      url: 'http://localhost:3000/menu-items',
       method: 'POST',
       body: createBody,
     });
@@ -75,7 +75,7 @@ describe('menu HTTP client', () => {
     const updateBody = { ...createBody, name: 'Quesadilla grande', active: true };
     await updateMenuItem(dish.id, updateBody);
     expect(requestOf(0)).toEqual({
-      url: `http://localhost:3002/menu-items/${dish.id}`,
+      url: `http://localhost:3000/menu-items/${dish.id}`,
       method: 'PATCH',
       body: updateBody,
     });
@@ -87,7 +87,7 @@ describe('menu HTTP client', () => {
     await deactivateMenuItem(dish.id);
 
     expect(requestOf(0)).toEqual({
-      url: `http://localhost:3002/menu-items/${dish.id}/deactivate`,
+      url: `http://localhost:3000/menu-items/${dish.id}/deactivate`,
       method: 'POST',
       body: {},
     });
@@ -122,7 +122,7 @@ describe('menu HTTP client', () => {
   });
 
   it('reports a contact failure without a domain code when fetch rejects', async () => {
-    vi.stubEnv('NEXT_PUBLIC_MENU_API_URL', 'http://localhost:3002');
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
     fetchMock.mockRejectedValue(new TypeError('network down'));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -136,7 +136,7 @@ describe('menu HTTP client', () => {
 });
 
 function stubApi(status: number, body: unknown): void {
-  vi.stubEnv('NEXT_PUBLIC_MENU_API_URL', 'http://localhost:3002');
+  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
   fetchMock.mockResolvedValue(
     new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }),
   );

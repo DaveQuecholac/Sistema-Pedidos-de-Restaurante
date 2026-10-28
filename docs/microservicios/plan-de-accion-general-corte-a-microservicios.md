@@ -3,7 +3,7 @@
 
 **Fecha:** 28 de octubre de 2026  
 **Análisis:** `analisis.md` en esta carpeta. El corte, los cuatro servicios y gRPC están ahí (secciones 3, 5 y 6).  
-**Estado:** plan general. Las fases 1, 2 y 3 están cerradas en código. Faltan los planes de las fases 4 y 5.  
+**Estado:** plan general. Las fases 1, 2, 3 y 4 están cerradas en código. Falta el plan de la fase 5.  
 **Alcance:** orden, dependencia y el contenido obligatorio de cada plan. Este archivo no lista archivos de código ni mensajes `.proto`.
 
 Para retomar el trabajo con el contexto perdido: leer este archivo entero y después `analisis.md`. No inventar un sexto plan, no engordar este documento con el detalle de una fase y no codear una fase cuyo plan todavía no exista.
@@ -37,10 +37,10 @@ Cada plan vive junto a un análisis corto de esa fase. El análisis de la fase f
 | 1 | `01-soltar-fk/` | `plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md` | Fase 0, hecha | Cerrada en código el 28 de octubre de 2026. Migración `0011_talented_scorpion.sql` |
 | 2 | `02-extraer-pagos/` | `plan-de-accion-fase-2-extrae-pagos-por-grpc.md` | Fase 1 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `0000_military_mac_gargan.sql` |
 | 3 | `03-extraer-menu/` | `plan-de-accion-fase-3-extrae-el-menu.md` | Fase 2 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0000_absurd_solo.sql` y `0014_real_infant_terrible.sql` |
-| 4 | `04-salon-y-gateway/` | `plan-de-accion-fase-4-extrae-salon-y-el-gateway.md` | Fase 3 cerrada en código | Se escribe al cerrar la fase 3, cuando se pida |
+| 4 | `04-salon-y-gateway/` | `plan-de-accion-fase-4-extrae-salon-y-el-gateway.md` | Fase 3 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql` |
 | 5 | `05-evento-cocina/` | `plan-de-accion-fase-5-publica-el-evento-de-cocina.md` | Fase 4 cerrada en código | Se escribe al cerrar la fase 4, cuando se pida |
 
-Escribir los cinco de una vez está fuera de este plan. Las fases 1, 2 y 3 están cerradas en código. El plan de la fase 4 no se escribe hasta que se pida.
+Escribir los cinco de una vez está fuera de este plan. Las fases 1, 2, 3 y 4 están cerradas en código. El plan de la fase 5 no se escribe en el mismo turno en que se cierra la fase 4.
 
 La fase 4 es un solo plan. Si al redactarlo el gateway no cabe junto con Salón, ese plan parte el trabajo en dos pasos. Siguen siendo la fase 4. No nace una fase 6.
 
@@ -88,7 +88,7 @@ Cerrada en código. Menú se queda con el CRUD de platos y modificadores y con s
 
 ### Fase 4 — Salón, gateway y demo partida
 
-Salón responde por gRPC si una mesa existe y está activa (`TableCatalog`). Antes de desactivar, pregunta a Órdenes por gRPC (`ActiveOrdersQuery`). Esos dos `.proto` se suman a `packages/contracts`. El gateway enruta REST `/menu`, `/tables` y `/orders`. Pagos no pasa por el gateway. Postgres sigue siendo un servidor, con cuatro bases (`menu`, `salon`, `orders`, `payments`). La web cambia la URL base al gateway y deja de conocer los otros procesos.
+Cerrada en código. Salón responde por gRPC si una mesa existe y está activa (`TableCatalog`). Antes de desactivar, pregunta a Órdenes por gRPC (`HasActiveOrder`). Esos dos `.proto` se suman a `packages/contracts`. El gateway en `3000` reenvía `/menu-items`, `/tables` y `/orders`. La cuenta de mesa sigue en la API y el prefijo `/tables/:id/account` no va a Salón. Pagos no pasa por el gateway. La web usa una sola `NEXT_PUBLIC_API_URL`. El plan por pasos, con las pruebas S4-1 a S4-13, está en `04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md`.
 
 **Señal:** el flujo de mesa completo pasa por el gateway.
 
@@ -124,4 +124,4 @@ Cuando se pida implementar una fase:
 
 ## 7. Siguiente paso
 
-La fase 3 está cerrada en código. El plan de la fase 4 se escribe cuando se pida. No se escribe en este turno.
+Cerrada la fase 4 en código el 28 de octubre de 2026. El siguiente paso es escribir el plan de la fase 5 cuando se pida. No se escribe en este turno.

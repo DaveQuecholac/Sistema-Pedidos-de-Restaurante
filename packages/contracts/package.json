@@ -4,10 +4,14 @@
   "private": true,
   "files": [
     "payment.proto",
-    "menu.proto"
+    "menu.proto",
+    "salon.proto",
+    "orders.proto"
   ],
   "exports": {
     "./payment.proto": "./payment.proto",
-    "./menu.proto": "./menu.proto"
+    "./menu.proto": "./menu.proto",
+    "./salon.proto": "./salon.proto",
+    "./orders.proto": "./orders.proto"
   }
 }

@@ -2,6 +2,7 @@
 export type { MenuCatalog } from './menu-catalog';
 export type { MenuRepository } from './menu-repository';
 export type { OrderRepository } from './order-repository';
+export type { TableCatalog, TableSnapshot } from './table-catalog';
 export type { TableSittingRepository } from './table-sitting-repository';
 export type {
   ChargeResult,

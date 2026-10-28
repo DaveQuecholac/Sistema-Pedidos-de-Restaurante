@@ -13,6 +13,7 @@ import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import type { MenuCatalog } from './application/ports/menu-catalog';
 import { OrderRepository } from './application/ports/order-repository';
+import type { TableCatalog } from './application/ports/table-catalog';
 import type { TableRepository } from './application/ports/table-repository';
 import type { TableSittingRepository } from './application/ports/table-sitting-repository';
 import { CloseTableAccount } from './application/table/close-table-account';
@@ -31,6 +32,7 @@ import { CalculateTotals } from './application/totals/calculate-totals';
 import { SetOrderDiscount } from './application/totals/set-order-discount';
 import { SetOrderTip } from './application/totals/set-order-tip';
 import { GrpcMenuCatalog, createMenuGrpcCaller } from './infrastructure/menu/grpc-menu-catalog';
+import { GrpcTableCatalog, createTableGrpcCaller } from './infrastructure/table/grpc-table-catalog';
 import {
   GrpcPaymentAdapter,
   createPaymentGrpcCaller,
@@ -52,15 +54,22 @@ export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
 export const MENU_CATALOG = Symbol('MENU_CATALOG');
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
 export const TABLE_REPOSITORY = Symbol('TABLE_REPOSITORY');
+export const TABLE_CATALOG = Symbol('TABLE_CATALOG');
 export const TABLE_SITTING_REPOSITORY = Symbol('TABLE_SITTING_REPOSITORY');
 export const PAYMENT_PORTS = Symbol('PAYMENT_PORTS');
 
 /** Composition root: health, orders, catalog, and payments through driven adapters. */
 @Module({})
 export class AppModule {
-  static register(db: AppDatabase, paymentsGrpcUrl: string, menuGrpcUrl: string): DynamicModule {
+  static register(
+    db: AppDatabase,
+    paymentsGrpcUrl: string,
+    menuGrpcUrl: string,
+    salonGrpcUrl: string,
+  ): DynamicModule {
     const payments = createPaymentGrpcCaller(paymentsGrpcUrl);
     const catalog = new GrpcMenuCatalog(createMenuGrpcCaller(menuGrpcUrl));
+    const tablesCatalog = new GrpcTableCatalog(createTableGrpcCaller(salonGrpcUrl));
     const cash = new GrpcPaymentAdapter(payments, 'cash');
     const card = new GrpcPaymentAdapter(payments, 'card');
     const gateway = new GrpcPaymentAdapter(payments, 'digitalGateway');
@@ -99,6 +108,10 @@ export class AppModule {
           useValue: new DrizzleTableRepository(db),
         },
         {
+          provide: TABLE_CATALOG,
+          useValue: tablesCatalog,
+        },
+        {
           provide: TABLE_SITTING_REPOSITORY,
           useValue: new DrizzleTableSittingRepository(db, cash),
         },
@@ -135,10 +148,10 @@ export class AppModule {
         },
         {
           provide: OpenOrder,
-          inject: [ORDER_REPOSITORY, TABLE_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          inject: [ORDER_REPOSITORY, TABLE_CATALOG, TABLE_SITTING_REPOSITORY],
           useFactory: (
             orders: OrderRepository,
-            tables: TableRepository,
+            tables: TableCatalog,
             sittings: TableSittingRepository,
           ) => new OpenOrder(orders, tables, sittings, () => crypto.randomUUID(), () => new Date()),
         },

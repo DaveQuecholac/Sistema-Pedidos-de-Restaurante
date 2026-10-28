@@ -51,7 +51,7 @@ describe('payment HTTP client', () => {
     });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/o%201/close',
+      url: 'http://localhost:3000/orders/o%201/close',
       method: 'POST',
       body: { expectedTotal: 16420, payment: { method: 'cash', tendered: 20000 } },
     });
@@ -66,7 +66,7 @@ describe('payment HTTP client', () => {
     });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/close',
+      url: 'http://localhost:3000/orders/order-1/close',
       method: 'POST',
       body: { expectedTotal: 16420, payment: { method: 'cash', tendered: 20000 } },
     });
@@ -79,7 +79,7 @@ describe('payment HTTP client', () => {
       payment: { method: 'card', cardLast4: '4242' },
     });
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/close',
+      url: 'http://localhost:3000/orders/order-1/close',
       method: 'POST',
       body: { expectedTotal: 16420, payment: { method: 'card', cardLast4: '4242' } },
     });
@@ -91,7 +91,7 @@ describe('payment HTTP client', () => {
       payment: { method: 'digitalGateway', payerReference: 'cliente@correo.mx' },
     });
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/close',
+      url: 'http://localhost:3000/orders/order-1/close',
       method: 'POST',
       body: {
         expectedTotal: 16420,
@@ -107,7 +107,7 @@ describe('payment HTTP client', () => {
 
     expect(result).toEqual(closed);
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/payment',
+      url: 'http://localhost:3000/orders/order-1/payment',
       method: 'GET',
       body: undefined,
     });
@@ -133,7 +133,7 @@ describe('payment HTTP client', () => {
   });
 
   it('reports a contact failure when fetch rejects (W23)', async () => {
-    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
     fetchMock.mockRejectedValue(new TypeError('network down'));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -147,7 +147,7 @@ describe('payment HTTP client', () => {
 });
 
 function stubApi(status: number, body: unknown): void {
-  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
   fetchMock.mockResolvedValue(
     new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }),
   );

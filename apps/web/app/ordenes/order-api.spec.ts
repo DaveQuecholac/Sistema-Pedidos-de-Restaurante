@@ -45,7 +45,7 @@ describe('order HTTP client', () => {
     const created = await openOrder({ tableId: '5' });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders',
+      url: 'http://localhost:3000/orders',
       method: 'POST',
       body: { tableId: '5' },
     });
@@ -58,7 +58,7 @@ describe('order HTTP client', () => {
     await listOrders(['IN_KITCHEN', 'READY']);
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders?status=IN_KITCHEN,READY',
+      url: 'http://localhost:3000/orders?status=IN_KITCHEN,READY',
       method: 'GET',
       body: undefined,
     });
@@ -74,7 +74,7 @@ describe('order HTTP client', () => {
     });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/o%201/lines',
+      url: 'http://localhost:3000/orders/o%201/lines',
       method: 'POST',
       body: {
         menuItemId: 'item-tacos',
@@ -90,7 +90,7 @@ describe('order HTTP client', () => {
     await cancelLine('order-1', 'line-1');
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/lines/line-1',
+      url: 'http://localhost:3000/orders/order-1/lines/line-1',
       method: 'DELETE',
       body: undefined,
     });
@@ -128,7 +128,7 @@ describe('order HTTP client', () => {
   });
 
   it('reports a contact failure without a domain code when fetch rejects (W8)', async () => {
-    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
     fetchMock.mockRejectedValue(new TypeError('network down'));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -147,7 +147,7 @@ describe('order HTTP client', () => {
     stubApi(200, order);
     await sendToKitchen('order-1');
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/send-to-kitchen',
+      url: 'http://localhost:3000/orders/order-1/send-to-kitchen',
       method: 'POST',
       body: {},
     });
@@ -155,7 +155,7 @@ describe('order HTTP client', () => {
 });
 
 function stubApi(status: number, body: unknown): void {
-  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
   fetchMock.mockResolvedValue(
     new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }),
   );

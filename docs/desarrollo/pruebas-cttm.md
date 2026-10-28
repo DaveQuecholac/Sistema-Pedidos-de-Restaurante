@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 28 de octubre de 2026.  
-**Alcance de esta corrida:** Fase 3 de microservicios — extraer el menú. Migraciones `apps/menu/drizzle/0000_absurd_solo.sql` y `apps/api/drizzle/0014_real_infant_terrible.sql`. Las corridas de la fase 1 (`0011_talented_scorpion.sql`) y de la fase 2 (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `apps/payments/drizzle/0000_military_mac_gargan.sql`) quedan abajo y no se borran.
+**Alcance de esta corrida:** Fase 4 de microservicios — extraer el salón y poner el gateway. Migraciones `apps/salon/drizzle/0000_naive_white_queen.sql` y `apps/api/drizzle/0015_eminent_earthquake.sql`. Las corridas de la fase 1 (`0011_talented_scorpion.sql`), de la fase 2 (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `apps/payments/drizzle/0000_military_mac_gargan.sql`) y de la fase 3 (`apps/menu/drizzle/0000_absurd_solo.sql`, `apps/api/drizzle/0014_real_infant_terrible.sql`) quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -480,3 +480,39 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 4. El typecheck de la web sigue fallando por el campo `lable` en `apps/web/app/components/ui/tabs.tsx`. Esta fase no lo tocó. Las 91 pruebas de la web pasaron.
 5. Quedan en la base el plato «Plato demo fase 3» inactivo, la orden cerrada `f8e61296-…` y la orden abierta `71844805-…` sin líneas. No son seeds. «Plato cruce M3» también quedó inactivo.
 6. Mesero, Cobro y Cocina no pueden abrir `/menu`. La pantalla existe y llama a `NEXT_PUBLIC_MENU_API_URL`, pero el recorrido del navegador usó la comanda y el `POST` de baja en el 3002.
+
+## Corrida — 28 de octubre de 2026, fase 4 extraer el salón y el gateway
+
+**Alcance:** el plano de mesas sale del proceso de la API. Etiqueta, zona y alta o baja viven en `apps/salon`, base `salon`, REST `http://localhost:3003` y gRPC `localhost:50053`. La cuenta de mesa se queda en la API. Abrir una orden de mesa pregunta `GetTable`. Desactivar pregunta `HasActiveOrder` en el gRPC `50054` de la API. `apps/gateway` reenvía REST en `http://localhost:3000` y no tiene base. Pagos no pasa por él. La web usa una sola `NEXT_PUBLIC_API_URL`.  
+**Plan:** `docs/microservicios/04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md`.  
+**Migraciones:** las dos salieron de `db:generate`.
+
+- `apps/salon/drizzle/0000_naive_white_queen.sql`: crea `tables` en la base `salon`, con id de 1 a 40, etiqueta y zona no vacías, y `active` con default verdadero.
+- `apps/api/drizzle/0015_eminent_earthquake.sql`: `DROP TABLE "tables" CASCADE`. No toca `orders`, `order_lines` ni `table_sittings`.
+
+**Bloque de código:** 1 de 1 en esta nota. Unas 1800 líneas nuevas de producto en `apps/salon`, `apps/gateway`, los dos `.proto` y los dos SQL, sin specs. Pasa el corte de 1000 líneas de la guía. El plan pidió una sola nota de la corrida, no partir la revisión.
+
+### Hexagonal (revisión de capas)
+
+- La máquina de estados de la orden no cambia. `OpenOrder` de mesa usa `TableCatalog`. Un id externo no llama a Salón.
+- El dominio del plano vive en Salón. La cuenta de mesa sigue en la API.
+- Puerto `TableCatalog` en la API. Puerto `ActiveOrdersQuery` en Salón. Si hay comanda, `TableHasActiveOrderError` y no se guarda la baja. Si la API no contesta, `ActiveOrdersUnavailableError` y tampoco se guarda.
+- `GrpcTableCatalog` y el servidor `HasActiveOrder` son adaptadores. El gateway reenvía método, ruta, query, body y status. No tiene dominio ni Drizzle. `SALON_GRPC_URL` y `ORDERS_GRPC_URL` se leen al arrancar.
+- La web pide todo a `NEXT_PUBLIC_API_URL`. `menu-api.ts` ya no lee `NEXT_PUBLIC_MENU_API_URL`.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **477** passed, **59** skipped. Typecheck de la API limpio. `pnpm --filter @restaurante/salon test` con `SALON_REPOSITORY_INTEGRATION=1`: **58** passed, incluidos S4-1 a S4-5. Typecheck de Salón limpio. `pnpm --filter @restaurante/gateway test`: **2** passed (S4-9 y S4-10). Typecheck del gateway limpio. `pnpm --filter @restaurante/web test`: **91** passed. El cliente de platos pide `http://localhost:3000`. |
+| T Integración | Pasó con hueco | En Salón, con la base `salon`, S4-1 a S4-5 pasaron. En la API, S4-6, S4-7 y S4-8 pasan sin Postgres. Con el gateway en `3000` y los procesos arriba, S4-11, S4-12 y S4-13 pasaron (`SALON_GRPC_INTEGRATION=1`): alta, línea, cocina, totales y cierre en efectivo; la mesa está en `salon`; `tables` no está en la base de la API; el pago queda `approved` en `payments`; desactivar con la orden abierta responde 409 y la mesa sigue activa; después del cierre, el mismo `POST` la desactiva; con Salón apagado abre un id externo, no abre por `tableId` y sí cobra una orden que ya estaba `READY`. `pnpm --filter @restaurante/api test:db`: **36** passed, **8** failed. Los 6 de `DrizzleTableRepository` de la API fallan porque `tables` ya no existe. Los 6 equivalentes pasaron en Salón. P12 y P32 fallan con `OrderMappingError` al listar: hay cuatro órdenes `CLOSED` cuyo recibo ya no está en `payments`. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó gateway `3000`, API `3001` y gRPC `50054`, Pagos `50051`, Menú `3002`/`50052`, Salón `3003`/`50053` y la web. `GET /health` respondió `{"status":"ok","service":"restaurante-api"}`. Demo por el `3000`: mesa `mesa-fase4` (zona Cruce) → plato «Plato demo fase 4» (`0ecdbc48-2ddf-4306-93b0-626da46c56b2`, 1000 MXN, impuesto 0) → orden `17a0ddc2-c646-425f-9f9e-b38f2c0db8f4` → línea → cocina → total **1000** → desactivar antes del cierre **409** `TableHasActiveOrderError` y la mesa sigue activa → cierre cash `CLOSED` → desactivar otra vez deja `active = false`. El `payment_id` de la orden es `3e4e8b81-4871-4398-a094-a0c3dc6d0fbf`, el mismo de la fila `approved` en `payments`, referencia `cash-0268a5d8-08ca-491d-9172-6b15dc5cd944`. `POST /payments` en el gateway respondió **404**. Con Salón apagado, la orden `010d2aca-bd49-4704-ae02-3f71f95bb8fe` (`fase4-ext-…`) abrió y se canceló; `POST /orders` con `tableId` `1` respondió **500** y no insertó. En el navegador, el plano y la cuenta de cobro llaman solo a `localhost:3000`. `mesa-fase4` no se pinta: el plano muestra mesas activas y esta quedó inactiva. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de las bases y del recorrido de venta. La fase queda cerrada en el plan general el 28 de octubre de 2026. Los huecos de abajo siguen. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` de la API deja la integración en skipped (**59**, tres más que en la fase 3: S4-11 a S4-13). Salón corre los 11 de base con `SALON_REPOSITORY_INTEGRATION=1`. S4-11 a S4-13 piden `SALON_GRPC_INTEGRATION=1` y gateway, API, Menú, Pagos y Salón encendidos.
+2. `test:db` de la API sigue lanzando el repositorio de mesas contra la base de órdenes. Esos 6 casos fallan con `relation "tables" does not exist`. En Salón, el mismo repositorio pasó (T1 a T6 dentro de los 58).
+3. P12 y P32 fallan al hidratar órdenes ya guardadas. Cuatro `CLOSED` apuntan a un `payment_id` que no está en `payments`: `24494442-aa8a-47b5-89a1-6584ac8a9278`, `fc2f4454-ec62-4a3f-b769-63f3eb031b41`, `ea0a2869-ffc2-44a1-af99-4ce8a3edddf1` y `c8308de7-6a05-4336-89a7-c01e2390f55c`. El spec de cruce borra esas filas de `payments` al terminar y deja la orden cerrada. No se repararon en este paso.
+4. No se apagó `postgresql-18` para el encendido en frío. `apps/menu` y `apps/payments` no se editaron.
+5. Quedan en la base la mesa `mesa-fase4` inactiva, el plato «Plato demo fase 4» inactivo y la orden cerrada `17a0ddc2-…`. No son seeds. Los platos «Plato cruce S4 …» del spec también quedaron inactivos.
+6. Mesero, Cobro y Cocina no pueden abrir `/menu`. El alta y la baja del plato de la demo se hicieron por el gateway, en `http://localhost:3000/menu-items`. El navegador abrió el plano y el cobro.
+7. Al anotar la corrida, `analisis.md` de esta fase todavía decía que no había código y que la web de platos usaba `NEXT_PUBLIC_MENU_API_URL`. Al cerrar el plan, esa línea de estado pasó a cerrada en código, con `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql`.

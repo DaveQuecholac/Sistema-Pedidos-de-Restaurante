@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Seed idempotente del catálogo inicial de mesas (Gen 1 / mesas tarea 2).
- * Inserta mesas "1"…"6" en zona "Salón" con ON CONFLICT DO NOTHING.
+ * Seed idempotente del catálogo inicial de mesas.
+ * Inserta mesas "1"…"6" en la base salon, zona "Salón", con ON CONFLICT DO NOTHING.
  * No vive en casos de uso. Uso: pnpm db:ensure-tables (también en pnpm dev / restart).
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -20,18 +20,12 @@ const SEED = ["1", "2", "3", "4", "5", "6"].map((id) => ({
   zone: "Salón",
 }));
 
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
+function readEnvKey(path, key) {
+  if (!existsSync(path)) {
+    return undefined;
   }
 
-  const envPath = resolve(apiRoot, ".env");
-  if (!existsSync(envPath)) {
-    console.error("DATABASE_URL no está definida y no hay apps/api/.env");
-    process.exit(1);
-  }
-
-  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+  for (const line of readFileSync(path, "utf8").split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("#")) {
       continue;
@@ -40,7 +34,10 @@ function loadDatabaseUrl() {
     if (eq <= 0) {
       continue;
     }
-    const key = trimmed.slice(0, eq).trim();
+    const found = trimmed.slice(0, eq).trim();
+    if (found !== key) {
+      continue;
+    }
     let value = trimmed.slice(eq + 1).trim();
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
@@ -48,13 +45,36 @@ function loadDatabaseUrl() {
     ) {
       value = value.slice(1, -1);
     }
-    if (key === "DATABASE_URL") {
-      return value;
-    }
+    return value;
   }
 
-  console.error("DATABASE_URL no aparece en apps/api/.env");
-  process.exit(1);
+  return undefined;
+}
+
+function withDatabase(url, name) {
+  const parsed = new URL(url);
+  parsed.pathname = `/${name}`;
+  return parsed.toString();
+}
+
+function loadDatabaseUrl() {
+  if (process.env.SALON_DATABASE_URL) {
+    return process.env.SALON_DATABASE_URL;
+  }
+
+  const fromSalonEnv = readEnvKey(resolve(root, "apps/salon/.env"), "SALON_DATABASE_URL");
+  if (fromSalonEnv) {
+    return fromSalonEnv;
+  }
+
+  const ordersUrl =
+    process.env.DATABASE_URL ?? readEnvKey(resolve(apiRoot, ".env"), "DATABASE_URL");
+  if (!ordersUrl) {
+    console.error("No hay SALON_DATABASE_URL ni DATABASE_URL para ubicar la base salon");
+    process.exit(1);
+  }
+
+  return withDatabase(ordersUrl, "salon");
 }
 
 const postgres = require("postgres");
