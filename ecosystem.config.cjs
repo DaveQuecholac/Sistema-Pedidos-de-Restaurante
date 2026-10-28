@@ -1,5 +1,5 @@
 /**
- * PM2: api (Nest :3001) + web (Next vía portless, https://restaurante.localhost).
+ * PM2: api (Nest :3001) + pagos (gRPC localhost:50051) + web (Next vía portless, https://restaurante.localhost).
  * Root scripts: pnpm dev | dev:stop | dev:status | dev:logs | dev:restart
  */
 const { existsSync } = require("node:fs");
@@ -49,6 +49,29 @@ module.exports = {
         DATABASE_URL:
           process.env.DATABASE_URL ??
           "postgresql://postgres:postgres@localhost:5432/restaurante",
+        PAYMENTS_GRPC_URL: process.env.PAYMENTS_GRPC_URL ?? "localhost:50051",
+      },
+    },
+    {
+      name: "restaurante-payments",
+      cwd: root,
+      script: pnpm,
+      args: ["--filter", "@restaurante/payments", "dev"],
+      interpreter: "none",
+      autorestart: true,
+      watch: false,
+      max_restarts: 10,
+      min_uptime: "5s",
+      out_file: resolve(root, "logs/pm2/payments-out.log"),
+      error_file: resolve(root, "logs/pm2/payments-error.log"),
+      merge_logs: true,
+      time: true,
+      env: {
+        NODE_ENV: "development",
+        PAYMENTS_DATABASE_URL:
+          process.env.PAYMENTS_DATABASE_URL ??
+          "postgresql://postgres:postgres@localhost:5432/payments",
+        PAYMENTS_GRPC_URL: process.env.PAYMENTS_GRPC_URL ?? "localhost:50051",
       },
     },
     {

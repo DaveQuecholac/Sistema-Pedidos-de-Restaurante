@@ -9,23 +9,24 @@ import {
   OrderNotFoundError,
 } from '../../../application/order/order-repository.errors';
 import type { OrderRepository } from '../../../application/ports/order-repository';
+import type { PaymentReceiptQuery } from '../../../application/ports/payment-receipt-query';
 import type { LineItem } from '../../../domain/order/line-item';
 import type { Order } from '../../../domain/order/order';
 import { ACTIVE_ORDER_STATUSES, type OrderStatus } from '../../../domain/order/order-status';
 import type { AppDatabase } from './client';
 import {
+  paymentColumnsForSave,
+  recordedPayment,
   toDiscountColumns,
   toOrder,
   toOrderRow,
-  toPaymentRow,
   toTipColumns,
   type OrderLineModifierRow,
   type OrderLineRow,
-  type OrderPaymentRow,
   type OrderRow,
 } from './order.mapper';
 import * as schema from './schema/menu';
-import { orderLineModifiers, orderLines, orderPayments, orders } from './schema/order';
+import { orderLineModifiers, orderLines, orders } from './schema/order';
 
 type MenuSchema = typeof schema;
 
@@ -35,14 +36,16 @@ export type OrderDatabase =
   | PgTransaction<PostgresJsQueryResultHKT, MenuSchema, ExtractTablesWithRelations<MenuSchema>>;
 
 export class DrizzleOrderRepository implements OrderRepository {
-  constructor(private readonly db: OrderDatabase) {}
+  constructor(
+    private readonly db: OrderDatabase,
+    private readonly receipts: PaymentReceiptQuery,
+  ) {}
 
   async add(order: Order): Promise<void> {
     try {
       await this.db.transaction(async (tx) => {
         await tx.insert(orders).values(toOrderRow(order));
         await insertLines(tx, order);
-        await insertPayment(tx, order);
       });
     } catch (error) {
       if (isConstraintViolation(error, 'orders_pkey')) {
@@ -56,6 +59,7 @@ export class DrizzleOrderRepository implements OrderRepository {
   }
 
   async save(order: Order): Promise<void> {
+    const paymentColumns = await paymentColumnsForSave(this.receipts, order.id, order.payment);
     await this.db.transaction(async (tx) => {
       const updated = await tx
         .update(orders)
@@ -66,6 +70,7 @@ export class DrizzleOrderRepository implements OrderRepository {
           tableSettlementId: order.tableSettlementId,
           ...toDiscountColumns(order.discount),
           ...toTipColumns(order.tip),
+          ...paymentColumns,
         })
         .where(and(eq(orders.id, order.id), eq(orders.version, order.version)))
         .returning({ id: orders.id });
@@ -83,7 +88,6 @@ export class DrizzleOrderRepository implements OrderRepository {
 
       await tx.delete(orderLines).where(eq(orderLines.orderId, order.id));
       await insertLines(tx, order);
-      await insertPayment(tx, order);
     });
   }
 
@@ -183,19 +187,18 @@ export class DrizzleOrderRepository implements OrderRepository {
             .where(inArray(orderLineModifiers.orderLineId, lineIds))
             .orderBy(asc(orderLineModifiers.position));
 
-    const paymentRows = await this.db
-      .select()
-      .from(orderPayments)
-      .where(inArray(orderPayments.orderId, orderIds));
-
     const linesByOrder = groupByOrderId(lineRows);
     const modifiersByLine = groupByLineId(modifierRows);
-    const paymentByOrder = groupPaymentsByOrderId(paymentRows);
+    const payments = await Promise.all(
+      orderRows.map((row) =>
+        recordedPayment(this.receipts, row.id, row.paymentId, row.paymentReference),
+      ),
+    );
 
-    return orderRows.map((row) => {
+    return orderRows.map((row, index) => {
       const lines = linesByOrder.get(row.id) ?? [];
       const modifiers = lines.flatMap((line) => modifiersByLine.get(line.id) ?? []);
-      return toOrder(row, lines, modifiers, paymentByOrder.get(row.id) ?? null);
+      return toOrder(row, lines, modifiers, payments[index] ?? null);
     });
   }
 }
@@ -223,17 +226,6 @@ async function insertLines(tx: OrderDatabase, order: Order): Promise<void> {
   if (modifierValues.length > 0) {
     await tx.insert(orderLineModifiers).values(modifierValues);
   }
-}
-
-async function insertPayment(tx: OrderDatabase, order: Order): Promise<void> {
-  if (order.payment === null) {
-    return;
-  }
-
-  await tx
-    .insert(orderPayments)
-    .values(toPaymentRow(order.id, order.payment))
-    .onConflictDoNothing({ target: orderPayments.orderId });
 }
 
 function lineRow(orderId: string, line: LineItem, position: number) {
@@ -277,16 +269,6 @@ function groupByLineId(rows: readonly OrderLineModifierRow[]): Map<string, Order
     }
   }
 
-  return grouped;
-}
-
-function groupPaymentsByOrderId(
-  rows: readonly OrderPaymentRow[],
-): Map<string, OrderPaymentRow> {
-  const grouped = new Map<string, OrderPaymentRow>();
-  for (const row of rows) {
-    grouped.set(row.orderId, row);
-  }
   return grouped;
 }
 

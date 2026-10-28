@@ -77,6 +77,8 @@ El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro
 | Documento | Rol |
 |-----------|-----|
 | [analisis.md](./microservicios/analisis.md) | Corte a cuatro servicios, puertos, saga de cobro y datos |
-| [plan-de-accion.md](./microservicios/plan-de-accion.md) | Plan general. Fases 2 a 5 todavía sin plan propio |
-| [01-soltar-fk/analisis.md](./microservicios/01-soltar-fk/analisis.md) | Fase 1: quitar la FK de la línea al menú, sin partir procesos |
-| [01-soltar-fk/plan-de-accion.md](./microservicios/01-soltar-fk/plan-de-accion.md) | Fase 1 por pasos, con migración Drizzle y pruebas F1–F3. Sin implementar |
+| [plan-de-accion-general-corte-a-microservicios.md](./microservicios/plan-de-accion-general-corte-a-microservicios.md) | Plan general. La fase 2 está cerrada en código. Fases 3 a 5 sin plan |
+| [01-soltar-fk/analisis.md](./microservicios/01-soltar-fk/analisis.md) | Fase 1: quitar la FK de la línea al menú. Cerrada en código |
+| [01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md](./microservicios/01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md) | Fase 1 por pasos. Cerrada. Migración `0011_talented_scorpion.sql` |
+| [02-extraer-pagos/analisis.md](./microservicios/02-extraer-pagos/analisis.md) | Fase 2: el cargo sale a un proceso gRPC. Cerrada en código |
+| [02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md](./microservicios/02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md) | Fase 2 por pasos. Cerrada. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `0000_military_mac_gargan.sql` |

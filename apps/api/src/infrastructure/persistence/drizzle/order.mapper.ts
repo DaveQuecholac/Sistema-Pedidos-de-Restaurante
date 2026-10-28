@@ -1,5 +1,6 @@
 import type { InferSelectModel } from 'drizzle-orm';
 import { OrderMappingError } from '../../../application/order/order-repository.errors';
+import type { PaymentReceiptQuery } from '../../../application/ports/payment-receipt-query';
 import {
   BlankIdError,
   BlankNameError,
@@ -22,8 +23,7 @@ import {
 } from '../../../domain/order/order.errors';
 import { OrderOrigin } from '../../../domain/order/order-origin';
 import { Quantity } from '../../../domain/order/quantity';
-import { PaymentDetails } from '../../../domain/payment/payment-details';
-import { Payment } from '../../../domain/payment/payment';
+import type { Payment } from '../../../domain/payment/payment';
 import {
   InsufficientCashError,
   InvalidCardLast4Error,
@@ -39,13 +39,11 @@ import {
   InvalidPercentageError,
   InvalidTipError,
 } from '../../../domain/totals/totals.errors';
-import { orderLineModifiers, orderLines, orderPayments, orders } from './schema/order';
+import { orderLineModifiers, orderLines, orders } from './schema/order';
 
 export type OrderRow = InferSelectModel<typeof orders>;
 export type OrderLineRow = InferSelectModel<typeof orderLines>;
 export type OrderLineModifierRow = InferSelectModel<typeof orderLineModifiers>;
-export type OrderPaymentRow = InferSelectModel<typeof orderPayments>;
-
 const PERCENTAGE_PROBE = Money.of(10_000, 'MXN');
 const FIXED_PROBE = Money.of(2_147_483_647, 'MXN');
 
@@ -53,7 +51,7 @@ export function toOrder(
   order: OrderRow,
   lines: readonly OrderLineRow[],
   modifiers: readonly OrderLineModifierRow[],
-  payment: OrderPaymentRow | null,
+  payment: Payment | null,
 ): Order {
   try {
     const modifiersByLine = groupModifiers(modifiers);
@@ -70,7 +68,7 @@ export function toOrder(
       }),
       discount: toDiscount(order),
       tip: toTip(order),
-      payment: payment === null ? null : toPayment(payment),
+      payment,
       sittingId: order.sittingId,
       tableSettlementId: order.tableSettlementId,
     });
@@ -82,53 +80,73 @@ export function toOrder(
   }
 }
 
-export function toPayment(row: OrderPaymentRow): Payment {
-  return Payment.restore({
-    id: row.paymentId,
-    amount: Money.of(row.amount, row.currency),
-    details: toPaymentDetails(row),
-    reference: row.reference,
-    paidAt: row.paidAt,
-  });
+export function readPaymentPointer(
+  paymentId: string | null,
+  paymentReference: string | null,
+): { id: string; reference: string } | null {
+  const idBlank = paymentId === null || paymentId.trim() === '';
+  const referenceBlank = paymentReference === null || paymentReference.trim() === '';
+  if (idBlank && referenceBlank) {
+    return null;
+  }
+  if (idBlank || referenceBlank || paymentId === null || paymentReference === null) {
+    throw new OrderMappingError();
+  }
+  return { id: paymentId, reference: paymentReference };
 }
 
-export function toPaymentRow(orderId: string, payment: Payment): OrderPaymentRow {
-  const base = {
-    orderId,
-    paymentId: payment.id,
-    method: payment.method,
-    amount: payment.amount.amount,
-    currency: payment.amount.currency,
-    tenderedAmount: null as number | null,
-    cardLast4: null as string | null,
-    payerReference: null as string | null,
-    reference: payment.reference,
-    paidAt: payment.paidAt,
-  };
-
-  if (payment.details.method === 'cash') {
-    return { ...base, tenderedAmount: payment.details.tendered.amount };
+/** The columns say a payment exists. The body comes from the receipt. */
+export async function recordedPayment(
+  receipts: PaymentReceiptQuery,
+  subjectId: string,
+  paymentId: string | null,
+  paymentReference: string | null,
+): Promise<Payment | null> {
+  const pointer = readPaymentPointer(paymentId, paymentReference);
+  if (pointer === null) {
+    return null;
   }
-  if (payment.details.method === 'card') {
-    return { ...base, cardLast4: payment.details.cardLast4 };
-  }
-  return { ...base, payerReference: payment.details.payerReference };
-}
 
-function toPaymentDetails(row: OrderPaymentRow): PaymentDetails {
-  if (row.method === 'cash') {
-    if (row.tenderedAmount === null) {
+  let receipt: Payment | null;
+  try {
+    receipt = await receipts.findBySubjectId(subjectId);
+  } catch (error) {
+    if (isOrderRuleError(error)) {
       throw new OrderMappingError();
     }
-    return PaymentDetails.cash(Money.of(row.tenderedAmount, row.currency));
+    throw error;
   }
-  if (row.method === 'card') {
-    return PaymentDetails.card(row.cardLast4);
+
+  if (receipt === null || receipt.reference !== pointer.reference) {
+    throw new OrderMappingError();
   }
-  if (row.method === 'digitalGateway') {
-    return PaymentDetails.digitalGateway(row.payerReference);
+  return receipt;
+}
+
+/** Prefer the receipt id when Pagos already stored this charge. Otherwise keep the id on the order. */
+export async function paymentColumnsForSave(
+  receipts: PaymentReceiptQuery,
+  subjectId: string,
+  payment: Payment | null,
+): Promise<{ paymentId: string | null; paymentReference: string | null }> {
+  if (payment === null) {
+    return { paymentId: null, paymentReference: null };
   }
-  throw new InvalidPaymentMethodError();
+
+  let receipt: Payment | null;
+  try {
+    receipt = await receipts.findBySubjectId(subjectId);
+  } catch (error) {
+    if (isOrderRuleError(error)) {
+      throw new OrderMappingError();
+    }
+    throw error;
+  }
+
+  if (receipt !== null && receipt.reference === payment.reference) {
+    return { paymentId: receipt.id, paymentReference: receipt.reference };
+  }
+  return { paymentId: payment.id, paymentReference: payment.reference };
 }
 
 export function toOrderRow(order: Order): OrderRow {
@@ -143,6 +161,8 @@ export function toOrderRow(order: Order): OrderRow {
     ...toTipColumns(order.tip),
     sittingId: order.sittingId,
     tableSettlementId: order.tableSettlementId,
+    paymentId: order.payment === null ? null : order.payment.id,
+    paymentReference: order.payment === null ? null : order.payment.reference,
   };
 }
 

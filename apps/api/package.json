@@ -14,7 +14,10 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.7.15",
     "@nestjs/common": "^11.0.1",
+    "@restaurante/contracts": "workspace:*",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "drizzle-orm": "^0.45.3",

@@ -3,7 +3,7 @@
 
 **Fecha:** 28 de octubre de 2026  
 **Base:** código entregado en `apps/api` (casos de uso y schema Drizzle), `documentacion-inicial/analisis-estilo-sistema-despliegue.md`, `documentacion-inicial/analisis-arquitectura.md`, RF1–RF5.  
-**Plan general:** `plan-de-accion.md` en esta carpeta. Cada fase, cuando se vaya a implementar, tendrá su propio par análisis + plan. Este documento no los sustituye.  
+**Plan general:** `plan-de-accion-general-corte-a-microservicios.md` en esta carpeta. Cada fase tiene su análisis y un plan cuyo archivo dice la fase y qué hace. Este documento no los sustituye.  
 **Decisión de este análisis:** cuatro servicios de negocio, un gateway y la web actual. Hexagonal permanece dentro de cada servicio. Entre servicios, gRPC con Protobuf (sección 6). La web sigue en REST.
 
 ---
@@ -196,4 +196,4 @@ El sistema queda en cuatro servicios de negocio más gateway y la web ya entrega
 
 El primer corte físico, todavía dentro del monolito, es quitar la clave foránea de `order_lines` hacia `menu_items`. El orden de extracción posterior es Pagos, luego Menú, luego Salón junto con el gateway. El evento de cocina va al final y no sustituye las llamadas síncronas de la sección 6.
 
-El recorrido por fases está en `plan-de-accion.md`.
+El recorrido por fases está en `plan-de-accion-general-corte-a-microservicios.md`.

@@ -26,7 +26,7 @@ Usuario: **Hector**. Flujo: analizar → acordar → documentar/implementar. Doc
 | Sistema | En ejecución: monolito modular, un solo despliegue. Objetivo acordado el 28 de octubre de 2026: microservicios, `docs/microservicios/analisis.md`. Cada fase espera su plan |
 | Stack | TypeScript, NestJS, PostgreSQL + Drizzle, Zod, pnpm, Next.js + React |
 | Cobros MVP | Adaptadores **simulados** detrás de `PaymentPort` |
-| Alcance | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
+| Alcance | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion-general-corte-a-microservicios.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
 
 ## Producto (RF1–RF5)
 
@@ -114,13 +114,14 @@ Tarjetas: `docs/documentacion-inicial/plan-sprints-trello.md`.
 
 ### Fuera de Gen 1
 
-Sin acuerdo de Hector no se cablea: delivery real, pasarelas reales, auth avanzada, app móvil, tRPC/GraphQL, design systems pesados, event-bus como base, paquetes `lib/*` de dominio prematuros, Docusaurus/Storybook en el workspace. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway.
+Sin acuerdo de Hector no se cablea: delivery real, pasarelas reales, auth avanzada, app móvil, tRPC/GraphQL, design systems pesados, event-bus como base, paquetes `lib/*` de dominio prematuros, Docusaurus/Storybook en el workspace. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. La fase 2 abre el proceso `restaurante-payments` y el gRPC de cobro. Gateway y los procesos de Menú o Salón esperan su plan.
 
 ## Mapa del repo
 
 ```text
 Restaurante/
-  apps/api/          # Nest — hexágono + HTTP / BD / pago
+  apps/api/          # Nest — hexágono + HTTP. El cobro sale por gRPC
+  apps/payments/     # Nest — cobro gRPC, sin HTTP
   apps/web/          # Next — adaptador driving
   docs/              # subcarpetas; suelto solo docs/README.md
   scripts/           # ops (PM2, ensure one-off)
@@ -254,9 +255,9 @@ Criterio de un slice bueno: el núcleo se prueba sin UI; cambiar BD o medio de c
 
 | Comando | Efecto |
 |---------|--------|
-| `pnpm dev` | Enciende Postgres si está apagado, luego arranca api + web |
-| `pnpm dev:stop` | Para api y web. Postgres sigue encendido |
-| `pnpm dev:restart` | Enciende Postgres si está apagado y reinicia api + web |
+| `pnpm dev` | Enciende Postgres si está apagado, luego arranca api + pagos + web |
+| `pnpm dev:stop` | Para api, pagos y web. Postgres sigue encendido |
+| `pnpm dev:restart` | Enciende Postgres si está apagado y reinicia api + pagos + web |
 | `pnpm dev:status` / `pnpm dev:logs` | Estado / últimas líneas |
 | `pnpm dev:plain` | Sin PM2 (foreground) |
 | `pnpm typecheck` / `pnpm build` | api + web |
@@ -264,6 +265,7 @@ Criterio de un slice bueno: el núcleo se prueba sin UI; cambiar BD o medio de c
 | App | URL | Logs |
 |-----|-----|------|
 | `restaurante-api` | http://localhost:3001 | `logs/pm2/api-*.log` |
+| `restaurante-payments` | grpc://localhost:50051 | `logs/pm2/payments-*.log` |
 | `restaurante-web` | https://restaurante.localhost | `logs/pm2/web-*.log` |
 
 Preferir `pnpm dev` / `dev:restart` / `dev:stop` / `dev:status`. No dejar follow de logs ni `dev:plain` como arranque normal.

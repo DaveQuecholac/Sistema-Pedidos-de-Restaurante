@@ -16,6 +16,12 @@ async function bootstrap() {
     process.exit(1);
   }
 
+  const paymentsGrpcUrl = process.env.PAYMENTS_GRPC_URL;
+  if (!paymentsGrpcUrl) {
+    console.error('PAYMENTS_GRPC_URL is required');
+    process.exit(1);
+  }
+
   const { client, db } = createDatabase(databaseUrl);
 
   try {
@@ -26,7 +32,7 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  const app = await NestFactory.create(AppModule.register(db));
+  const app = await NestFactory.create(AppModule.register(db, paymentsGrpcUrl));
   app.enableCors();
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 3001);
 }

@@ -3,10 +3,12 @@
 
 **Fecha:** 28 de octubre de 2026  
 **Análisis:** `analisis.md` en esta carpeta. El corte, los cuatro servicios y gRPC están ahí (secciones 3, 5 y 6).  
-**Estado:** plan general. La fase 0 está hecha. La fase 1 está cerrada en código el 28 de octubre de 2026 (migración `0011_talented_scorpion.sql`). Faltan los planes de las fases 2 a 5.  
+**Estado:** plan general. La fase 0 está hecha. La fase 1 está cerrada en código (`0011_talented_scorpion.sql`). La fase 2 está cerrada en código (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `0000_military_mac_gargan.sql`). Faltan los planes de las fases 3 a 5.  
 **Alcance:** orden, dependencia y el contenido obligatorio de cada plan. Este archivo no lista archivos de código ni mensajes `.proto`.
 
-Para retomar el trabajo con el contexto perdido: leer este archivo entero y después `analisis.md`. No inventar un sexto plan, no engordar este documento con el detalle de una fase y no codear una fase cuyo `plan-de-accion.md` todavía no exista.
+Para retomar el trabajo con el contexto perdido: leer este archivo entero y después `analisis.md`. No inventar un sexto plan, no engordar este documento con el detalle de una fase y no codear una fase cuyo plan todavía no exista.
+
+Cada plan de fase se llama `plan-de-accion-fase-N-<qué-hace>.md`. El nombre del archivo dice la fase y el corte. No se usa un `plan-de-accion.md` genérico en esta carpeta. Los planes viejos de `docs/dev/` no se renombran.
 
 No se salta una fase. El demo de piso (abrir, agregar línea, cocina, totales, cobrar) tiene que seguir funcionando al cerrar cada una.
 
@@ -30,21 +32,21 @@ La fase 0 es este par (`analisis.md` y este archivo) y ya está cerrada.
 
 Cada plan vive junto a un análisis corto de esa fase. El análisis de la fase fija las decisiones del corte que esa fase toca. El plan es lo que se acuerda antes de codear. El análisis raíz no se copia.
 
-| Fase | Carpeta del par | Plan | Depende de | Se escribe |
-|------|-----------------|------|------------|------------|
-| 1 | `docs/microservicios/01-soltar-fk/` | `plan-de-accion.md` cerrado en código | Fase 0, hecha | Cerrada en código el 28 de octubre de 2026. Migración `0011_talented_scorpion.sql` |
-| 2 | `docs/microservicios/02-extraer-pagos/` | `plan-de-accion.md` | Fase 1 cerrada en código | Escribir el plan de la fase 2 cuando se pida |
-| 3 | `docs/microservicios/03-extraer-menu/` | `plan-de-accion.md` | Fase 2 cerrada en código | Al terminar la fase 2, cuando se pida |
-| 4 | `docs/microservicios/04-salon-y-gateway/` | `plan-de-accion.md` | Fase 3 cerrada en código | Al terminar la fase 3, cuando se pida |
-| 5 | `docs/microservicios/05-evento-cocina/` | `plan-de-accion.md` | Fase 4 cerrada en código | Al terminar la fase 4, cuando se pida |
+| Fase | Carpeta | Plan | Depende de | Estado |
+|------|---------|------|------------|--------|
+| 1 | `01-soltar-fk/` | `plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md` | Fase 0, hecha | Cerrada en código el 28 de octubre de 2026. Migración `0011_talented_scorpion.sql` |
+| 2 | `02-extraer-pagos/` | `plan-de-accion-fase-2-extrae-pagos-por-grpc.md` | Fase 1 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `0000_military_mac_gargan.sql` |
+| 3 | `03-extraer-menu/` | `plan-de-accion-fase-3-extrae-el-menu.md` | Fase 2 cerrada en código | Se escribe al cerrar la fase 2 en código, cuando se pida |
+| 4 | `04-salon-y-gateway/` | `plan-de-accion-fase-4-extrae-salon-y-el-gateway.md` | Fase 3 cerrada en código | Se escribe al cerrar la fase 3, cuando se pida |
+| 5 | `05-evento-cocina/` | `plan-de-accion-fase-5-publica-el-evento-de-cocina.md` | Fase 4 cerrada en código | Se escribe al cerrar la fase 4, cuando se pida |
 
-Escribir los cinco de una vez está fuera de este plan. La fase 1 está cerrada en código (`01-soltar-fk/`, migración `0011_talented_scorpion.sql`). El siguiente paso es escribir el plan de la fase 2 cuando se pida.
+Escribir los cinco de una vez está fuera de este plan. La fase 1 y la fase 2 están cerradas en código. El plan de la fase 3 no se escribe en este turno.
 
 La fase 4 es un solo plan. Si al redactarlo el gateway no cabe junto con Salón, ese plan parte el trabajo en dos pasos. Siguen siendo la fase 4. No nace una fase 6.
 
 ## 3. Qué incluye cada plan, siempre
 
-Todo `plan-de-accion.md` de fase lleva estas siete partes, en este orden:
+Todo plan de fase lleva estas siete partes, en este orden:
 
 1. **Resultado.** Una frase con lo que queda funcionando, y la señal de la sección 4 hecha comprobable.
 2. **Archivos.** Los que se crean o se tocan, y una lista corta de los que no.
@@ -62,7 +64,7 @@ El detalle fino sale al escribir el plan. Esto es lo que no puede faltar, para n
 
 ### Fase 1 — Soltar la FK
 
-Sigue un solo proceso y una sola base. Migración con Drizzle Kit que quita `order_lines.menu_item_id` → `menu_items.id`. `menuItemId` sigue siendo el id del plato. El plan por pasos, con las pruebas F1–F3, está en `01-soltar-fk/plan-de-accion.md`.
+Sigue un solo proceso y una sola base. Migración con Drizzle Kit que quita `order_lines.menu_item_id` → `menu_items.id`. `menuItemId` sigue siendo el id del plato. Cerrada en código. El plan está en `01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md`.
 
 **Señal:** agregar línea, cocina y cobro pasan sin esa FK.
 
@@ -70,7 +72,7 @@ Sigue un solo proceso y una sola base. Migración con Drizzle Kit que quita `ord
 
 ### Fase 2 — Pagos
 
-Órdenes sigue orquestando `CloseOrder` y `CloseTableAccount`. El adaptador de `PaymentPort` pasa a cliente gRPC. Efectivo, tarjeta y pasarela simulada viven en Pagos. Nace `packages/contracts` con el primer `.proto` (cargo, resultado y void). Clave de idempotencia `orderId` o `sittingId`. La saga es la sección 7 del análisis. El REST de cerrar orden se queda en Órdenes, para la web.
+Cerrada en código. Órdenes sigue orquestando `CloseOrder` y `CloseTableAccount`. El adaptador de `PaymentPort` es un cliente gRPC. Efectivo, tarjeta y pasarela simulada viven en Pagos. `packages/contracts` tiene el primer `.proto` (cargo, resultado y void). Clave de idempotencia `orderId` o `sittingId`. La saga es la sección 7 del análisis. El REST de cerrar orden se queda en Órdenes, para la web. El plan por pasos, con las pruebas P2-1 a P2-9, está en `02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md`.
 
 **Señal:** un cobro simulado cruza de proceso. Si Órdenes no guarda el cierre, pide el void.
 
@@ -115,11 +117,11 @@ Salón responde por gRPC si una mesa existe y está activa (`TableCatalog`). Ant
 Cuando se pida implementar una fase:
 
 1. Leer `analisis.md` y la sección de esa fase en este archivo.
-2. Crear la carpeta de la tabla de la sección 2 con `analisis.md` y `plan-de-accion.md`.
+2. Crear la carpeta de la tabla de la sección 2 con `analisis.md` y `plan-de-accion-fase-N-<qué-hace>.md`.
 3. Cumplir las siete partes de la sección 3. Acordar el plan antes de codear.
 4. Implementar solo esa fase. Al cerrarla, el demo de piso sigue y la señal de la sección 4 se cumple.
 5. Parar. El plan de la fase siguiente se escribe cuando se pida.
 
 ## 7. Siguiente paso
 
-Escribir el plan de la fase 2 cuando se pida.
+La fase 2 está cerrada. El siguiente paso es escribir el plan de la fase 3 cuando se pida. No se escribe en este turno.

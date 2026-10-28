@@ -3,7 +3,7 @@
 
 **Estado:** primera propuesta (síntesis de análisis; aún sin implementación al escribirse). Gen 1 se entregó con este marco.  
 
-**Actualización 28 de octubre de 2026:** el estilo de sistema y el despliegue de la sección 3 quedan superados por `../microservicios/analisis.md`. El plan general del corte está en `../microservicios/plan-de-accion.md`. Hexagonal se mantiene. El resto de esta propuesta describe lo ya construido.
+**Actualización 28 de octubre de 2026:** el estilo de sistema y el despliegue de la sección 3 quedan superados por `../microservicios/analisis.md`. El plan general del corte está en `../microservicios/plan-de-accion-general-corte-a-microservicios.md`. Hexagonal se mantiene. El resto de esta propuesta describe lo ya construido.
 
 
 ## 1. Qué queremos construir

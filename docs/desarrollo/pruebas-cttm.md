@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 28 de octubre de 2026.  
-**Alcance de esta corrida:** Fase 1 de microservicios — soltar la FK `order_lines.menu_item_id` → `menu_items.id`. Migración `0011_talented_scorpion.sql`. Las corridas anteriores quedan abajo y no se borran.
+**Alcance de esta corrida:** Fase 2 de microservicios — extraer pagos por gRPC. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `apps/payments/drizzle/0000_military_mac_gargan.sql`. La corrida de la fase 1 (`0011_talented_scorpion.sql`) queda abajo y no se borra.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -390,7 +390,7 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 ## Corrida — 28 de octubre de 2026, fase 1 soltar la FK de la línea al menú
 
 **Alcance:** quitar de Postgres la clave foránea `order_lines.menu_item_id` → `menu_items.id`. La columna se queda `NOT NULL`. Un solo proceso y una sola base.  
-**Plan:** `docs/microservicios/01-soltar-fk/plan-de-accion.md`.  
+**Plan:** `docs/microservicios/01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md`.  
 **Migración:** `apps/api/drizzle/0011_talented_scorpion.sql`, salida de `db:generate`. Una sentencia: `ALTER TABLE "order_lines" DROP CONSTRAINT "order_lines_menu_item_id_menu_items_id_fk"`.  
 **Bloque de código:** 1 de 1. Unas 70 líneas entre el schema de `order_lines`, el journal y los casos F1–F3. El SQL nuevo es una línea. No hace falta un segundo bloque de 1000.
 
@@ -413,3 +413,36 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 2. `pnpm test` deja las de integración en skipped; `test:db` las corre (52 verdes).
 3. No se apagó `postgresql-18` para el encendido en frío. No se tocó `apps/web`.
 4. Quedan en la BD el plato «Plato demo fase 1» y la orden cerrada `557d7324-…`. No son seeds.
+
+## Corrida — 28 de octubre de 2026, fase 2 extraer pagos por gRPC
+
+**Alcance:** el cargo sale del proceso de la API. Efectivo, tarjeta y pasarela simulada viven en `apps/payments`. La API sigue cerrando por REST y habla con Pagos por gRPC. En la base de la API quedan `payment_id` y `payment_reference`. `order_payments` y `table_sitting_payments` ya no están.  
+**Plan:** `docs/microservicios/02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md`.  
+**Migraciones:** las tres salieron de `db:generate`.
+
+- `apps/api/drizzle/0012_late_tarantula.sql`: agrega `payment_id` y `payment_reference` en `orders` y `table_sittings`, con los checks de pareja y el de orden de cuenta de mesa sin pago propio.
+- `apps/api/drizzle/0013_milky_magma.sql`: `DROP TABLE "order_payments"` y `DROP TABLE "table_sitting_payments"`.
+- `apps/payments/drizzle/0000_military_mac_gargan.sql`: crea la tabla `payments` en la base `payments`.
+
+**Bloque de código:** 1 de 1 en esta nota. Unas 1700 líneas de producto (`apps/payments`, el cliente gRPC de la API, el `.proto`, el script de copia y los tres SQL), sin specs. Pasa el corte de 1000 líneas de la guía; el plan pidió una sola nota de la corrida, no partir la revisión.
+
+### Hexagonal (revisión de capas)
+
+- El dominio de la orden y `CloseOrder` no se reescribieron. El cambio sigue saliendo del efectivo entregado.
+- Puerto nuevo `PaymentReceiptQuery`. `PaymentPort` conserva `charge` y `voidCharge`.
+- `GrpcPaymentAdapter` es el adaptador. El módulo de la API arma tres instancias (efectivo, tarjeta, pasarela) sobre un cliente. `PAYMENTS_GRPC_URL` se lee al arrancar.
+- Al guardar, si el recibo ya existe y la referencia coincide, la orden guarda el `payment_id` del recibo.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **469** passed, **54** skipped. Typecheck de la API limpio. `pnpm --filter @restaurante/payments test`: **10** passed, **7** skipped. Typecheck de Pagos limpio. `close-order.spec.ts` sigue con `FakePaymentPort`. |
+| T Integración | Pasó | `pnpm --filter @restaurante/api test:db`: **52**, incluidos F1, F2 y F3. `pnpm --filter @restaurante/payments test:db`: **7** (P2-1 a P2-7). Con Pagos en `localhost:50051`, P2-8 y P2-9 pasaron: el efectivo deja la orden `CLOSED` y las dos columnas iguales al recibo; si `save` falla, la fila queda `voided` y la orden sigue en `READY`. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó `restaurante-api` en `http://localhost:3001`, `restaurante-payments` en gRPC `localhost:50051` y la web. `GET /health` respondió `{"status":"ok","service":"restaurante-api"}`. Demo: plato «Plato demo paso 10» (1000 MXN, impuesto 0) → orden `9716fbee-4980-4251-875c-851216f2fd0d` (`p2-demo-1793218378195`) → cocina → total **1000** → cierre cash `CLOSED`. `GET /payment` devolvió la referencia `cash-3bc07c19-a4e6-4225-a6fc-446b0206c9c7`, entregado 1000 y cambio 0. El `payment_id` de la orden es `0e1c3fc5-06b4-40e1-bdf2-8a182a5d45e4`, el mismo de la fila `approved` en `payments`. `order_payments` no está. Un segundo cierre respondió **409** `OrderNotClosableError` y no creó otra fila. Otra orden, `e9d6578c-d54c-4bc8-b5f9-b52176b9858d` (`p2-demo-card-1793218378195`), con tarjeta `0002` respondió **402** `PaymentDeclinedError`, sigue en `READY` y no tiene fila en `payments`. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de las dos bases y del recorrido de venta. La fase no se marca cerrada en el plan general: eso es el paso 12. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja la integración en skipped. `test:db` y `PAYMENTS_GRPC_INTEGRATION=1` las corren.
+2. No se apagó `postgresql-18` para el encendido en frío. No se tocó `apps/web`.
+3. Quedan en la BD el plato «Plato demo paso 10», la orden cerrada `9716fbee-…` y la orden `e9d6578c-…` en `READY`. No son seeds.
+4. Los adaptadores simulados de la API (`cash-payment-adapter.ts`, `card-payment-adapter.ts`, `digital-gateway-fake-adapter.ts`) siguen en el paquete porque `payment.controller.spec.ts` los importa. El arranque ya no los construye.

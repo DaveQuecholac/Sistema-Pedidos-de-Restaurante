@@ -85,6 +85,20 @@
       "when": 1793213842132,
       "tag": "0011_talented_scorpion",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793216617794,
+      "tag": "0012_late_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793216920375,
+      "tag": "0013_milky_magma",
+      "breakpoints": true
     }
   ]
 }

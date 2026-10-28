@@ -1,0 +1,11 @@
+{
+  "name": "@restaurante/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "payment.proto"
+  ],
+  "exports": {
+    "./payment.proto": "./payment.proto"
+  }
+}

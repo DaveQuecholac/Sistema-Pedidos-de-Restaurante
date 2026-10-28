@@ -7,7 +7,7 @@
 **Decisión previa:** Hexagonal (Ports & Adapters) como patrón de diseño interno.  
 **Decisión de este análisis:** Monolito modular + despliegue único (un solo artefacto ejecutable).
 
-**Superado el 28 de octubre de 2026, solo en estilo de sistema y despliegue.** Gen 1 se construyó y se entregó con la decisión de abajo. El corte a microservicios está en `../microservicios/analisis.md` y el trabajo pendiente en `../microservicios/plan-de-accion.md`. Hexagonal no se reabre: pasa a vivir dentro de cada servicio. Este archivo se conserva como registro de la decisión de septiembre.
+**Superado el 28 de octubre de 2026, solo en estilo de sistema y despliegue.** Gen 1 se construyó y se entregó con la decisión de abajo. El corte a microservicios está en `../microservicios/analisis.md` y el trabajo pendiente en `../microservicios/plan-de-accion-general-corte-a-microservicios.md`. Hexagonal no se reabre: pasa a vivir dentro de cada servicio. Este archivo se conserva como registro de la decisión de septiembre.
 
 ---
 

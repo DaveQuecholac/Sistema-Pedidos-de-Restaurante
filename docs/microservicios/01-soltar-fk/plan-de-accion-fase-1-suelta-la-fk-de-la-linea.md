@@ -2,7 +2,7 @@
 
 **Fecha:** 28 de octubre de 2026  
 **Análisis de la fase:** `analisis.md` en esta carpeta.  
-**Corte:** `../analisis.md`. **Plan general:** `../plan-de-accion.md`.  
+**Corte:** `../analisis.md`. **Plan general:** `../plan-de-accion-general-corte-a-microservicios.md`.  
 **Estado:** cerrado en código el 28 de octubre de 2026. Migración `apps/api/drizzle/0011_talented_scorpion.sql`. El punto 7 de la demo, sobre la orden ya cerrada, respondió 409 `OrderNotEditableError`; quedó anotado en `docs/desarrollo/pruebas-cttm.md`.  
 **Maestro:** `.cursor/rules/dev-spec-gen1.mdc`. Esta fase es la que lo alinea con el corte (paso 11).
 
@@ -29,7 +29,7 @@ Un solo proceso y una sola base. Al cerrar, agregar una línea, pasarla por coci
 | `docs/desarrollo/dev-spec-gen1.md` | El mismo texto |
 | `docs/dev/comanda/02-persistencia-y-api/analisis.md` | Una línea de estado: la FK descrita ahí se quitó en esta fase. No se reescribe el plan histórico |
 | `docs/desarrollo/pruebas-cttm.md` | Una corrida nueva al cerrar, sin borrar las anteriores |
-| `docs/microservicios/plan-de-accion.md` | Al cerrar, la fila de la fase 1 pasa a «cerrada en código» |
+| `docs/microservicios/plan-de-accion-general-corte-a-microservicios.md` | Al cerrar, la fila de la fase 1 pasa a «cerrada en código» |
 
 ### No se tocan
 
@@ -118,7 +118,7 @@ Gen 1 sigue describiendo el proceso que corre. El corte acordado deja de estar p
 | Dónde | Queda |
 |-------|--------|
 | Fila «Sistema» | En ejecución: monolito modular, un solo despliegue. Objetivo acordado el 28 de octubre de 2026: microservicios, `docs/microservicios/analisis.md`. Cada fase espera su plan |
-| Fila «Alcance» | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
+| Fila «Alcance» | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion-general-corte-a-microservicios.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
 | La prohibición que dice «sin microservicios» o «no se cablea microservicios» | Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway |
 
 No se reescribe el resto de esos dos archivos. Las otras rules que todavía dicen «monolito» se dejan. Para quitar esta FK manda este plan. Para abrir la fase 2 manda el plan general: todavía no tiene plan específico.
@@ -222,7 +222,7 @@ Sin Postgres o sin la API levantada, la fase no se marca cerrada. No se sustituy
 9. Recorrer la demo de la sección 6.
 10. Anotar en `docs/desarrollo/pruebas-cttm.md` la corrida de esta fase, sin borrar las anteriores. Dejar dicho el nombre del `0011_*.sql` que salió de `db:generate`.
 11. Ajustar los dos maestros con el texto de la sección 4.5. Agregar en `docs/dev/comanda/02-persistencia-y-api/analisis.md` una línea al inicio: la FK `order_lines.menu_item_id` se quitó en `docs/microservicios/01-soltar-fk/` y la columna se conservó.
-12. En `docs/microservicios/plan-de-accion.md`, marcar la fase 1 como cerrada en código y dejar el siguiente paso en «escribir el plan de la fase 2 cuando se pida». Marcar este archivo como cerrado, con la fecha y el nombre de la migración.
+12. En `docs/microservicios/plan-de-accion-general-corte-a-microservicios.md`, marcar la fase 1 como cerrada en código y dejar el siguiente paso en «escribir el plan de la fase 2 cuando se pida». Marcar este archivo como cerrado, con la fecha y el nombre de la migración.
 
 Si el paso 5 o el 6 fallan, no se sigue con los tests ni con los docs.
 

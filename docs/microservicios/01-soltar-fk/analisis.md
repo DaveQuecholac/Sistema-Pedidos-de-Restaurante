@@ -1,9 +1,9 @@
 # Análisis — Fase 1 · Soltar la FK de la línea al menú
 
 **Fecha:** 28 de octubre de 2026  
-**Plan:** `plan-de-accion.md` en esta carpeta.  
-**Corte:** `../analisis.md` (secciones 2.2 y 3). **Plan general:** `../plan-de-accion.md`, fase 1.  
-**Estado:** decisiones de esta fase. Sin código.
+**Plan:** `plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md` en esta carpeta.  
+**Corte:** `../analisis.md` (secciones 2.2 y 3). **Plan general:** `../plan-de-accion-general-corte-a-microservicios.md`, fase 1.  
+**Estado:** cerrada en código el 28 de octubre de 2026. Migración `0011_talented_scorpion.sql`.
 
 ## 1. Qué se decide
 

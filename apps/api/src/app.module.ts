@@ -35,10 +35,9 @@ import { CalculateTotals } from './application/totals/calculate-totals';
 import { SetOrderDiscount } from './application/totals/set-order-discount';
 import { SetOrderTip } from './application/totals/set-order-tip';
 import {
-  CardPaymentAdapter,
-  CashPaymentAdapter,
-  DigitalGatewayFakeAdapter,
-} from './infrastructure/payment';
+  GrpcPaymentAdapter,
+  createPaymentGrpcCaller,
+} from './infrastructure/payment/grpc-payment-adapter';
 import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
 import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
@@ -64,7 +63,12 @@ export const PAYMENT_PORTS = Symbol('PAYMENT_PORTS');
 /** Composition root: health, menu, orders, and payments through driven adapters. */
 @Module({})
 export class AppModule {
-  static register(db: AppDatabase): DynamicModule {
+  static register(db: AppDatabase, paymentsGrpcUrl: string): DynamicModule {
+    const payments = createPaymentGrpcCaller(paymentsGrpcUrl);
+    const cash = new GrpcPaymentAdapter(payments, 'cash');
+    const card = new GrpcPaymentAdapter(payments, 'card');
+    const gateway = new GrpcPaymentAdapter(payments, 'digitalGateway');
+
     return {
       module: AppModule,
       controllers: [
@@ -93,7 +97,7 @@ export class AppModule {
         },
         {
           provide: ORDER_REPOSITORY,
-          useValue: new DrizzleOrderRepository(db),
+          useValue: new DrizzleOrderRepository(db, cash),
         },
         {
           provide: TABLE_REPOSITORY,
@@ -101,7 +105,7 @@ export class AppModule {
         },
         {
           provide: TABLE_SITTING_REPOSITORY,
-          useValue: new DrizzleTableSittingRepository(db),
+          useValue: new DrizzleTableSittingRepository(db, cash),
         },
         {
           provide: ListMenuItems,
@@ -227,11 +231,7 @@ export class AppModule {
         },
         {
           provide: PAYMENT_PORTS,
-          useValue: [
-            new CashPaymentAdapter(() => crypto.randomUUID()),
-            new CardPaymentAdapter(() => crypto.randomUUID()),
-            new DigitalGatewayFakeAdapter(() => crypto.randomUUID()),
-          ] satisfies PaymentPort[],
+          useValue: [cash, card, gateway] satisfies PaymentPort[],
         },
         {
           provide: CloseOrder,
