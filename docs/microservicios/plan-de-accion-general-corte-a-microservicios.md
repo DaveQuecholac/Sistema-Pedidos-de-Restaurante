@@ -3,7 +3,7 @@
 
 **Fecha:** 28 de octubre de 2026  
 **Análisis:** `analisis.md` en esta carpeta. El corte, los cuatro servicios y gRPC están ahí (secciones 3, 5 y 6).  
-**Estado:** plan general. Las fases 1, 2, 3 y 4 están cerradas en código. Falta el plan de la fase 5.  
+**Estado:** plan general. Las fases 1 a 5 están cerradas en código. El corte de planes está completo. No hay fase 6.  
 **Alcance:** orden, dependencia y el contenido obligatorio de cada plan. Este archivo no lista archivos de código ni mensajes `.proto`.
 
 Para retomar el trabajo con el contexto perdido: leer este archivo entero y después `analisis.md`. No inventar un sexto plan, no engordar este documento con el detalle de una fase y no codear una fase cuyo plan todavía no exista.
@@ -24,7 +24,7 @@ Al terminar la fase 4, el mismo flujo de Gen 1 corre partido:
 - Una línea guarda el precio capturado sin clave foránea al menú.
 - Cerrar una orden es la saga del análisis (sección 7), con la misma anulación que ya existe si el cierre no se guarda.
 
-La fase 5 añade el evento `OrderSentToKitchen`. El sistema ya es demostrable sin ella.
+La fase 5 añade el evento `OrderSentToKitchen`. Cerrada en código el 28 de octubre de 2026, migración `0016_polite_payback.sql`. El aviso no decide el total ni el cierre.
 
 ## 2. Los cinco planes que hay que escribir
 
@@ -38,9 +38,9 @@ Cada plan vive junto a un análisis corto de esa fase. El análisis de la fase f
 | 2 | `02-extraer-pagos/` | `plan-de-accion-fase-2-extrae-pagos-por-grpc.md` | Fase 1 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `0000_military_mac_gargan.sql` |
 | 3 | `03-extraer-menu/` | `plan-de-accion-fase-3-extrae-el-menu.md` | Fase 2 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0000_absurd_solo.sql` y `0014_real_infant_terrible.sql` |
 | 4 | `04-salon-y-gateway/` | `plan-de-accion-fase-4-extrae-salon-y-el-gateway.md` | Fase 3 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migraciones `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql` |
-| 5 | `05-evento-cocina/` | `plan-de-accion-fase-5-publica-el-evento-de-cocina.md` | Fase 4 cerrada en código | Se escribe al cerrar la fase 4, cuando se pida |
+| 5 | `05-evento-cocina/` | `plan-de-accion-fase-5-publica-el-evento-de-cocina.md` | Fase 4 cerrada en código | Cerrada en código el 28 de octubre de 2026. Migración `0016_polite_payback.sql` |
 
-Escribir los cinco de una vez está fuera de este plan. Las fases 1, 2, 3 y 4 están cerradas en código. El plan de la fase 5 no se escribe en el mismo turno en que se cierra la fase 4.
+Los cinco planes de fase ya están escritos y cerrados en código. El corte de planes está completo. No hay fase 6.
 
 La fase 4 es un solo plan. Si al redactarlo el gateway no cabe junto con Salón, ese plan parte el trabajo en dos pasos. Siguen siendo la fase 4. No nace una fase 6.
 
@@ -96,7 +96,7 @@ Cerrada en código. Salón responde por gRPC si una mesa existe y está activa (
 
 ### Fase 5 — Evento de apoyo
 
-Órdenes publica `OrderSentToKitchen` con outbox, después de confirmar el cambio de estado. No es gRPC y no reemplaza las llamadas de la sección 6 del análisis. La pantalla de cocina puede seguir leyendo por REST.
+Cerrada en código. Órdenes publica `OrderSentToKitchen` con outbox, en la misma transacción que el paso a `SENT_TO_KITCHEN`. Un relevo marca la fila como publicada después. No es gRPC y no decide el total ni el cierre. La pantalla de cocina sigue por REST. El plan por pasos, con las pruebas K5-1 a K5-8, está en `05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md`. Migración `0016_polite_payback.sql`.
 
 **Señal:** el evento no decide el total ni el cierre.
 
@@ -124,4 +124,4 @@ Cuando se pida implementar una fase:
 
 ## 7. Siguiente paso
 
-Cerrada la fase 4 en código el 28 de octubre de 2026. El siguiente paso es escribir el plan de la fase 5 cuando se pida. No se escribe en este turno.
+Cerrado. Las cinco fases están en código. No hay fase 6. No se escribe otro plan.

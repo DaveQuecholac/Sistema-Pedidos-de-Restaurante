@@ -27,7 +27,7 @@ import type { PaymentReceiptQuery } from '../../../application/ports/payment-rec
 import { type AppDatabase, createDatabase } from './client';
 import { DrizzleMenuRepository, type MenuDatabase } from './drizzle-menu-repository';
 import { DrizzleOrderRepository, type OrderDatabase } from './drizzle-order-repository';
-import { orderLineModifiers, orderLines, orders } from './schema/order';
+import { orderLineModifiers, orderLines, orderOutbox, orders } from './schema/order';
 
 const integrationOn = process.env.ORDER_REPOSITORY_INTEGRATION === '1';
 
@@ -1227,6 +1227,106 @@ describeIntegration('DrizzleOrderRepository', () => {
       expect(menuTables).toHaveLength(0);
     });
   });
+
+  it('writes one OrderSentToKitchen row when save reaches SENT_TO_KITCHEN (K5-4)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, _menuRepo, tx, receipts) => {
+      const withLine = await openTableOrderWithLine(ordersRepo, orderId);
+      expect(await kitchenEvents(tx, orderId)).toHaveLength(0);
+
+      await ordersRepo.save(withLine.sendToKitchen());
+      const sent = await ordersRepo.findById(orderId);
+      expect(sent?.status).toBe('SENT_TO_KITCHEN');
+
+      const afterSend = await kitchenEvents(tx, orderId);
+      expect(afterSend).toHaveLength(1);
+      expect(afterSend[0]).toMatchObject({
+        eventType: 'OrderSentToKitchen',
+        orderId,
+        status: 'SENT_TO_KITCHEN',
+        publishedAt: null,
+      });
+
+      await ordersRepo.save(sent!);
+      expect(await kitchenEvents(tx, orderId)).toHaveLength(1);
+
+      const cooking = (await ordersRepo.findById(orderId))!;
+      await ordersRepo.save(cooking.beginCooking());
+      expect((await ordersRepo.findById(orderId))?.status).toBe('IN_KITCHEN');
+      expect(await kitchenEvents(tx, orderId)).toHaveLength(1);
+
+      const inKitchen = (await ordersRepo.findById(orderId))!;
+      await ordersRepo.save(inKitchen.markReady());
+      const ready = (await ordersRepo.findById(orderId))!;
+      const total = ready.totals().total.amount;
+      const payment = cashPayment(orderId, total, total);
+      await ordersRepo.save(ready.close(payment));
+      receipts.put(orderId, payment);
+
+      expect((await ordersRepo.findById(orderId))?.status).toBe('CLOSED');
+      expect(await kitchenEvents(tx, orderId)).toHaveLength(1);
+    });
+  });
+
+  it('rejects a second OrderSentToKitchen row for the same order (K5-5)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (_ordersRepo, _menuRepo, tx) => {
+      await tx.insert(orderOutbox).values({
+        id: id(),
+        eventType: 'OrderSentToKitchen',
+        orderId,
+        status: 'SENT_TO_KITCHEN',
+        occurredAt: OPENED_AT,
+      });
+
+      await expectPostgresCode(
+        tx,
+        async () => {
+          await tx.insert(orderOutbox).values({
+            id: id(),
+            eventType: 'OrderSentToKitchen',
+            orderId,
+            status: 'SENT_TO_KITCHEN',
+            occurredAt: OPENED_AT,
+          });
+        },
+        '23505',
+      );
+
+      expect(await kitchenEvents(tx, orderId)).toHaveLength(1);
+    });
+  });
+
+  it('keeps the order OPEN when the outbox insert fails (K5-6)', async () => {
+    const orderId = id();
+
+    await inTransaction(db, async (ordersRepo, _menuRepo, tx) => {
+      const withLine = await openTableOrderWithLine(ordersRepo, orderId);
+
+      await expectPostgresCode(
+        tx,
+        async () => {
+          await tx.insert(orderOutbox).values({
+            id: id(),
+            eventType: 'OrderSentToKitchen',
+            orderId,
+            status: 'SENT_TO_KITCHEN',
+            occurredAt: OPENED_AT,
+          });
+          const current = (await ordersRepo.findById(orderId))!;
+          await ordersRepo.save(current.sendToKitchen());
+        },
+        '23505',
+      );
+
+      const found = await ordersRepo.findById(orderId);
+      expect(found?.status).toBe('OPEN');
+      expect(found?.version).toBe(withLine.version);
+      expect(await kitchenEvents(tx, orderId)).toHaveLength(0);
+    });
+  });
 });
 
 
@@ -1302,6 +1402,36 @@ function aguaDish(menuItemId: string): MenuItem {
     ingredients: [Ingredient.of({ id: `ing-azucar-${menuItemId}`, name: 'Azúcar' })],
     modifiers: [],
   });
+}
+
+async function openTableOrderWithLine(
+  ordersRepo: DrizzleOrderRepository,
+  orderId: string,
+): Promise<Order> {
+  const dish = tacosDish(id());
+  await ordersRepo.add(
+    Order.open({
+      id: orderId,
+      origin: OrderOrigin.table(`k5-${orderId.slice(0, 8)}`),
+      openedAt: OPENED_AT,
+    }),
+  );
+  const opened = (await ordersRepo.findById(orderId))!;
+  await ordersRepo.save(
+    opened.addLine(
+      LineItem.capture({
+        id: id(),
+        menuItem: dish,
+        quantity: Quantity.of(1),
+        modifierIds: [],
+      }),
+    ),
+  );
+  return (await ordersRepo.findById(orderId))!;
+}
+
+async function kitchenEvents(tx: OrderDatabase, orderId: string) {
+  return tx.select().from(orderOutbox).where(eq(orderOutbox.orderId, orderId));
 }
 
 async function seedReadyOrderL(

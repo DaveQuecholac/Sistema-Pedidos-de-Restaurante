@@ -77,7 +77,7 @@ El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro
 | Documento | Rol |
 |-----------|-----|
 | [analisis.md](./microservicios/analisis.md) | Corte a cuatro servicios, puertos, saga de cobro y datos |
-| [plan-de-accion-general-corte-a-microservicios.md](./microservicios/plan-de-accion-general-corte-a-microservicios.md) | Plan general. Las fases 1 a 4 están cerradas en código. La fase 5 sin plan |
+| [plan-de-accion-general-corte-a-microservicios.md](./microservicios/plan-de-accion-general-corte-a-microservicios.md) | Plan general. Fases 1 a 5 en código. El corte de planes está completo. No hay fase 6 |
 | [01-soltar-fk/analisis.md](./microservicios/01-soltar-fk/analisis.md) | Fase 1: quitar la FK de la línea al menú. Cerrada en código |
 | [01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md](./microservicios/01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md) | Fase 1 por pasos. Cerrada. Migración `0011_talented_scorpion.sql` |
 | [02-extraer-pagos/analisis.md](./microservicios/02-extraer-pagos/analisis.md) | Fase 2: el cargo sale a un proceso gRPC. Cerrada en código |
@@ -86,3 +86,5 @@ El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro
 | [03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md](./microservicios/03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md) | Fase 3 por pasos. Cerrada. Migraciones `0000_absurd_solo.sql` y `0014_real_infant_terrible.sql` |
 | [04-salon-y-gateway/analisis.md](./microservicios/04-salon-y-gateway/analisis.md) | Fase 4: el plano sale a su proceso y la web entra por un solo gateway. Cerrada en código |
 | [04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md](./microservicios/04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md) | Fase 4 por pasos. Cerrada. Migraciones `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql` |
+| [05-evento-cocina/analisis.md](./microservicios/05-evento-cocina/analisis.md) | Fase 5: aviso `OrderSentToKitchen` con outbox. Cerrada en código |
+| [05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md](./microservicios/05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md) | Fase 5 por pasos. Cerrada. Migración `0016_polite_payback.sql` |

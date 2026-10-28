@@ -26,7 +26,7 @@ import {
   type OrderRow,
 } from './order.mapper';
 import * as schema from './schema/menu';
-import { orderLineModifiers, orderLines, orders } from './schema/order';
+import { orderLineModifiers, orderLines, orderOutbox, orders } from './schema/order';
 
 type MenuSchema = typeof schema;
 
@@ -61,6 +61,11 @@ export class DrizzleOrderRepository implements OrderRepository {
   async save(order: Order): Promise<void> {
     const paymentColumns = await paymentColumnsForSave(this.receipts, order.id, order.payment);
     await this.db.transaction(async (tx) => {
+      const [previous] = await tx
+        .select({ status: orders.status })
+        .from(orders)
+        .where(eq(orders.id, order.id));
+
       const updated = await tx
         .update(orders)
         .set({
@@ -88,6 +93,16 @@ export class DrizzleOrderRepository implements OrderRepository {
 
       await tx.delete(orderLines).where(eq(orderLines.orderId, order.id));
       await insertLines(tx, order);
+
+      if (previous?.status !== 'SENT_TO_KITCHEN' && order.status === 'SENT_TO_KITCHEN') {
+        await tx.insert(orderOutbox).values({
+          id: crypto.randomUUID(),
+          eventType: 'OrderSentToKitchen',
+          orderId: order.id,
+          status: 'SENT_TO_KITCHEN',
+          occurredAt: new Date(),
+        });
+      }
     });
   }
 

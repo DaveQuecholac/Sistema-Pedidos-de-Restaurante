@@ -2,7 +2,7 @@
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
 **Fecha de esta corrida:** 28 de octubre de 2026.  
-**Alcance de esta corrida:** Fase 4 de microservicios — extraer el salón y poner el gateway. Migraciones `apps/salon/drizzle/0000_naive_white_queen.sql` y `apps/api/drizzle/0015_eminent_earthquake.sql`. Las corridas de la fase 1 (`0011_talented_scorpion.sql`), de la fase 2 (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `apps/payments/drizzle/0000_military_mac_gargan.sql`) y de la fase 3 (`apps/menu/drizzle/0000_absurd_solo.sql`, `apps/api/drizzle/0014_real_infant_terrible.sql`) quedan abajo y no se borran.
+**Alcance de esta corrida:** Fase 5 de microservicios — publicar el aviso `OrderSentToKitchen` con outbox. Migración `apps/api/drizzle/0016_polite_payback.sql`. Las corridas de la fase 1 (`0011_talented_scorpion.sql`), de la fase 2 (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `apps/payments/drizzle/0000_military_mac_gargan.sql`), de la fase 3 (`apps/menu/drizzle/0000_absurd_solo.sql`, `apps/api/drizzle/0014_real_infant_terrible.sql`) y de la fase 4 (`apps/salon/drizzle/0000_naive_white_queen.sql`, `apps/api/drizzle/0015_eminent_earthquake.sql`) quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -516,3 +516,37 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 5. Quedan en la base la mesa `mesa-fase4` inactiva, el plato «Plato demo fase 4» inactivo y la orden cerrada `17a0ddc2-…`. No son seeds. Los platos «Plato cruce S4 …» del spec también quedaron inactivos.
 6. Mesero, Cobro y Cocina no pueden abrir `/menu`. El alta y la baja del plato de la demo se hicieron por el gateway, en `http://localhost:3000/menu-items`. El navegador abrió el plano y el cobro.
 7. Al anotar la corrida, `analisis.md` de esta fase todavía decía que no había código y que la web de platos usaba `NEXT_PUBLIC_MENU_API_URL`. Al cerrar el plan, esa línea de estado pasó a cerrada en código, con `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql`.
+
+## Corrida — 28 de octubre de 2026, fase 5 publicar el evento de cocina
+
+**Alcance:** al pasar una orden a `SENT_TO_KITCHEN`, la misma transacción de `save` escribe `OrderSentToKitchen` en `order_outbox`, en la base de órdenes. Un relevo posterior pone `published_at`. El `POST` no lo espera. La cocina sigue por `GET /orders?status=SENT_TO_KITCHEN`. No hay broker, ni gRPC de este aviso, ni otro proceso.  
+**Plan:** `docs/microservicios/05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md`.  
+**Migración:** salió de `db:generate`.
+
+- `apps/api/drizzle/0016_polite_payback.sql`: `CREATE TABLE "order_outbox"`. Columnas `id`, `event_type`, `order_id` (sin clave foránea), `status`, `occurred_at` y `published_at` nulo. Único `(order_id, event_type)`. Checks `event_type = 'OrderSentToKitchen'` y `status = 'SENT_TO_KITCHEN'`. No toca `orders` ni `order_lines`.
+
+**Bloque de código:** 1 de 1. Unas 230 líneas de producto en la API, el SQL y el ecosystem, sin specs. No llega al corte de 1000.
+
+### Hexagonal (revisión de capas)
+
+- El dominio no conoce el outbox. `sendToKitchen` sigue igual: sin líneas es `EmptyOrderError`; una orden `CLOSED` no se envía.
+- Puertos `KitchenEventPublisher` y `KitchenEventOutbox`. `PublishPendingKitchenEvents` avisa y marca `published_at`. No cambia la orden. `SendToKitchen` no llama al relevo.
+- La fila nace dentro de la transacción de `DrizzleOrderRepository.save`, solo cuando el estado pasa a `SENT_TO_KITCHEN`. `DrizzleKitchenEventOutbox` solo lee pendientes y escribe `published_at`.
+- `LoggingKitchenEventPublisher` escribe el aviso en el log. No abre red.
+- El módulo Nest elige el publicador de log. `main.ts` arranca el intervalo con `KITCHEN_EVENT_RELAY_INTERVAL_MS` (default 5000). PM2 se lo pasa al proceso de la API. El `POST` responde al guardar.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **486** passed, **62** skipped. Typecheck de la API limpio. K5-1 y K5-2 pasan sin base. K5-3 sigue en el dominio: OR7 (`EmptyOrderError` sin líneas) y OC7 (una `CLOSED` no se envía). `pnpm --filter @restaurante/web test`: **91** passed. No se editó `apps/web`. |
+| T Integración | Pasó con hueco | Con `ORDER_REPOSITORY_INTEGRATION=1`, K5-4, K5-5 y K5-6 pasaron: la fila nace sin `published_at`, un duplicado lo rechaza la base, y si el insert falla la orden sigue en `OPEN`. El archivo completo de ese spec dejó **39** passed y **2** failed: P12 y P32, el mismo `OrderMappingError` de la fase 4 al listar órdenes `CLOSED` cuyo recibo ya no está en `payments`. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó gateway `3000`, API `3001`, Pagos `50051`, Menú `3002`, Salón `3003` y la web. Con el relevo en pausa, por el `3000`: mesa `mesa-fase5` → plato «Plato fase 5» (`26610771-8c81-4265-b129-5768f2c13373`, 1000 MXN, impuesto 0) → orden `d18e125e-93a5-4830-9fc0-5c83833a8d5f` → una línea → total **1000** → `POST /orders/:id/send-to-kitchen` respondió `SENT_TO_KITCHEN`. En `order_outbox`, una fila `OrderSentToKitchen` con `published_at` nulo. `GET /orders?status=SENT_TO_KITCHEN` la incluye. El total siguió en **1000**. Al correr el relevo, `published_at` quedó puesto, el estado siguió `SENT_TO_KITCHEN` y el log escribió `OrderSentToKitchen orderId=d18e125e-…`. Con el relevo otra vez en pausa, la orden `827475b1-12c1-4cb7-ab06-b598bf229b71` se envió con `published_at` nulo. La primera pasó por `begin-cooking`, `mark-ready` y cierre en efectivo (`7a6c318b-3329-4bb0-b629-b81852d7c9d1`, referencia `cash-e30c153b-8f07-46b7-bd97-d2fa0674470f`) y quedó `CLOSED`, con una sola fila de ese aviso. En Cocina, `https://restaurante.localhost/cocina` muestra «Mesa mesa-fase5» y «Plato fase 5» en Pendientes. La pantalla no muestra el outbox. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de la base y del recorrido por el gateway. La fase queda cerrada en el plan general el 28 de octubre de 2026. Los huecos de abajo siguen. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` de la API deja la integración en skipped (**62**). K5-4 a K5-6 piden `ORDER_REPOSITORY_INTEGRATION=1`. K5-7 y K5-8 se corrieron a mano por el gateway; no hay un spec que los lance solo.
+2. P12 y P32 siguen fallando por las órdenes `CLOSED` de la fase 4 cuyo recibo ya no está en `payments`. No se repararon.
+3. Durante K5-8 la segunda fila estaba sin publicar. Al devolver el intervalo a 5 segundos, el relevo también publicó `827475b1-…`. Quedan en la base la mesa `mesa-fase5` activa, el plato «Plato fase 5», la orden cerrada `d18e125e-…` y la orden `827475b1-…` en `SENT_TO_KITCHEN`. No son seeds.
+4. No se apagó `postgresql-18` para un encendido en frío. `apps/web` no se editó.
+5. Mesero, Cobro y Cocina no abren el alta de platos. El plato de la demo se creó por `POST http://localhost:3000/menu-items`.
+6. Al cerrar el plan, `analisis.md` de esta fase, el plan de la fase, el plan general y el índice pasaron a cerrados en código, con `0016_polite_payback.sql`.

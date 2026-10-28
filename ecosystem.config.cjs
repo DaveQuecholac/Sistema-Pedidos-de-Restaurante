@@ -55,6 +55,8 @@ module.exports = {
         MENU_GRPC_URL: process.env.MENU_GRPC_URL ?? "localhost:50052",
         SALON_GRPC_URL: process.env.SALON_GRPC_URL ?? "localhost:50053",
         ORDERS_GRPC_URL: process.env.ORDERS_GRPC_URL ?? "localhost:50054",
+        KITCHEN_EVENT_RELAY_INTERVAL_MS:
+          process.env.KITCHEN_EVENT_RELAY_INTERVAL_MS ?? "5000",
       },
     },
     {

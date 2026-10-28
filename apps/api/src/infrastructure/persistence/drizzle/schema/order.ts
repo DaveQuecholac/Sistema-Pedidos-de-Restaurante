@@ -233,3 +233,26 @@ export const tableSittings = pgTable(
     ),
   ],
 );
+
+export const orderOutbox = pgTable(
+  'order_outbox',
+  {
+    id: text('id').primaryKey(),
+    eventType: text('event_type').notNull(),
+    orderId: text('order_id').notNull(),
+    status: text('status').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (table) => [
+    unique('order_outbox_order_id_event_type').on(table.orderId, table.eventType),
+    check(
+      'order_outbox_event_type',
+      sql`${table.eventType} = 'OrderSentToKitchen'`,
+    ),
+    check(
+      'order_outbox_status',
+      sql`${table.status} = 'SENT_TO_KITCHEN'`,
+    ),
+  ],
+);

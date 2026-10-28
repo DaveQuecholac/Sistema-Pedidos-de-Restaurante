@@ -9,6 +9,7 @@ import { BeginCooking } from './application/order/begin-cooking';
 import { MarkOrderReady } from './application/order/mark-order-ready';
 import { ModifyLine } from './application/order/modify-line';
 import { OpenOrder } from './application/order/open-order';
+import { PublishPendingKitchenEvents } from './application/order/publish-pending-kitchen-events';
 import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
 import type { MenuCatalog } from './application/ports/menu-catalog';
@@ -39,6 +40,8 @@ import {
 } from './infrastructure/payment/grpc-payment-adapter';
 import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
+import { LoggingKitchenEventPublisher } from './infrastructure/order/logging-kitchen-event-publisher';
+import { DrizzleKitchenEventOutbox } from './infrastructure/persistence/drizzle/drizzle-kitchen-event-outbox';
 import { DrizzleOrderRepository } from './infrastructure/persistence/drizzle/drizzle-order-repository';
 import { DrizzleTableRepository } from './infrastructure/persistence/drizzle/drizzle-table-repository';
 import { DrizzleTableSittingRepository } from './infrastructure/persistence/drizzle/drizzle-table-sitting-repository';
@@ -186,6 +189,14 @@ export class AppModule {
           provide: SendToKitchen,
           inject: [ORDER_REPOSITORY],
           useFactory: (orders: OrderRepository) => new SendToKitchen(orders),
+        },
+        {
+          provide: PublishPendingKitchenEvents,
+          useValue: new PublishPendingKitchenEvents(
+            new DrizzleKitchenEventOutbox(db),
+            new LoggingKitchenEventPublisher(),
+            () => new Date(),
+          ),
         },
         {
           provide: BeginCooking,
