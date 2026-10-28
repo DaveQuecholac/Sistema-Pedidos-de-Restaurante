@@ -65,8 +65,8 @@ function ensurePostgres() {
   }
 }
 
-function ensureSalonTables() {
-  const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-salon-tables.mjs")], {
+function ensureDemoCatalog() {
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/seed-demo.mjs"), "--catalog"], {
     cwd: root,
     stdio: "inherit",
     env: process.env,
@@ -95,7 +95,7 @@ const command = process.argv[2] ?? "start";
 switch (command) {
   case "start":
     ensurePostgres();
-    ensureSalonTables();
+    ensureDemoCatalog();
     ensureLogsDir();
     runPm2(["start", ecosystem]);
     printUrls();
@@ -105,7 +105,7 @@ switch (command) {
     break;
   case "restart":
     ensurePostgres();
-    ensureSalonTables();
+    ensureDemoCatalog();
     ensureLogsDir();
     runPm2(["startOrRestart", ecosystem, "--update-env"]);
     printUrls();
