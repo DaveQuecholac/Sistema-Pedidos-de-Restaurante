@@ -19,6 +19,7 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 |---------|-----------|
 | [`desarrollo/`](./desarrollo/) | **Dev Spec Gen 1** — cómo se trabaja en este repo |
 | [`documentacion-inicial/`](./documentacion-inicial/) | Enunciado RF, análisis, propuesta, stack, hexagonal, plan de sprints/Trello |
+| [`entrega-microservicios/`](./entrega-microservicios/) | **Documentación de entrega** post-corte (un solo documento) |
 | [`microservicios/`](./microservicios/) | Corte a microservicios (28 oct 2026): análisis completo y plan de acción general. Supera el despliegue único de septiembre |
 | [`dev/plataforma/01-base-de-datos-y-arranque/`](./dev/plataforma/01-base-de-datos-y-arranque/) | Tarea 1 del Sprint 1: análisis y plan de base de datos y arranque |
 | [`dev/menu/01-modelo-y-operaciones/`](./dev/menu/01-modelo-y-operaciones/) | Tarea 1 de la épica Menú: análisis y plan del modelo y las operaciones |
@@ -70,7 +71,13 @@ Ejemplo: la tarea 1 en `dev/plataforma` está en `docs/dev/plataforma/01-base-de
 | [stack-tecnologico.md](./documentacion-inicial/stack-tecnologico.md) | Stack oficial |
 | [plan-sprints-trello.md](./documentacion-inicial/plan-sprints-trello.md) | Sprints + tarjetas copy-paste (Trello) |
 
-## Índice — microservicios
+## Índice — entrega (microservicios)
+
+| Documento | Rol |
+|-----------|-----|
+| [documentacion-entrega-microservicios.md](./entrega-microservicios/documentacion-entrega-microservicios.md) | **Único documento de entrega:** propuesta, arquitectura, casos de uso, flujos, secuencias, E-R, navegación, extensión y verificación |
+
+## Índice — microservicios (análisis del corte)
 
 El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro de cada servicio. El plan es general: cada fase, al implementarse, gana su propio par análisis + plan.
 
