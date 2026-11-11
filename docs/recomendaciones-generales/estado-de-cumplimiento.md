@@ -80,3 +80,19 @@ Corrida de esta alineación: pruebas de `@restaurante/gateway`, `@restaurante/me
 Cada proceso aplica sus migraciones al arrancar. Comando previsto: `pnpm docker:up`. En esta máquina ese comando no corre todavía: hay Podman y no está el plugin de Compose ni `podman-compose`.
 
 El día a día no depende de Compose. `pnpm dev` sigue levantando Postgres, Redis y los procesos con PM2.
+
+---
+
+# Qué cambia respecto a la entrega de microservicios
+
+Texto para pegar al final de [documentacion-entrega-microservicios.md](../entrega-microservicios/documentacion-entrega-microservicios.md). El corte (cuatro servicios, hexágono, gRPC, cobro y reglas de cocina) no cambia. Esto es lo que se sumó el 11 de noviembre de 2026.
+
+El gateway ya no solo enruta. Antes de reenviar a Menú, Salón u Órdenes exige `Authorization: Bearer`. `POST /auth/login` entrega el token del área (`waiter`, `cashier` o `kitchen`) y dura 2 horas. Sin token, o con uno vencido, responde 401 y no llama al servicio. Siguen públicos `/health`, `/docs` y `/openapi.json`. Pagos sigue fuera del gateway: Órdenes lo llama por gRPC.
+
+La web pide ese token al elegir Mesero, Cobro o Cocina y lo manda en cada llamada. Las pantallas son las mismas.
+
+El listado de platos usa cache-aside en Redis (clave `menu:items`, 60 segundos). Si no está, Menú lee Postgres y la guarda. Un alta, un cambio o una baja borra la clave. El precio de una comanda abierta sigue siendo el que se congeló en la línea; la caché no lo reescribe.
+
+Cada API HTTP publica Swagger en `/docs` (gateway `:3000`, Menú `:3002`, Salón `:3003`, Órdenes `:3001`). Pagos no tiene HTTP: el contrato queda en `apps/payments/openapi.yaml`.
+
+`pnpm dev` sigue siendo el arranque y ahora también enciende Redis. Hay además un `docker-compose.yml` con los servicios, Redis y una base por servicio (`pnpm docker:up`). En esta máquina ese comando aún no corre: falta el plugin de Compose.
