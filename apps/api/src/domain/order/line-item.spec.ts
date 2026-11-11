@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { Ingredient } from '../menu/ingredient';
-import { MenuItem } from '../menu/menu-item';
 import { ExclusionHasPriceError } from '../menu/menu-item.errors';
-import { Modifier } from '../menu/modifier';
 import { TaxRate } from '../menu/tax-rate';
 import { Money } from '../money/money';
 import { LineItem, LineModifier } from './line-item';
+import type { MenuItemSnapshot } from './menu-item-snapshot';
 import {
   DuplicateModifierSelectionError,
   MenuItemUnavailableError,
@@ -17,26 +15,27 @@ const QUESO_ID = 'mod-queso';
 const CILANTRO_ID = 'mod-cilantro';
 const OTHER_EXTRA_ID = 'mod-other';
 
-function tacos(): MenuItem {
-  return MenuItem.create({
+function tacos(): MenuItemSnapshot {
+  return {
     id: 'item-tacos',
     name: 'Tacos',
     price: Money.of(4500, 'MXN'),
     applicableTax: TaxRate.of(1600),
+    active: true,
     ingredients: [
-      Ingredient.of({ id: 'ing-tortilla', name: 'Tortilla' }),
-      Ingredient.of({ id: 'ing-suadero', name: 'Suadero' }),
-      Ingredient.of({ id: 'ing-cilantro', name: 'Cilantro' }),
+      { id: 'ing-tortilla', name: 'Tortilla' },
+      { id: 'ing-suadero', name: 'Suadero' },
+      { id: 'ing-cilantro', name: 'Cilantro' },
     ],
     modifiers: [
-      Modifier.extra({ id: QUESO_ID, name: 'Queso', price: Money.of(1500, 'MXN') }),
-      Modifier.exclusion({ id: CILANTRO_ID, name: 'Cilantro' }),
+      { id: QUESO_ID, name: 'Queso', kind: 'extra', price: Money.of(1500, 'MXN') },
+      { id: CILANTRO_ID, name: 'Cilantro', kind: 'exclusion', price: null },
     ],
-  });
+  };
 }
 
-function flanInactive(): MenuItem {
-  return MenuItem.restore({
+function flanInactive(): MenuItemSnapshot {
+  return {
     id: 'item-flan',
     name: 'Flan',
     price: Money.of(3500, 'MXN'),
@@ -44,18 +43,19 @@ function flanInactive(): MenuItem {
     active: false,
     ingredients: [],
     modifiers: [],
-  });
+  };
 }
 
-function otherDishWithExtra(): MenuItem {
-  return MenuItem.create({
+function otherDishWithExtra(): MenuItemSnapshot {
+  return {
     id: 'item-agua',
     name: 'Agua',
     price: Money.of(2500, 'MXN'),
     applicableTax: TaxRate.of(1600),
+    active: true,
     ingredients: [],
-    modifiers: [Modifier.extra({ id: OTHER_EXTRA_ID, name: 'Chia', price: Money.of(500, 'MXN') })],
-  });
+    modifiers: [{ id: OTHER_EXTRA_ID, name: 'Chia', kind: 'extra', price: Money.of(500, 'MXN') }],
+  };
 }
 
 describe('LineItem', () => {
@@ -174,16 +174,12 @@ describe('LineItem', () => {
       modifierIds: [QUESO_ID],
     });
 
-    const updated = dish.replace({
-      name: dish.name,
+    const updated: MenuItemSnapshot = {
+      ...dish,
       price: Money.of(5000, 'MXN'),
-      applicableTax: dish.applicableTax,
       active: false,
-      ingredients: dish.ingredients,
-      modifiers: [
-        Modifier.extra({ id: 'mod-new', name: 'Nuez', price: Money.of(1000, 'MXN') }),
-      ],
-    });
+      modifiers: [{ id: 'mod-new', name: 'Nuez', kind: 'extra', price: Money.of(1000, 'MXN') }],
+    };
 
     expect(updated.price.amount).toBe(5000);
     expect(updated.active).toBe(false);

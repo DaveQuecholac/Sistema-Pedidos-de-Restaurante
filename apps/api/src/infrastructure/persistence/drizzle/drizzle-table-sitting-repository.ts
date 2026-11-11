@@ -1,20 +1,28 @@
 import { eq } from 'drizzle-orm';
+import type { PaymentReceiptQuery } from '../../../application/ports/payment-receipt-query';
 import type { TableSittingRepository } from '../../../application/ports/table-sitting-repository';
 import {
   TableSittingAlreadyExistsError,
   TableSittingNotFoundError,
 } from '../../../application/table/in-memory-table-sitting-repository';
-import { PaymentDetails } from '../../../domain/payment/payment-details';
-import { Payment } from '../../../domain/payment/payment';
-import { Money } from '../../../domain/money/money';
 import { TableSitting, type BillingMode } from '../../../domain/table/table-sitting';
 import type { AppDatabase } from './client';
-import { toDiscount, toDiscountColumns, toPaymentRow, toTip, toTipColumns } from './order.mapper';
-import { tableSittingPayments, tableSittings } from './schema/order';
+import {
+  paymentColumnsForSave,
+  recordedPayment,
+  toDiscount,
+  toDiscountColumns,
+  toTip,
+  toTipColumns,
+} from './order.mapper';
+import { tableSittings } from './schema/order';
 import postgres from 'postgres';
 
 export class DrizzleTableSittingRepository implements TableSittingRepository {
-  constructor(private readonly db: AppDatabase) {}
+  constructor(
+    private readonly db: AppDatabase,
+    private readonly receipts: PaymentReceiptQuery,
+  ) {}
 
   async add(sitting: TableSitting): Promise<void> {
     try {
@@ -28,30 +36,14 @@ export class DrizzleTableSittingRepository implements TableSittingRepository {
   }
 
   async save(sitting: TableSitting): Promise<void> {
+    const paymentColumns = await paymentColumnsForSave(this.receipts, sitting.id, sitting.payment);
     const updated = await this.db
       .update(tableSittings)
-      .set(toRow(sitting))
+      .set({ ...toRow(sitting), ...paymentColumns })
       .where(eq(tableSittings.id, sitting.id))
       .returning({ id: tableSittings.id });
     if (updated.length === 0) {
       throw new TableSittingNotFoundError();
-    }
-
-    await this.db.delete(tableSittingPayments).where(eq(tableSittingPayments.sittingId, sitting.id));
-    if (sitting.payment !== null) {
-      const payment = toPaymentRow(sitting.id, sitting.payment);
-      await this.db.insert(tableSittingPayments).values({
-        sittingId: sitting.id,
-        paymentId: payment.paymentId,
-        method: payment.method,
-        amount: payment.amount,
-        currency: payment.currency,
-        tenderedAmount: payment.tenderedAmount,
-        cardLast4: payment.cardLast4,
-        payerReference: payment.payerReference,
-        reference: payment.reference,
-        paidAt: payment.paidAt,
-      });
     }
   }
 
@@ -71,11 +63,12 @@ export class DrizzleTableSittingRepository implements TableSittingRepository {
   }
 
   private async hydrate(row: typeof tableSittings.$inferSelect): Promise<TableSitting> {
-    const payments = await this.db
-      .select()
-      .from(tableSittingPayments)
-      .where(eq(tableSittingPayments.sittingId, row.id));
-    const paymentRow = payments[0];
+    const payment = await recordedPayment(
+      this.receipts,
+      row.id,
+      row.paymentId,
+      row.paymentReference,
+    );
     return TableSitting.restore({
       id: row.id,
       tableId: row.tableId,
@@ -83,7 +76,7 @@ export class DrizzleTableSittingRepository implements TableSittingRepository {
       billingMode: row.billingMode === 'separate' ? 'separate' : 'combined',
       discount: toDiscount(row),
       tip: toTip(row),
-      payment: paymentRow === undefined ? null : toSittingPayment(paymentRow),
+      payment,
     });
   }
 }
@@ -96,25 +89,9 @@ function toRow(sitting: TableSitting) {
     billingMode: sitting.billingMode satisfies BillingMode,
     ...toDiscountColumns(sitting.discount),
     ...toTipColumns(sitting.tip),
+    paymentId: sitting.payment === null ? null : sitting.payment.id,
+    paymentReference: sitting.payment === null ? null : sitting.payment.reference,
   };
-}
-
-function toSittingPayment(row: typeof tableSittingPayments.$inferSelect): Payment {
-  let details: PaymentDetails;
-  if (row.method === 'cash') {
-    details = PaymentDetails.cash(Money.of(row.tenderedAmount ?? row.amount, row.currency));
-  } else if (row.method === 'card') {
-    details = PaymentDetails.card(row.cardLast4);
-  } else {
-    details = PaymentDetails.digitalGateway(row.payerReference);
-  }
-  return Payment.restore({
-    id: row.paymentId,
-    amount: Money.of(row.amount, row.currency),
-    details,
-    reference: row.reference,
-    paidAt: row.paidAt,
-  });
 }
 
 function isUnique(error: unknown): boolean {

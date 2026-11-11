@@ -68,19 +68,17 @@ describe('ModifyLine', () => {
     expect(order.lines[0]?.modifiers[0]?.name).toBe('Cilantro');
   });
 
-  it('recaptures the current dish price after the menu changed (M2)', async () => {
+  it('recaptures the current dish price after the catalog changed (M2)', async () => {
     const { orders, menu } = await orderWithTacosLine();
     const current = await menu.findById(TACOS_ID);
-    await menu.save(
-      current!.replace({
-        name: current!.name,
-        price: Money.of(5000, 'MXN'),
-        applicableTax: current!.applicableTax,
-        active: true,
-        ingredients: current!.ingredients,
-        modifiers: current!.modifiers,
-      }),
-    );
+    if (current === null) {
+      throw new Error('tacos snapshot missing');
+    }
+    expect((await orders.findById('order-1'))?.lines[0]?.unitPrice.amount).toBe(4500);
+    menu.put({
+      ...current,
+      price: Money.of(5000, 'MXN'),
+    });
     const useCase = new ModifyLine(orders, menu);
 
     const order = await useCase.execute({
@@ -96,7 +94,10 @@ describe('ModifyLine', () => {
   it('rejects a deactivated dish and leaves the old line (M3)', async () => {
     const { orders, menu } = await orderWithTacosLine();
     const current = await menu.findById(TACOS_ID);
-    await menu.save(current!.deactivate());
+    if (current === null) {
+      throw new Error('tacos snapshot missing');
+    }
+    menu.put({ ...current, active: false });
     const seen = watchOrders(orders);
     const useCase = new ModifyLine(seen.orders, menu);
 

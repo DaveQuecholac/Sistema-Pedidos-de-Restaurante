@@ -19,6 +19,8 @@ Al crear documentación nueva: elegir o crear la subcarpeta que corresponda; no 
 |---------|-----------|
 | [`desarrollo/`](./desarrollo/) | **Dev Spec Gen 1** — cómo se trabaja en este repo |
 | [`documentacion-inicial/`](./documentacion-inicial/) | Enunciado RF, análisis, propuesta, stack, hexagonal, plan de sprints/Trello |
+| [`entrega-microservicios/`](./entrega-microservicios/) | **Documentación de entrega** post-corte (un solo documento) |
+| [`microservicios/`](./microservicios/) | Corte a microservicios (28 oct 2026): análisis completo y plan de acción general. Supera el despliegue único de septiembre |
 | [`dev/plataforma/01-base-de-datos-y-arranque/`](./dev/plataforma/01-base-de-datos-y-arranque/) | Tarea 1 del Sprint 1: análisis y plan de base de datos y arranque |
 | [`dev/menu/01-modelo-y-operaciones/`](./dev/menu/01-modelo-y-operaciones/) | Tarea 1 de la épica Menú: análisis y plan del modelo y las operaciones |
 | [`dev/menu/02-persistencia-y-api/`](./dev/menu/02-persistencia-y-api/) | Tarea 2 de la épica Menú: análisis y plan de persistencia y API |
@@ -64,7 +66,32 @@ Ejemplo: la tarea 1 en `dev/plataforma` está en `docs/dev/plataforma/01-base-de
 | [propuesta-inicial.md](./documentacion-inicial/propuesta-inicial.md) | Propuesta consolidada |
 | [analisis-arquitectura.md](./documentacion-inicial/analisis-arquitectura.md) | Decisión Hexagonal |
 | [arquitectura-hexagonal.md](./documentacion-inicial/arquitectura-hexagonal.md) | Guía canónica Ports & Adapters |
-| [analisis-estilo-sistema-despliegue.md](./documentacion-inicial/analisis-estilo-sistema-despliegue.md) | Monolito modular + despliegue único |
+| [analisis-estilo-sistema-despliegue.md](./documentacion-inicial/analisis-estilo-sistema-despliegue.md) | Gen 1: monolito modular + despliegue único (superado en el despliegue por el corte de microservicios) |
 | [analisis-patrones-diseno.md](./documentacion-inicial/analisis-patrones-diseno.md) | Patrones mínimos |
 | [stack-tecnologico.md](./documentacion-inicial/stack-tecnologico.md) | Stack oficial |
 | [plan-sprints-trello.md](./documentacion-inicial/plan-sprints-trello.md) | Sprints + tarjetas copy-paste (Trello) |
+
+## Índice — entrega (microservicios)
+
+| Documento | Rol |
+|-----------|-----|
+| [documentacion-entrega-microservicios.md](./entrega-microservicios/documentacion-entrega-microservicios.md) | **Único documento de entrega:** propuesta, arquitectura, casos de uso, flujos, secuencias, E-R, navegación, extensión y verificación |
+
+## Índice — microservicios (análisis del corte)
+
+El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro de cada servicio. El plan es general: cada fase, al implementarse, gana su propio par análisis + plan.
+
+| Documento | Rol |
+|-----------|-----|
+| [analisis.md](./microservicios/analisis.md) | Corte a cuatro servicios, puertos, saga de cobro y datos |
+| [plan-de-accion-general-corte-a-microservicios.md](./microservicios/plan-de-accion-general-corte-a-microservicios.md) | Plan general. Fases 1 a 5 en código. El corte de planes está completo. No hay fase 6 |
+| [01-soltar-fk/analisis.md](./microservicios/01-soltar-fk/analisis.md) | Fase 1: quitar la FK de la línea al menú. Cerrada en código |
+| [01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md](./microservicios/01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md) | Fase 1 por pasos. Cerrada. Migración `0011_talented_scorpion.sql` |
+| [02-extraer-pagos/analisis.md](./microservicios/02-extraer-pagos/analisis.md) | Fase 2: el cargo sale a un proceso gRPC. Cerrada en código |
+| [02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md](./microservicios/02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md) | Fase 2 por pasos. Cerrada. Migraciones `0012_late_tarantula.sql`, `0013_milky_magma.sql` y `0000_military_mac_gargan.sql` |
+| [03-extraer-menu/analisis.md](./microservicios/03-extraer-menu/analisis.md) | Fase 3: el catálogo sale a su proceso. Cerrada en código |
+| [03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md](./microservicios/03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md) | Fase 3 por pasos. Cerrada. Migraciones `0000_absurd_solo.sql` y `0014_real_infant_terrible.sql` |
+| [04-salon-y-gateway/analisis.md](./microservicios/04-salon-y-gateway/analisis.md) | Fase 4: el plano sale a su proceso y la web entra por un solo gateway. Cerrada en código |
+| [04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md](./microservicios/04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md) | Fase 4 por pasos. Cerrada. Migraciones `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql` |
+| [05-evento-cocina/analisis.md](./microservicios/05-evento-cocina/analisis.md) | Fase 5: aviso `OrderSentToKitchen` con outbox. Cerrada en código |
+| [05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md](./microservicios/05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md) | Fase 5 por pasos. Cerrada. Migración `0016_polite_payback.sql` |

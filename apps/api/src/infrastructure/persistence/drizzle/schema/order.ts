@@ -9,7 +9,6 @@ import {
   timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
-import { menuItems } from './menu';
 
 export const orders = pgTable(
   'orders',
@@ -30,6 +29,8 @@ export const orders = pgTable(
     tipCurrency: text('tip_currency'),
     sittingId: text('sitting_id'),
     tableSettlementId: text('table_settlement_id'),
+    paymentId: text('payment_id'),
+    paymentReference: text('payment_reference'),
   },
   (table) => [
     check(
@@ -115,6 +116,23 @@ export const orders = pgTable(
       'orders_table_settlement_when_closed',
       sql`${table.tableSettlementId} is null or ${table.status} = 'CLOSED'`,
     ),
+    check(
+      'orders_payment_id_and_reference',
+      sql`(
+        (${table.paymentId} is null and ${table.paymentReference} is null)
+        or
+        (
+          ${table.paymentId} is not null
+          and length(btrim(${table.paymentId})) > 0
+          and ${table.paymentReference} is not null
+          and length(btrim(${table.paymentReference})) > 0
+        )
+      )`,
+    ),
+    check(
+      'orders_no_payment_when_settled',
+      sql`${table.tableSettlementId} is null or (${table.paymentId} is null and ${table.paymentReference} is null)`,
+    ),
     unique('orders_external_order_id_unique').on(table.externalOrderId),
     index('orders_status_opened_at_idx').on(table.status, table.openedAt),
   ],
@@ -127,9 +145,7 @@ export const orderLines = pgTable(
     orderId: text('order_id')
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
-    menuItemId: text('menu_item_id')
-      .notNull()
-      .references(() => menuItems.id, { onDelete: 'restrict' }),
+    menuItemId: text('menu_item_id').notNull(),
     name: text('name').notNull(),
     unitPriceAmount: integer('unit_price_amount').notNull(),
     unitPriceCurrency: text('unit_price_currency').notNull(),
@@ -180,66 +196,6 @@ export const orderLineModifiers = pgTable(
   ],
 );
 
-/** One payment per order. Change is derived in the domain and is not stored. */
-export const orderPayments = pgTable(
-  'order_payments',
-  {
-    orderId: text('order_id')
-      .primaryKey()
-      .references(() => orders.id, { onDelete: 'cascade' }),
-    paymentId: text('payment_id').notNull(),
-    method: text('method').notNull(),
-    amount: integer('amount').notNull(),
-    currency: text('currency').notNull(),
-    tenderedAmount: integer('tendered_amount'),
-    cardLast4: text('card_last4'),
-    payerReference: text('payer_reference'),
-    reference: text('reference').notNull(),
-    paidAt: timestamp('paid_at', { withTimezone: true }).notNull(),
-  },
-  (table) => [
-    unique('order_payments_payment_id_unique').on(table.paymentId),
-    check(
-      'order_payments_method',
-      sql`${table.method} in ('cash', 'card', 'digitalGateway')`,
-    ),
-    check('order_payments_amount_gte_0', sql`${table.amount} >= 0`),
-    check('order_payments_currency_len_3', sql`length(${table.currency}) = 3`),
-    check(
-      'order_payments_reference_len',
-      sql`length(btrim(${table.reference})) between 1 and 64`,
-    ),
-    check(
-      'order_payments_shape',
-      sql`(
-        (
-          ${table.method} = 'cash'
-          and ${table.tenderedAmount} is not null
-          and ${table.tenderedAmount} >= ${table.amount}
-          and ${table.cardLast4} is null
-          and ${table.payerReference} is null
-        )
-        or
-        (
-          ${table.method} = 'card'
-          and ${table.cardLast4} is not null
-          and ${table.cardLast4} ~ '^[0-9]{4}$'
-          and ${table.tenderedAmount} is null
-          and ${table.payerReference} is null
-        )
-        or
-        (
-          ${table.method} = 'digitalGateway'
-          and ${table.payerReference} is not null
-          and length(btrim(${table.payerReference})) between 3 and 64
-          and ${table.tenderedAmount} is null
-          and ${table.cardLast4} is null
-        )
-      )`,
-    ),
-  ],
-);
-
 export const tableSittings = pgTable(
   'table_sittings',
   {
@@ -255,35 +211,48 @@ export const tableSittings = pgTable(
     tipBasisPoints: integer('tip_basis_points'),
     tipAmount: integer('tip_amount'),
     tipCurrency: text('tip_currency'),
+    paymentId: text('payment_id'),
+    paymentReference: text('payment_reference'),
   },
   (table) => [
     check('table_sittings_status', sql`${table.status} in ('OPEN', 'CLOSED')`),
     check('table_sittings_billing_mode', sql`${table.billingMode} in ('combined', 'separate')`),
     check('table_sittings_table_id_len', sql`length(btrim(${table.tableId})) between 1 and 40`),
+    check(
+      'table_sittings_payment_id_and_reference',
+      sql`(
+        (${table.paymentId} is null and ${table.paymentReference} is null)
+        or
+        (
+          ${table.paymentId} is not null
+          and length(btrim(${table.paymentId})) > 0
+          and ${table.paymentReference} is not null
+          and length(btrim(${table.paymentReference})) > 0
+        )
+      )`,
+    ),
   ],
 );
 
-export const tableSittingPayments = pgTable(
-  'table_sitting_payments',
+export const orderOutbox = pgTable(
+  'order_outbox',
   {
-    sittingId: text('sitting_id')
-      .primaryKey()
-      .references(() => tableSittings.id, { onDelete: 'cascade' }),
-    paymentId: text('payment_id').notNull(),
-    method: text('method').notNull(),
-    amount: integer('amount').notNull(),
-    currency: text('currency').notNull(),
-    tenderedAmount: integer('tendered_amount'),
-    cardLast4: text('card_last4'),
-    payerReference: text('payer_reference'),
-    reference: text('reference').notNull(),
-    paidAt: timestamp('paid_at', { withTimezone: true }).notNull(),
+    id: text('id').primaryKey(),
+    eventType: text('event_type').notNull(),
+    orderId: text('order_id').notNull(),
+    status: text('status').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
   },
   (table) => [
-    unique('table_sitting_payments_payment_id_unique').on(table.paymentId),
+    unique('order_outbox_order_id_event_type').on(table.orderId, table.eventType),
     check(
-      'table_sitting_payments_method',
-      sql`${table.method} in ('cash', 'card', 'digitalGateway')`,
+      'order_outbox_event_type',
+      sql`${table.eventType} = 'OrderSentToKitchen'`,
+    ),
+    check(
+      'order_outbox_status',
+      sql`${table.status} = 'SENT_TO_KITCHEN'`,
     ),
   ],
 );

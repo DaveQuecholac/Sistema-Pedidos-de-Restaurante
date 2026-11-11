@@ -8,10 +8,10 @@ import { Table } from '../../../domain/table/table';
 import { type AppDatabase, createDatabase } from './client';
 import { DrizzleTableRepository, type TableDatabase } from './drizzle-table-repository';
 
-const integrationOn = process.env.TABLE_REPOSITORY_INTEGRATION === '1';
+const integrationOn = process.env.SALON_REPOSITORY_INTEGRATION === '1';
 
-if (integrationOn && !process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is required');
+if (integrationOn && !process.env.SALON_DATABASE_URL) {
+  throw new Error('SALON_DATABASE_URL is required');
 }
 
 const describeIntegration = integrationOn ? describe : describe.skip;
@@ -21,9 +21,9 @@ describeIntegration('DrizzleTableRepository', () => {
   let db: AppDatabase;
 
   beforeAll(() => {
-    const url = process.env.DATABASE_URL;
+    const url = process.env.SALON_DATABASE_URL;
     if (!url) {
-      throw new Error('DATABASE_URL is required');
+      throw new Error('SALON_DATABASE_URL is required');
     }
 
     const opened = createDatabase(url);
@@ -39,9 +39,7 @@ describeIntegration('DrizzleTableRepository', () => {
     const tableId = id();
 
     await inTransaction(db, async (repo) => {
-      await repo.add(
-        Table.create({ id: tableId, label: `Mesa ${tableId}`, zone: 'Salón' }),
-      );
+      await repo.add(Table.create({ id: tableId, label: `Mesa ${tableId}`, zone: 'Salón' }));
 
       const found = await repo.findById(tableId);
 
@@ -81,9 +79,9 @@ describeIntegration('DrizzleTableRepository', () => {
 
   it('rejects save of a missing id (T4)', async () => {
     await inTransaction(db, async (repo) => {
-      await expect(
-        repo.save(Table.create({ id: id(), label: 'x', zone: 'Salón' })),
-      ).rejects.toBeInstanceOf(TableNotFoundError);
+      await expect(repo.save(Table.create({ id: id(), label: 'x', zone: 'Salón' }))).rejects.toBeInstanceOf(
+        TableNotFoundError,
+      );
     });
   });
 
@@ -92,9 +90,7 @@ describeIntegration('DrizzleTableRepository', () => {
 
     await inTransaction(db, async (repo) => {
       await repo.add(Table.create({ id: tableId, label: tableId, zone: 'Salón' }));
-      await repo.save(
-        Table.create({ id: tableId, label: 'Ventana', zone: 'Terraza' }).deactivate(),
-      );
+      await repo.save(Table.create({ id: tableId, label: 'Ventana', zone: 'Terraza' }).deactivate());
 
       const found = await repo.findById(tableId);
       expect(found?.label).toBe('Ventana');
@@ -109,9 +105,7 @@ describeIntegration('DrizzleTableRepository', () => {
 
     await inTransaction(db, async (repo) => {
       await repo.add(Table.create({ id: second, label: second, zone: 'Salón' }));
-      await repo.add(
-        Table.restore({ id: first, label: first, zone: 'Patio', active: false }),
-      );
+      await repo.add(Table.restore({ id: first, label: first, zone: 'Patio', active: false }));
 
       const listed = await repo.list();
       const ours = listed.filter((table) => table.id === first || table.id === second);

@@ -21,10 +21,10 @@ Este archivo es la especificación larga del repositorio (layout, scripts, capas
 | Nivel | Decisión |
 |-------|----------|
 | Diseño interno | **Arquitectura Hexagonal** (puertos y adaptadores); núcleo estilo Clean |
-| Sistema | **Monolito modular**, un solo despliegue |
+| Sistema | En ejecución: monolito modular, un solo despliegue. Objetivo acordado el 28 de octubre de 2026: microservicios, `docs/microservicios/analisis.md`. Cada fase espera su plan |
 | Stack | TypeScript, NestJS, PostgreSQL + Drizzle, Zod, pnpm, Next.js + React |
 | Cobros MVP | Adaptadores **simulados** detrás de `PaymentPort` |
-| Alcance | RF1–RF5; sin microservicios, auth avanzada ni pasarelas reales |
+| Alcance | RF1–RF5. El corte a microservicios sigue `docs/microservicios/plan-de-accion-general-corte-a-microservicios.md`, una fase por vez. Sin auth avanzada ni pasarelas reales |
 
 ---
 
@@ -33,8 +33,9 @@ Este archivo es la especificación larga del repositorio (layout, scripts, capas
 ```text
 Restaurante/
   apps/
-    api/     # NestJS — hexágono + adaptadores HTTP/BD/pago
-    web/     # Next.js — adaptador driving (UI)
+    api/       # NestJS — hexágono + HTTP. El cobro sale por gRPC
+    payments/  # NestJS — cobro gRPC, sin HTTP
+    web/       # Next.js — adaptador driving (UI)
   docs/
     README.md
     documentacion-inicial/   # RF, propuesta, análisis, hexagonal, sprints
@@ -86,7 +87,7 @@ Checklist antes de dar por hecho un cambio de capas: ver `arquitectura-hexagonal
 | Next/React | Adaptador driving; **muestra** lo que devolvió el núcleo |
 | Money / Strategies | Cálculo y cobro en dominio/aplicación, no en la UI |
 
-**Prohibido sin acuerdo:** tRPC/GraphQL como API principal, design systems pesados, microservicios.
+**Prohibido sin acuerdo:** tRPC/GraphQL como API principal, design systems pesados. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway.
 
 **Config / env:** `process.env` solo en composition root o adaptadores de infra. Domain y use cases reciben dependencias por constructor (puertos / options), no leen env.
 
@@ -94,14 +95,14 @@ Checklist antes de dar por hecho un cambio de capas: ver `arquitectura-hexagonal
 
 ## 5. Desarrollo local (PM2)
 
-Gestión unificada de **api** + **web** desde la **raíz** del repo.
+Gestión unificada de **api** + **pagos** + **web** desde la **raíz** del repo.
 
 | Comando | Efecto |
 |---------|--------|
 | `pnpm install` | Dependencias del workspace |
-| **`pnpm dev`** | Enciende el servicio systemd de Postgres si está apagado, luego arranca PM2 (api + web) |
-| **`pnpm dev:stop`** | Detiene api + web. No apaga Postgres |
-| **`pnpm dev:restart`** | Enciende Postgres si está apagado y reinicia api + web |
+| **`pnpm dev`** | Enciende el servicio systemd de Postgres si está apagado, luego arranca PM2 (api + pagos + web) |
+| **`pnpm dev:stop`** | Detiene api, pagos y web. No apaga Postgres |
+| **`pnpm dev:restart`** | Enciende Postgres si está apagado y reinicia api + pagos + web |
 | **`pnpm dev:status`** | Lista procesos PM2 |
 | **`pnpm dev:logs`** | Últimas líneas de logs |
 | `pnpm dev:plain` | Dev **sin** PM2 (Nest/Next en paralelo en foreground) |
@@ -110,6 +111,7 @@ Gestión unificada de **api** + **web** desde la **raíz** del repo.
 | App PM2 | Puerto | Logs |
 |---------|--------|------|
 | `restaurante-api` | http://localhost:3001 | `logs/pm2/api-*.log` |
+| `restaurante-payments` | grpc://localhost:50051 | `logs/pm2/payments-*.log` |
 | `restaurante-web` | https://restaurante.localhost | `logs/pm2/web-*.log` |
 
 Implementación: `ecosystem.config.cjs` + `scripts/pm2-root.mjs`.
@@ -180,7 +182,7 @@ Cada sprint = slice vertical **demoable** (dominio → API → UI). Plan y tarje
 
 ## 10. Fuera de Gen 1 / fuera de MVP
 
-No inventar ni cablear sin acuerdo: delivery de terceros, pasarelas reales, microservicios, auth avanzada, app móvil, Docusaurus/Storybook como parte del workspace, paquetes `lib/*` de dominio compartido prematuros.
+No inventar ni cablear sin acuerdo: delivery de terceros, pasarelas reales, auth avanzada, app móvil, Docusaurus/Storybook como parte del workspace, paquetes `lib/*` de dominio compartido prematuros. Microservicios solo dentro de `docs/microservicios/` y de la fase cuyo plan ya esté abierto. Esta fase no crea procesos, gRPC ni gateway.
 
 ---
 
@@ -208,7 +210,7 @@ Las demás rules en `.cursor/rules/` aplican el mismo contrato por tema o por gl
 
 ```bash
 pnpm install
-pnpm dev              # PM2: api + web
+pnpm dev              # PM2: api + pagos + web
 pnpm dev:restart      # tras cambios UI / proceso stale
 pnpm dev:stop
 pnpm dev:status

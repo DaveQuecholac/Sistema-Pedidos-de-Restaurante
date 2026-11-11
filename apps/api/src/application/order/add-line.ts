@@ -4,7 +4,7 @@ import { OrderNotEditableError } from '../../domain/order/order.errors';
 import { orderStatus } from '../../domain/order/order-status';
 import { Quantity } from '../../domain/order/quantity';
 import { MenuItemNotFoundError } from '../menu/menu-item-repository.errors';
-import type { MenuRepository } from '../ports/menu-repository';
+import type { MenuCatalog } from '../ports/menu-catalog';
 import type { OrderRepository } from '../ports/order-repository';
 import { OrderNotFoundError } from './order-repository.errors';
 
@@ -18,7 +18,7 @@ export type AddLineCommand = {
 export class AddLine {
   constructor(
     private readonly orders: OrderRepository,
-    private readonly menu: MenuRepository,
+    private readonly menu: MenuCatalog,
     private readonly generateId: () => string,
   ) {}
 

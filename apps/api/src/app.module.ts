@@ -1,9 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { CheckDatabaseConnection } from './application/database/check-database-connection';
-import { CreateMenuItem } from './application/menu/create-menu-item';
-import { DeactivateMenuItem } from './application/menu/deactivate-menu-item';
-import { ListMenuItems } from './application/menu/list-menu-items';
-import { UpdateMenuItem } from './application/menu/update-menu-item';
 import { AddLine } from './application/order/add-line';
 import { CancelLine } from './application/order/cancel-line';
 import { CancelOrder } from './application/order/cancel-order';
@@ -13,10 +9,12 @@ import { BeginCooking } from './application/order/begin-cooking';
 import { MarkOrderReady } from './application/order/mark-order-ready';
 import { ModifyLine } from './application/order/modify-line';
 import { OpenOrder } from './application/order/open-order';
+import { PublishPendingKitchenEvents } from './application/order/publish-pending-kitchen-events';
 import { SendToKitchen } from './application/order/send-to-kitchen';
 import { DatabaseHealthPort } from './application/ports/database-health.port';
-import { MenuRepository } from './application/ports/menu-repository';
+import type { MenuCatalog } from './application/ports/menu-catalog';
 import { OrderRepository } from './application/ports/order-repository';
+import type { TableCatalog } from './application/ports/table-catalog';
 import type { TableRepository } from './application/ports/table-repository';
 import type { TableSittingRepository } from './application/ports/table-sitting-repository';
 import { CloseTableAccount } from './application/table/close-table-account';
@@ -34,20 +32,21 @@ import { UpdateTable } from './application/table/update-table';
 import { CalculateTotals } from './application/totals/calculate-totals';
 import { SetOrderDiscount } from './application/totals/set-order-discount';
 import { SetOrderTip } from './application/totals/set-order-tip';
+import { GrpcMenuCatalog, createMenuGrpcCaller } from './infrastructure/menu/grpc-menu-catalog';
+import { GrpcTableCatalog, createTableGrpcCaller } from './infrastructure/table/grpc-table-catalog';
 import {
-  CardPaymentAdapter,
-  CashPaymentAdapter,
-  DigitalGatewayFakeAdapter,
-} from './infrastructure/payment';
+  GrpcPaymentAdapter,
+  createPaymentGrpcCaller,
+} from './infrastructure/payment/grpc-payment-adapter';
 import { AppDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
-import { DrizzleMenuRepository } from './infrastructure/persistence/drizzle/drizzle-menu-repository';
+import { LoggingKitchenEventPublisher } from './infrastructure/order/logging-kitchen-event-publisher';
+import { DrizzleKitchenEventOutbox } from './infrastructure/persistence/drizzle/drizzle-kitchen-event-outbox';
 import { DrizzleOrderRepository } from './infrastructure/persistence/drizzle/drizzle-order-repository';
 import { DrizzleTableRepository } from './infrastructure/persistence/drizzle/drizzle-table-repository';
 import { DrizzleTableSittingRepository } from './infrastructure/persistence/drizzle/drizzle-table-sitting-repository';
 import { DatabaseHealthController } from './interface/http/controllers/database-health.controller';
 import { HealthController } from './interface/http/controllers/health.controller';
-import { MenuItemController } from './interface/http/menu/menu-item.controller';
 import { OrderController } from './interface/http/order/order.controller';
 import { PaymentController } from './interface/http/payment/payment.controller';
 import { TableAccountController } from './interface/http/table/table-account.controller';
@@ -55,22 +54,34 @@ import { TableController } from './interface/http/table/table.controller';
 import { TotalsController } from './interface/http/totals/totals.controller';
 
 export const DATABASE_HEALTH_PORT = Symbol('DATABASE_HEALTH_PORT');
-export const MENU_REPOSITORY = Symbol('MENU_REPOSITORY');
+export const MENU_CATALOG = Symbol('MENU_CATALOG');
 export const ORDER_REPOSITORY = Symbol('ORDER_REPOSITORY');
 export const TABLE_REPOSITORY = Symbol('TABLE_REPOSITORY');
+export const TABLE_CATALOG = Symbol('TABLE_CATALOG');
 export const TABLE_SITTING_REPOSITORY = Symbol('TABLE_SITTING_REPOSITORY');
 export const PAYMENT_PORTS = Symbol('PAYMENT_PORTS');
 
-/** Composition root: health, menu, orders, and payments through driven adapters. */
+/** Composition root: health, orders, catalog, and payments through driven adapters. */
 @Module({})
 export class AppModule {
-  static register(db: AppDatabase): DynamicModule {
+  static register(
+    db: AppDatabase,
+    paymentsGrpcUrl: string,
+    menuGrpcUrl: string,
+    salonGrpcUrl: string,
+  ): DynamicModule {
+    const payments = createPaymentGrpcCaller(paymentsGrpcUrl);
+    const catalog = new GrpcMenuCatalog(createMenuGrpcCaller(menuGrpcUrl));
+    const tablesCatalog = new GrpcTableCatalog(createTableGrpcCaller(salonGrpcUrl));
+    const cash = new GrpcPaymentAdapter(payments, 'cash');
+    const card = new GrpcPaymentAdapter(payments, 'card');
+    const gateway = new GrpcPaymentAdapter(payments, 'digitalGateway');
+
     return {
       module: AppModule,
       controllers: [
         HealthController,
         DatabaseHealthController,
-        MenuItemController,
         TableController,
         TableAccountController,
         OrderController,
@@ -88,40 +99,24 @@ export class AppModule {
           useFactory: (database: DatabaseHealthPort) => new CheckDatabaseConnection(database),
         },
         {
-          provide: MENU_REPOSITORY,
-          useValue: new DrizzleMenuRepository(db),
+          provide: MENU_CATALOG,
+          useValue: catalog,
         },
         {
           provide: ORDER_REPOSITORY,
-          useValue: new DrizzleOrderRepository(db),
+          useValue: new DrizzleOrderRepository(db, cash),
         },
         {
           provide: TABLE_REPOSITORY,
           useValue: new DrizzleTableRepository(db),
         },
         {
+          provide: TABLE_CATALOG,
+          useValue: tablesCatalog,
+        },
+        {
           provide: TABLE_SITTING_REPOSITORY,
-          useValue: new DrizzleTableSittingRepository(db),
-        },
-        {
-          provide: ListMenuItems,
-          inject: [MENU_REPOSITORY],
-          useFactory: (menu: MenuRepository) => new ListMenuItems(menu),
-        },
-        {
-          provide: DeactivateMenuItem,
-          inject: [MENU_REPOSITORY],
-          useFactory: (menu: MenuRepository) => new DeactivateMenuItem(menu),
-        },
-        {
-          provide: CreateMenuItem,
-          inject: [MENU_REPOSITORY],
-          useFactory: (menu: MenuRepository) => new CreateMenuItem(menu, () => crypto.randomUUID()),
-        },
-        {
-          provide: UpdateMenuItem,
-          inject: [MENU_REPOSITORY],
-          useFactory: (menu: MenuRepository) => new UpdateMenuItem(menu, () => crypto.randomUUID()),
+          useValue: new DrizzleTableSittingRepository(db, cash),
         },
         {
           provide: ListTables,
@@ -156,10 +151,10 @@ export class AppModule {
         },
         {
           provide: OpenOrder,
-          inject: [ORDER_REPOSITORY, TABLE_REPOSITORY, TABLE_SITTING_REPOSITORY],
+          inject: [ORDER_REPOSITORY, TABLE_CATALOG, TABLE_SITTING_REPOSITORY],
           useFactory: (
             orders: OrderRepository,
-            tables: TableRepository,
+            tables: TableCatalog,
             sittings: TableSittingRepository,
           ) => new OpenOrder(orders, tables, sittings, () => crypto.randomUUID(), () => new Date()),
         },
@@ -175,14 +170,14 @@ export class AppModule {
         },
         {
           provide: AddLine,
-          inject: [ORDER_REPOSITORY, MENU_REPOSITORY],
-          useFactory: (orders: OrderRepository, menu: MenuRepository) =>
+          inject: [ORDER_REPOSITORY, MENU_CATALOG],
+          useFactory: (orders: OrderRepository, menu: MenuCatalog) =>
             new AddLine(orders, menu, () => crypto.randomUUID()),
         },
         {
           provide: ModifyLine,
-          inject: [ORDER_REPOSITORY, MENU_REPOSITORY],
-          useFactory: (orders: OrderRepository, menu: MenuRepository) =>
+          inject: [ORDER_REPOSITORY, MENU_CATALOG],
+          useFactory: (orders: OrderRepository, menu: MenuCatalog) =>
             new ModifyLine(orders, menu),
         },
         {
@@ -194,6 +189,14 @@ export class AppModule {
           provide: SendToKitchen,
           inject: [ORDER_REPOSITORY],
           useFactory: (orders: OrderRepository) => new SendToKitchen(orders),
+        },
+        {
+          provide: PublishPendingKitchenEvents,
+          useValue: new PublishPendingKitchenEvents(
+            new DrizzleKitchenEventOutbox(db),
+            new LoggingKitchenEventPublisher(),
+            () => new Date(),
+          ),
         },
         {
           provide: BeginCooking,
@@ -227,11 +230,7 @@ export class AppModule {
         },
         {
           provide: PAYMENT_PORTS,
-          useValue: [
-            new CashPaymentAdapter(() => crypto.randomUUID()),
-            new CardPaymentAdapter(() => crypto.randomUUID()),
-            new DigitalGatewayFakeAdapter(() => crypto.randomUUID()),
-          ] satisfies PaymentPort[],
+          useValue: [cash, card, gateway] satisfies PaymentPort[],
         },
         {
           provide: CloseOrder,

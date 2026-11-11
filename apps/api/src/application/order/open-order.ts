@@ -1,7 +1,7 @@
 import { Order } from '../../domain/order/order';
 import { OrderOrigin } from '../../domain/order/order-origin';
 import type { OrderRepository } from '../ports/order-repository';
-import type { TableRepository } from '../ports/table-repository';
+import type { TableCatalog } from '../ports/table-catalog';
 import type { TableSittingRepository } from '../ports/table-sitting-repository';
 import { InMemoryTableSittingRepository } from '../table/in-memory-table-sitting-repository';
 import { TableInactiveError, TableNotFoundError } from '../table/table-repository.errors';
@@ -20,7 +20,7 @@ export class OpenOrder {
 
   constructor(
     private readonly orders: OrderRepository,
-    private readonly tables: TableRepository,
+    private readonly catalog: TableCatalog,
     sittingsOrGenerateId: TableSittingRepository | (() => string),
     generateIdOrNow: (() => string) | (() => Date),
     now?: () => Date,
@@ -43,7 +43,7 @@ export class OpenOrder {
     let sittingId: string | null = null;
     const orderId = this.generateId();
     if (origin.tableId !== null) {
-      const table = await this.tables.findById(origin.tableId);
+      const table = await this.catalog.findById(origin.tableId);
       if (table === null) {
         throw new TableNotFoundError();
       }

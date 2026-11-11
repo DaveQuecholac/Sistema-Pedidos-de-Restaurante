@@ -8,7 +8,9 @@ import {
 import { LineItem } from '../../domain/order/line-item';
 import { Quantity } from '../../domain/order/quantity';
 import { Table } from '../../domain/table/table';
+import type { TableCatalog, TableSnapshot } from '../ports/table-catalog';
 import { InMemoryTableRepository } from '../table/in-memory-table-repository';
+import { InMemoryTableSittingRepository } from '../table/in-memory-table-sitting-repository';
 import { salonTables } from '../table/salon-tables';
 import {
   TableInactiveError,
@@ -217,4 +219,66 @@ describe('OpenOrder', () => {
     expect(order.id).toBe('order-new');
     expect(seen.calls.add).toBe(1);
   });
+
+  it('rejects a missing table, an inactive table, opens an active one with a sitting, and skips the catalog for an external id (S4-6)', async () => {
+    const missing = scriptedCatalog(null);
+    const missingOrders = watchOrders(new InMemoryOrderRepository());
+    const missingSittings = new InMemoryTableSittingRepository();
+    await expect(
+      new OpenOrder(missingOrders.orders, missing, missingSittings, idsOf('order-missing'), () => FIXED_NOW).execute({
+        tableId: '999',
+      }),
+    ).rejects.toBeInstanceOf(TableNotFoundError);
+    expect(missingOrders.calls.add).toBe(0);
+    expect(await missingSittings.findOpenByTableId('999')).toBeNull();
+
+    const inactive = scriptedCatalog({ id: '5', label: '5', zone: 'Salón', active: false });
+    const inactiveOrders = watchOrders(new InMemoryOrderRepository());
+    const inactiveSittings = new InMemoryTableSittingRepository();
+    await expect(
+      new OpenOrder(
+        inactiveOrders.orders,
+        inactive,
+        inactiveSittings,
+        idsOf('order-inactive'),
+        () => FIXED_NOW,
+      ).execute({ tableId: '5' }),
+    ).rejects.toBeInstanceOf(TableInactiveError);
+    expect(inactiveOrders.calls.add).toBe(0);
+    expect(await inactiveSittings.findOpenByTableId('5')).toBeNull();
+
+    const active = scriptedCatalog({ id: '5', label: '5', zone: 'Salón', active: true });
+    const sittings = new InMemoryTableSittingRepository();
+    const opened = await new OpenOrder(
+      new InMemoryOrderRepository(),
+      active,
+      sittings,
+      idsOf('order-1'),
+      () => FIXED_NOW,
+    ).execute({ tableId: '5' });
+    expect(opened.sittingId).toBe('sitting-order-1');
+    expect(opened.origin.tableId).toBe('5');
+    expect((await sittings.findOpenByTableId('5'))?.id).toBe('sitting-order-1');
+    expect(active.calls).toBe(1);
+
+    const external = scriptedCatalog({ id: '5', label: '5', zone: 'Salón', active: true });
+    const externalOrder = await new OpenOrder(
+      new InMemoryOrderRepository(),
+      external,
+      idsOf('order-ext'),
+      () => FIXED_NOW,
+    ).execute({ externalOrderId: 'UBER-S4' });
+    expect(externalOrder.origin.externalOrderId).toBe('UBER-S4');
+    expect(external.calls).toBe(0);
+  });
 });
+
+function scriptedCatalog(table: TableSnapshot | null): TableCatalog & { calls: number } {
+  return {
+    calls: 0,
+    async findById() {
+      this.calls += 1;
+      return table;
+    },
+  };
+}

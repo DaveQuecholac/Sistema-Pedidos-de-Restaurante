@@ -3,7 +3,7 @@ import { Order } from '../../domain/order/order';
 import { orderStatus } from '../../domain/order/order-status';
 import { Quantity } from '../../domain/order/quantity';
 import { MenuItemNotFoundError } from '../menu/menu-item-repository.errors';
-import type { MenuRepository } from '../ports/menu-repository';
+import type { MenuCatalog } from '../ports/menu-catalog';
 import type { OrderRepository } from '../ports/order-repository';
 import { OrderNotFoundError } from './order-repository.errors';
 
@@ -17,7 +17,7 @@ export type ModifyLineCommand = {
 export class ModifyLine {
   constructor(
     private readonly orders: OrderRepository,
-    private readonly menu: MenuRepository,
+    private readonly menu: MenuCatalog,
   ) {}
 
   async execute(command: ModifyLineCommand): Promise<Order> {

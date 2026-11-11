@@ -12,8 +12,9 @@ import { OrderOrigin } from '../../domain/order/order-origin';
 import { Quantity } from '../../domain/order/quantity';
 import type { Discount } from '../../domain/totals/discount';
 import type { Tip } from '../../domain/totals/tip';
+import type { MenuCatalog } from '../ports/menu-catalog';
+import type { MenuItemSnapshot } from '../../domain/order/menu-item-snapshot';
 import type { OrderRepository } from '../ports/order-repository';
-import { InMemoryMenuRepository } from '../menu/in-memory-menu-repository';
 
 export const TACOS_ID = 'item-tacos';
 export const FLAN_ID = 'item-flan';
@@ -83,14 +84,47 @@ export function aguaDish(): MenuItem {
   });
 }
 
-export async function seedMenu(
-  ...items: MenuItem[]
-): Promise<InMemoryMenuRepository> {
-  const menu = new InMemoryMenuRepository();
-  for (const item of items) {
-    await menu.add(item);
+/** Catalog double. Stores a plain snapshot so a later price change does not rewrite a captured line. */
+export class InMemoryMenuCatalog implements MenuCatalog {
+  private readonly items = new Map<string, MenuItemSnapshot>();
+
+  constructor(items: readonly MenuItem[] = []) {
+    for (const item of items) {
+      this.put(menuItemSnapshot(item));
+    }
   }
-  return menu;
+
+  async findById(id: string): Promise<MenuItemSnapshot | null> {
+    return this.items.get(id) ?? null;
+  }
+
+  put(snapshot: MenuItemSnapshot): void {
+    this.items.set(snapshot.id, snapshot);
+  }
+}
+
+export function menuItemSnapshot(item: MenuItem): MenuItemSnapshot {
+  return {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    applicableTax: item.applicableTax,
+    active: item.active,
+    ingredients: item.ingredients.map((ingredient) => ({
+      id: ingredient.id,
+      name: ingredient.name,
+    })),
+    modifiers: item.modifiers.map((modifier) => ({
+      id: modifier.id,
+      name: modifier.name,
+      kind: modifier.kind,
+      price: modifier.price,
+    })),
+  };
+}
+
+export async function seedMenu(...items: MenuItem[]): Promise<InMemoryMenuCatalog> {
+  return new InMemoryMenuCatalog(items);
 }
 
 export function idsOf(...values: string[]): () => string {

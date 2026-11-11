@@ -1,0 +1,17 @@
+syntax = "proto3";
+package restaurante.salon.v1;
+
+service TableCatalogService {
+  rpc GetTable(GetTableRequest) returns (TableSnapshot);
+}
+
+message GetTableRequest {
+  string id = 1;
+}
+
+message TableSnapshot {
+  string id = 1;
+  string label = 2;
+  string zone = 3;
+  bool active = 4;
+}

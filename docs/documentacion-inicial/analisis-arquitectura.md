@@ -6,7 +6,7 @@
 **Decisión:** Arquitectura Hexagonal (Ports & Adapters), con el núcleo organizado al estilo Clean Architecture.  
 **Complementos:**  
 - `arquitectura-hexagonal.md` (**guía canónica** de Ports & Adapters — lectura obligatoria al implementar)  
-- `analisis-estilo-sistema-despliegue.md` (monolito modular + despliegue único)  
+- `analisis-estilo-sistema-despliegue.md` (monolito modular + despliegue único; decisión de despliegue superada el 28 oct 2026 por `../microservicios/analisis.md`)
 - `analisis-patrones-diseno.md` (patrones dirigidos por dominio y puertos)  
 - `stack-tecnologico.md` (TypeScript, NestJS, Drizzle, Zod, pnpm, Next/React)
 

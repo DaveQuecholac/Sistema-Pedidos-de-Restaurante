@@ -1,0 +1,70 @@
+{
+  "id": "9143b7e2-3212-4faf-a682-e965f9dab1d9",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.tables": {
+      "name": "tables",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "tables_id_len": {
+          "name": "tables_id_len",
+          "value": "length(btrim(\"tables\".\"id\")) between 1 and 40"
+        },
+        "tables_label_not_blank": {
+          "name": "tables_label_not_blank",
+          "value": "length(btrim(\"tables\".\"label\")) > 0"
+        },
+        "tables_zone_not_blank": {
+          "name": "tables_zone_not_blank",
+          "value": "length(btrim(\"tables\".\"zone\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

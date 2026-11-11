@@ -42,7 +42,7 @@ describe('tables HTTP client', () => {
     const listed = await listTables();
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/tables',
+      url: 'http://localhost:3000/tables',
       method: 'GET',
       body: undefined,
     });
@@ -55,7 +55,7 @@ describe('tables HTTP client', () => {
     await getTable('mesa 1');
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/tables/mesa%201',
+      url: 'http://localhost:3000/tables/mesa%201',
       method: 'GET',
       body: undefined,
     });
@@ -67,7 +67,7 @@ describe('tables HTTP client', () => {
     const created = await createTable({ id: '7', label: '7' });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/tables',
+      url: 'http://localhost:3000/tables',
       method: 'POST',
       body: { id: '7', label: '7' },
     });
@@ -80,7 +80,7 @@ describe('tables HTTP client', () => {
     await updateTable('7', { label: 'Ventana', zone: 'Terraza' });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/tables/7',
+      url: 'http://localhost:3000/tables/7',
       method: 'PATCH',
       body: { label: 'Ventana', zone: 'Terraza' },
     });
@@ -90,7 +90,7 @@ describe('tables HTTP client', () => {
     stubApi(200, { ...table, active: false });
     await deactivateTable('7');
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/tables/7/deactivate',
+      url: 'http://localhost:3000/tables/7/deactivate',
       method: 'POST',
       body: {},
     });
@@ -99,7 +99,7 @@ describe('tables HTTP client', () => {
     stubApi(200, table);
     await activateTable('7');
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/tables/7/activate',
+      url: 'http://localhost:3000/tables/7/activate',
       method: 'POST',
       body: {},
     });
@@ -134,7 +134,7 @@ describe('tables HTTP client', () => {
   });
 
   it('reports a contact failure without a domain code when fetch rejects (W9)', async () => {
-    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
     fetchMock.mockRejectedValue(new TypeError('network down'));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -148,7 +148,7 @@ describe('tables HTTP client', () => {
 });
 
 function stubApi(status: number, body: unknown): void {
-  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
   fetchMock.mockResolvedValue(
     new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }),
   );

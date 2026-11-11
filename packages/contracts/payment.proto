@@ -1,0 +1,53 @@
+syntax = "proto3";
+package restaurante.payments.v1;
+
+service PaymentService {
+  rpc Charge(ChargeRequest) returns (ChargeReply);
+  rpc Void(VoidRequest) returns (VoidReply);
+  rpc GetReceipt(GetReceiptRequest) returns (GetReceiptReply);
+}
+
+message ChargeRequest {
+  string subject_id = 1;
+  int32 amount = 2;
+  string currency = 3;
+  string method = 4;
+  optional int32 tendered_amount = 5;
+  optional string card_last4 = 6;
+  optional string payer_reference = 7;
+}
+
+message Receipt {
+  string payment_id = 1;
+  string subject_id = 2;
+  string method = 3;
+  int32 amount = 4;
+  string currency = 5;
+  optional int32 tendered_amount = 6;
+  optional string card_last4 = 7;
+  optional string payer_reference = 8;
+  string reference = 9;
+  string paid_at = 10;
+  string status = 11;
+}
+
+message ChargeReply {
+  string outcome = 1;
+  string reference = 2;
+  string decline_reason = 3;
+  Receipt receipt = 4;
+}
+
+message VoidRequest {
+  string reference = 1;
+}
+
+message VoidReply {}
+
+message GetReceiptRequest {
+  string subject_id = 1;
+}
+
+message GetReceiptReply {
+  Receipt receipt = 1;
+}

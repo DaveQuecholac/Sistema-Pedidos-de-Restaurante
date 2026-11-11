@@ -1,8 +1,8 @@
 # Guía de pruebas CTTM
 
 **Para qué sirve:** repetir las mismas pruebas cada vez que se cierre una tarea, o cada vez que el código nuevo llegue a 1000 líneas.  
-**Fecha de esta corrida:** 4 de octubre de 2026.  
-**Alcance de esta corrida:** Sprint 4 completo — `dev/pagos` tareas 1–3 (núcleo RF5, adaptadores/API, pantalla de cobro + demo MVP). Las corridas anteriores quedan abajo y no se borran.
+**Fecha de esta corrida:** 28 de octubre de 2026.  
+**Alcance de esta corrida:** Fase 5 de microservicios — publicar el aviso `OrderSentToKitchen` con outbox. Migración `apps/api/drizzle/0016_polite_payback.sql`. Las corridas de la fase 1 (`0011_talented_scorpion.sql`), de la fase 2 (`0012_late_tarantula.sql`, `0013_milky_magma.sql`, `apps/payments/drizzle/0000_military_mac_gargan.sql`), de la fase 3 (`apps/menu/drizzle/0000_absurd_solo.sql`, `apps/api/drizzle/0014_real_infant_terrible.sql`) y de la fase 4 (`apps/salon/drizzle/0000_naive_white_queen.sql`, `apps/api/drizzle/0015_eminent_earthquake.sql`) quedan abajo y no se borran.
 
 No hay un estándar público con el nombre CTTM. Aquí el nombre cubre las cuatro frentes que usa el equipo. No es una certificación TMMi.
 
@@ -386,3 +386,167 @@ La revisión de capas miró los imports de dominio, casos de uso y web. El domin
 3. No se apagó `postgresql-18` para el encendido en frío.
 4. Órdenes `D4-*` / `D4-API-*` quedan en la BD; no son seeds.
 5. `cierre-del-modulo.md` de pagos no se escribió: el plan lo deja solo si Hector lo pide.
+
+## Corrida — 28 de octubre de 2026, fase 1 soltar la FK de la línea al menú
+
+**Alcance:** quitar de Postgres la clave foránea `order_lines.menu_item_id` → `menu_items.id`. La columna se queda `NOT NULL`. Un solo proceso y una sola base.  
+**Plan:** `docs/microservicios/01-soltar-fk/plan-de-accion-fase-1-suelta-la-fk-de-la-linea.md`.  
+**Migración:** `apps/api/drizzle/0011_talented_scorpion.sql`, salida de `db:generate`. Una sentencia: `ALTER TABLE "order_lines" DROP CONSTRAINT "order_lines_menu_item_id_menu_items_id_fk"`.  
+**Bloque de código:** 1 de 1. Unas 70 líneas entre el schema de `order_lines`, el journal y los casos F1–F3. El SQL nuevo es una línea. No hace falta un segundo bloque de 1000.
+
+### Hexagonal (revisión de capas)
+
+- Dominio y casos de uso sin cambios. `AddLine` sigue rechazando un plato desconocido con `MenuItemNotFoundError` antes de guardar, cuando la orden todavía se puede editar.
+- El cambio está en el adaptador de persistencia: `schema/order.ts` ya no declara `.references()` hacia `menu_items`.
+- El JSON de la línea sigue exponiendo `menuItemId`.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **463** passed, **52** skipped. Typecheck API limpio. Dominio sin imports nuevos. `0011_talented_scorpion.sql` salió de `db:generate`. |
+| T Integración | Pasó | Tras `db:migrate`, la FK `order_lines_menu_item_id_menu_items_id_fk` tiene 0 filas en `pg_constraint`. `menu_item_id` sigue `NOT NULL`. Siguen las FK de la línea hacia la orden y las de ingredientes y modificadores. `test:db`: **52** (menú, órdenes, mesas), incluidos F1, F2 y F3. |
+| T Sistema | Pasó con hueco | API en `http://localhost:3001` ya levantada. Recorrido: plato «Plato demo fase 1» (`d6e2882a-4bac-443f-a729-c7d82229b5b3`, 1000 MXN, impuesto 0) → orden `557d7324-29f7-40e5-8877-0ecf9bccf4db` (`fk1-c7a55b41-aca9-44d8-9343-90cc039ff936`) → línea → cocina → total **1000** → cierre cash `CLOSED`. La línea en `order_lines` guarda ese `menu_item_id`. El punto 7 del plan, sobre la orden ya cerrada, respondió **409** `OrderNotEditableError`, no **422** `MenuItemNotFoundError`. |
+| M Madurez | Nivel 2 para esta fase | Evidencia de código, integración y recorrido de venta. No se marca madura: el plan y el código chocan en el punto 7 de la demo. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. El plan pide, al final del recorrido, `POST /orders/:id/lines` con un plato inexistente y respuesta 422 `MenuItemNotFoundError`. La orden ya estaba `CLOSED`. `AddLine` revisa si se puede editar antes de buscar el plato, así que la API respondió 409 `OrderNotEditableError` y no insertó línea. No se cambió el caso de uso.
+2. `pnpm test` deja las de integración en skipped; `test:db` las corre (52 verdes).
+3. No se apagó `postgresql-18` para el encendido en frío. No se tocó `apps/web`.
+4. Quedan en la BD el plato «Plato demo fase 1» y la orden cerrada `557d7324-…`. No son seeds.
+
+## Corrida — 28 de octubre de 2026, fase 2 extraer pagos por gRPC
+
+**Alcance:** el cargo sale del proceso de la API. Efectivo, tarjeta y pasarela simulada viven en `apps/payments`. La API sigue cerrando por REST y habla con Pagos por gRPC. En la base de la API quedan `payment_id` y `payment_reference`. `order_payments` y `table_sitting_payments` ya no están.  
+**Plan:** `docs/microservicios/02-extraer-pagos/plan-de-accion-fase-2-extrae-pagos-por-grpc.md`.  
+**Migraciones:** las tres salieron de `db:generate`.
+
+- `apps/api/drizzle/0012_late_tarantula.sql`: agrega `payment_id` y `payment_reference` en `orders` y `table_sittings`, con los checks de pareja y el de orden de cuenta de mesa sin pago propio.
+- `apps/api/drizzle/0013_milky_magma.sql`: `DROP TABLE "order_payments"` y `DROP TABLE "table_sitting_payments"`.
+- `apps/payments/drizzle/0000_military_mac_gargan.sql`: crea la tabla `payments` en la base `payments`.
+
+**Bloque de código:** 1 de 1 en esta nota. Unas 1700 líneas de producto (`apps/payments`, el cliente gRPC de la API, el `.proto`, el script de copia y los tres SQL), sin specs. Pasa el corte de 1000 líneas de la guía; el plan pidió una sola nota de la corrida, no partir la revisión.
+
+### Hexagonal (revisión de capas)
+
+- El dominio de la orden y `CloseOrder` no se reescribieron. El cambio sigue saliendo del efectivo entregado.
+- Puerto nuevo `PaymentReceiptQuery`. `PaymentPort` conserva `charge` y `voidCharge`.
+- `GrpcPaymentAdapter` es el adaptador. El módulo de la API arma tres instancias (efectivo, tarjeta, pasarela) sobre un cliente. `PAYMENTS_GRPC_URL` se lee al arrancar.
+- Al guardar, si el recibo ya existe y la referencia coincide, la orden guarda el `payment_id` del recibo.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **469** passed, **54** skipped. Typecheck de la API limpio. `pnpm --filter @restaurante/payments test`: **10** passed, **7** skipped. Typecheck de Pagos limpio. `close-order.spec.ts` sigue con `FakePaymentPort`. |
+| T Integración | Pasó | `pnpm --filter @restaurante/api test:db`: **52**, incluidos F1, F2 y F3. `pnpm --filter @restaurante/payments test:db`: **7** (P2-1 a P2-7). Con Pagos en `localhost:50051`, P2-8 y P2-9 pasaron: el efectivo deja la orden `CLOSED` y las dos columnas iguales al recibo; si `save` falla, la fila queda `voided` y la orden sigue en `READY`. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó `restaurante-api` en `http://localhost:3001`, `restaurante-payments` en gRPC `localhost:50051` y la web. `GET /health` respondió `{"status":"ok","service":"restaurante-api"}`. Demo: plato «Plato demo paso 10» (1000 MXN, impuesto 0) → orden `9716fbee-4980-4251-875c-851216f2fd0d` (`p2-demo-1793218378195`) → cocina → total **1000** → cierre cash `CLOSED`. `GET /payment` devolvió la referencia `cash-3bc07c19-a4e6-4225-a6fc-446b0206c9c7`, entregado 1000 y cambio 0. El `payment_id` de la orden es `0e1c3fc5-06b4-40e1-bdf2-8a182a5d45e4`, el mismo de la fila `approved` en `payments`. `order_payments` no está. Un segundo cierre respondió **409** `OrderNotClosableError` y no creó otra fila. Otra orden, `e9d6578c-d54c-4bc8-b5f9-b52176b9858d` (`p2-demo-card-1793218378195`), con tarjeta `0002` respondió **402** `PaymentDeclinedError`, sigue en `READY` y no tiene fila en `payments`. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de las dos bases y del recorrido de venta. La fase no se marca cerrada en el plan general: eso es el paso 12. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja la integración en skipped. `test:db` y `PAYMENTS_GRPC_INTEGRATION=1` las corren.
+2. No se apagó `postgresql-18` para el encendido en frío. No se tocó `apps/web`.
+3. Quedan en la BD el plato «Plato demo paso 10», la orden cerrada `9716fbee-…` y la orden `e9d6578c-…` en `READY`. No son seeds.
+4. Los adaptadores simulados de la API (`cash-payment-adapter.ts`, `card-payment-adapter.ts`, `digital-gateway-fake-adapter.ts`) siguen en el paquete porque `payment.controller.spec.ts` los importa. El arranque ya no los construye.
+
+## Corrida — 28 de octubre de 2026, fase 3 extraer el menú
+
+**Alcance:** el catálogo sale del proceso de la API. Platos, ingredientes y modificadores viven en `apps/menu`, base `menu`, REST `http://localhost:3002` y gRPC `localhost:50052`. La API pide el plato por `MenuCatalog` y congela la línea. `order_lines.menu_item_id` sigue `NOT NULL` y sin clave foránea. En la base de la API ya no están `menu_items`, `menu_item_ingredients` ni `menu_item_modifiers`.  
+**Plan:** `docs/microservicios/03-extraer-menu/plan-de-accion-fase-3-extrae-el-menu.md`.  
+**Migraciones:** las dos salieron de `db:generate`.
+
+- `apps/menu/drizzle/0000_absurd_solo.sql`: crea `menu_items`, `menu_item_ingredients` y `menu_item_modifiers` en la base `menu`, con los checks de nombre, precio, moneda, tasa y la forma del precio según el kind.
+- `apps/api/drizzle/0014_real_infant_terrible.sql`: `DROP TABLE "menu_item_ingredients" CASCADE`, `DROP TABLE "menu_item_modifiers" CASCADE` y `DROP TABLE "menu_items" CASCADE`. No toca `order_lines`.
+
+**Bloque de código:** 1 de 1 en esta nota. Unas 2000 líneas de producto (`apps/menu`, el cliente gRPC, `menu.proto`, los dos SQL y el cliente de platos de la web), sin specs. Pasa el corte de 1000 líneas de la guía. El plan pidió una sola nota de la corrida, no partir la revisión.
+
+### Hexagonal (revisión de capas)
+
+- `LineItem.capture` y `recapture` reciben el snapshot. No conocen gRPC. Siguen rechazando plato inactivo y modificador desconocido.
+- Puerto `MenuCatalog` en la API. `AddLine` y `ModifyLine` lo usan. Si el id no existe, `MenuItemNotFoundError`. Si Menú no contesta, `MenuCatalogUnavailableError` y no se guarda la línea.
+- `GrpcMenuCatalog` es el adaptador. `NOT_FOUND` vuelve `null`. Canal caído lanza el error de aplicación. `MENU_GRPC_URL` se lee al arrancar.
+- El módulo de la API ya no registra `MenuItemController` ni `DrizzleMenuRepository`. El CRUD de platos queda en Menú. La web de platos lee `NEXT_PUBLIC_MENU_API_URL`. Órdenes, mesas, cuenta y cobro siguen en `NEXT_PUBLIC_API_URL`.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **472** passed, **56** skipped. Typecheck de la API limpio. `pnpm --filter @restaurante/menu test` con `MENU_REPOSITORY_INTEGRATION=1`: **67** passed, incluidos M3-1, M3-2 y M3-3. Typecheck de Menú limpio. `pnpm --filter @restaurante/web test`: **91** passed. El cliente de platos pide `http://localhost:3002`. |
+| T Integración | Pasó | `pnpm --filter @restaurante/api test:db`: **44** (órdenes y mesas), incluidos F1, F2 y F3. Ya no corre el spec de menú de la API: esos 8 casos se fueron con el paquete. `menu_item_id` sigue `NOT NULL`. En `public` de la API no están las tres tablas del catálogo. Con Menú en `3002`/`50052` y Pagos en `50051`, M3-7 y M3-8 pasaron (`MENU_GRPC_INTEGRATION=1`): la línea congela 1000, un `PATCH` a 2500 no la reescribe, una línea nueva toma 2500; con Menú apagado no entra otra línea y el cierre en efectivo deja la fila `approved` en `payments`. |
+| T Sistema | Pasó con hueco | `pnpm dev:restart` dejó API `3001`, Pagos `50051`, Menú `3002`/`50052` y la web. `GET /health` respondió 200. Demo: plato «Plato demo fase 3» (`cb144cb5-fec5-4b62-80a2-c6c68b97ebed`, 1000 MXN, impuesto 0) → orden `f8e61296-7a1a-46fe-b867-5f5363accbee` (`fase3-demo-1793221439343`) → línea en **1000** → `PATCH` del plato a 2500 → `GET` de la orden sigue en 1000 → cocina → total **1000** → cierre cash `CLOSED`. `GET /payment` devolvió la referencia `cash-c636c014-3dd6-41df-aaf9-89c18afafc46`, entregado 1000 y cambio 0. El `payment_id` de la orden es `5a1ba85c-18b9-4ab7-a5b6-79ba1cc1ab90`, el mismo de la fila `approved` en `payments`. Con Menú apagado, la orden `71844805-8996-4cb0-a7f8-7102a2c81e77` rechazó la línea (500) y quedó con 0 líneas; la cerrada siguió `CLOSED` y `GET /payment` respondió. En el navegador, como Mesero, esa orden cerrada muestra **Plato demo fase 3 × 1 $10.00**. `/menu` no se queda abierto: Mesero vuelve a mesas. La baja del plato se hizo por `POST http://localhost:3002/menu-items/:id/deactivate`. Después, una orden abierta ya no lo ofrece. El plato sigue en la base `menu` con precio 2500 y `active = false`. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de las dos bases y del recorrido de venta. La fase queda cerrada en el plan general el 28 de octubre de 2026. Los huecos de abajo siguen. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` deja la integración en skipped. `test:db` corre órdenes y mesas (44). Menú corre en `@restaurante/menu` con `MENU_REPOSITORY_INTEGRATION=1` (67). M3-7 y M3-8 piden `MENU_GRPC_INTEGRATION=1` y los procesos encendidos.
+2. `test:db` bajó de 52 a 44 porque salieron los 8 casos de menú de la API. F1, F2 y F3 siguen en el spec de órdenes.
+3. No se apagó `postgresql-18` para el encendido en frío. `apps/payments` no se editó. P2-8 y P2-9 no se volvieron a correr. El spec de cobro por gRPC de la API ya no inserta en `menu_items`.
+4. El typecheck de la web sigue fallando por el campo `lable` en `apps/web/app/components/ui/tabs.tsx`. Esta fase no lo tocó. Las 91 pruebas de la web pasaron.
+5. Quedan en la base el plato «Plato demo fase 3» inactivo, la orden cerrada `f8e61296-…` y la orden abierta `71844805-…` sin líneas. No son seeds. «Plato cruce M3» también quedó inactivo.
+6. Mesero, Cobro y Cocina no pueden abrir `/menu`. La pantalla existe y llama a `NEXT_PUBLIC_MENU_API_URL`, pero el recorrido del navegador usó la comanda y el `POST` de baja en el 3002.
+
+## Corrida — 28 de octubre de 2026, fase 4 extraer el salón y el gateway
+
+**Alcance:** el plano de mesas sale del proceso de la API. Etiqueta, zona y alta o baja viven en `apps/salon`, base `salon`, REST `http://localhost:3003` y gRPC `localhost:50053`. La cuenta de mesa se queda en la API. Abrir una orden de mesa pregunta `GetTable`. Desactivar pregunta `HasActiveOrder` en el gRPC `50054` de la API. `apps/gateway` reenvía REST en `http://localhost:3000` y no tiene base. Pagos no pasa por él. La web usa una sola `NEXT_PUBLIC_API_URL`.  
+**Plan:** `docs/microservicios/04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md`.  
+**Migraciones:** las dos salieron de `db:generate`.
+
+- `apps/salon/drizzle/0000_naive_white_queen.sql`: crea `tables` en la base `salon`, con id de 1 a 40, etiqueta y zona no vacías, y `active` con default verdadero.
+- `apps/api/drizzle/0015_eminent_earthquake.sql`: `DROP TABLE "tables" CASCADE`. No toca `orders`, `order_lines` ni `table_sittings`.
+
+**Bloque de código:** 1 de 1 en esta nota. Unas 1800 líneas nuevas de producto en `apps/salon`, `apps/gateway`, los dos `.proto` y los dos SQL, sin specs. Pasa el corte de 1000 líneas de la guía. El plan pidió una sola nota de la corrida, no partir la revisión.
+
+### Hexagonal (revisión de capas)
+
+- La máquina de estados de la orden no cambia. `OpenOrder` de mesa usa `TableCatalog`. Un id externo no llama a Salón.
+- El dominio del plano vive en Salón. La cuenta de mesa sigue en la API.
+- Puerto `TableCatalog` en la API. Puerto `ActiveOrdersQuery` en Salón. Si hay comanda, `TableHasActiveOrderError` y no se guarda la baja. Si la API no contesta, `ActiveOrdersUnavailableError` y tampoco se guarda.
+- `GrpcTableCatalog` y el servidor `HasActiveOrder` son adaptadores. El gateway reenvía método, ruta, query, body y status. No tiene dominio ni Drizzle. `SALON_GRPC_URL` y `ORDERS_GRPC_URL` se leen al arrancar.
+- La web pide todo a `NEXT_PUBLIC_API_URL`. `menu-api.ts` ya no lee `NEXT_PUBLIC_MENU_API_URL`.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **477** passed, **59** skipped. Typecheck de la API limpio. `pnpm --filter @restaurante/salon test` con `SALON_REPOSITORY_INTEGRATION=1`: **58** passed, incluidos S4-1 a S4-5. Typecheck de Salón limpio. `pnpm --filter @restaurante/gateway test`: **2** passed (S4-9 y S4-10). Typecheck del gateway limpio. `pnpm --filter @restaurante/web test`: **91** passed. El cliente de platos pide `http://localhost:3000`. |
+| T Integración | Pasó con hueco | En Salón, con la base `salon`, S4-1 a S4-5 pasaron. En la API, S4-6, S4-7 y S4-8 pasan sin Postgres. Con el gateway en `3000` y los procesos arriba, S4-11, S4-12 y S4-13 pasaron (`SALON_GRPC_INTEGRATION=1`): alta, línea, cocina, totales y cierre en efectivo; la mesa está en `salon`; `tables` no está en la base de la API; el pago queda `approved` en `payments`; desactivar con la orden abierta responde 409 y la mesa sigue activa; después del cierre, el mismo `POST` la desactiva; con Salón apagado abre un id externo, no abre por `tableId` y sí cobra una orden que ya estaba `READY`. `pnpm --filter @restaurante/api test:db`: **36** passed, **8** failed. Los 6 de `DrizzleTableRepository` de la API fallan porque `tables` ya no existe. Los 6 equivalentes pasaron en Salón. P12 y P32 fallan con `OrderMappingError` al listar: hay cuatro órdenes `CLOSED` cuyo recibo ya no está en `payments`. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó gateway `3000`, API `3001` y gRPC `50054`, Pagos `50051`, Menú `3002`/`50052`, Salón `3003`/`50053` y la web. `GET /health` respondió `{"status":"ok","service":"restaurante-api"}`. Demo por el `3000`: mesa `mesa-fase4` (zona Cruce) → plato «Plato demo fase 4» (`0ecdbc48-2ddf-4306-93b0-626da46c56b2`, 1000 MXN, impuesto 0) → orden `17a0ddc2-c646-425f-9f9e-b38f2c0db8f4` → línea → cocina → total **1000** → desactivar antes del cierre **409** `TableHasActiveOrderError` y la mesa sigue activa → cierre cash `CLOSED` → desactivar otra vez deja `active = false`. El `payment_id` de la orden es `3e4e8b81-4871-4398-a094-a0c3dc6d0fbf`, el mismo de la fila `approved` en `payments`, referencia `cash-0268a5d8-08ca-491d-9172-6b15dc5cd944`. `POST /payments` en el gateway respondió **404**. Con Salón apagado, la orden `010d2aca-bd49-4704-ae02-3f71f95bb8fe` (`fase4-ext-…`) abrió y se canceló; `POST /orders` con `tableId` `1` respondió **500** y no insertó. En el navegador, el plano y la cuenta de cobro llaman solo a `localhost:3000`. `mesa-fase4` no se pinta: el plano muestra mesas activas y esta quedó inactiva. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de las bases y del recorrido de venta. La fase queda cerrada en el plan general el 28 de octubre de 2026. Los huecos de abajo siguen. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` de la API deja la integración en skipped (**59**, tres más que en la fase 3: S4-11 a S4-13). Salón corre los 11 de base con `SALON_REPOSITORY_INTEGRATION=1`. S4-11 a S4-13 piden `SALON_GRPC_INTEGRATION=1` y gateway, API, Menú, Pagos y Salón encendidos.
+2. `test:db` de la API sigue lanzando el repositorio de mesas contra la base de órdenes. Esos 6 casos fallan con `relation "tables" does not exist`. En Salón, el mismo repositorio pasó (T1 a T6 dentro de los 58).
+3. P12 y P32 fallan al hidratar órdenes ya guardadas. Cuatro `CLOSED` apuntan a un `payment_id` que no está en `payments`: `24494442-aa8a-47b5-89a1-6584ac8a9278`, `fc2f4454-ec62-4a3f-b769-63f3eb031b41`, `ea0a2869-ffc2-44a1-af99-4ce8a3edddf1` y `c8308de7-6a05-4336-89a7-c01e2390f55c`. El spec de cruce borra esas filas de `payments` al terminar y deja la orden cerrada. No se repararon en este paso.
+4. No se apagó `postgresql-18` para el encendido en frío. `apps/menu` y `apps/payments` no se editaron.
+5. Quedan en la base la mesa `mesa-fase4` inactiva, el plato «Plato demo fase 4» inactivo y la orden cerrada `17a0ddc2-…`. No son seeds. Los platos «Plato cruce S4 …» del spec también quedaron inactivos.
+6. Mesero, Cobro y Cocina no pueden abrir `/menu`. El alta y la baja del plato de la demo se hicieron por el gateway, en `http://localhost:3000/menu-items`. El navegador abrió el plano y el cobro.
+7. Al anotar la corrida, `analisis.md` de esta fase todavía decía que no había código y que la web de platos usaba `NEXT_PUBLIC_MENU_API_URL`. Al cerrar el plan, esa línea de estado pasó a cerrada en código, con `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql`.
+
+## Corrida — 28 de octubre de 2026, fase 5 publicar el evento de cocina
+
+**Alcance:** al pasar una orden a `SENT_TO_KITCHEN`, la misma transacción de `save` escribe `OrderSentToKitchen` en `order_outbox`, en la base de órdenes. Un relevo posterior pone `published_at`. El `POST` no lo espera. La cocina sigue por `GET /orders?status=SENT_TO_KITCHEN`. No hay broker, ni gRPC de este aviso, ni otro proceso.  
+**Plan:** `docs/microservicios/05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md`.  
+**Migración:** salió de `db:generate`.
+
+- `apps/api/drizzle/0016_polite_payback.sql`: `CREATE TABLE "order_outbox"`. Columnas `id`, `event_type`, `order_id` (sin clave foránea), `status`, `occurred_at` y `published_at` nulo. Único `(order_id, event_type)`. Checks `event_type = 'OrderSentToKitchen'` y `status = 'SENT_TO_KITCHEN'`. No toca `orders` ni `order_lines`.
+
+**Bloque de código:** 1 de 1. Unas 230 líneas de producto en la API, el SQL y el ecosystem, sin specs. No llega al corte de 1000.
+
+### Hexagonal (revisión de capas)
+
+- El dominio no conoce el outbox. `sendToKitchen` sigue igual: sin líneas es `EmptyOrderError`; una orden `CLOSED` no se envía.
+- Puertos `KitchenEventPublisher` y `KitchenEventOutbox`. `PublishPendingKitchenEvents` avisa y marca `published_at`. No cambia la orden. `SendToKitchen` no llama al relevo.
+- La fila nace dentro de la transacción de `DrizzleOrderRepository.save`, solo cuando el estado pasa a `SENT_TO_KITCHEN`. `DrizzleKitchenEventOutbox` solo lee pendientes y escribe `published_at`.
+- `LoggingKitchenEventPublisher` escribe el aviso en el log. No abre red.
+- El módulo Nest elige el publicador de log. `main.ts` arranca el intervalo con `KITCHEN_EVENT_RELAY_INTERVAL_MS` (default 5000). PM2 se lo pasa al proceso de la API. El `POST` responde al guardar.
+
+| Frente | Resultado | Nota |
+|--------|-----------|------|
+| C Código | Pasó | `env -u DATABASE_URL pnpm --filter @restaurante/api test`: **486** passed, **62** skipped. Typecheck de la API limpio. K5-1 y K5-2 pasan sin base. K5-3 sigue en el dominio: OR7 (`EmptyOrderError` sin líneas) y OC7 (una `CLOSED` no se envía). `pnpm --filter @restaurante/web test`: **91** passed. No se editó `apps/web`. |
+| T Integración | Pasó con hueco | Con `ORDER_REPOSITORY_INTEGRATION=1`, K5-4, K5-5 y K5-6 pasaron: la fila nace sin `published_at`, un duplicado lo rechaza la base, y si el insert falla la orden sigue en `OPEN`. El archivo completo de ese spec dejó **39** passed y **2** failed: P12 y P32, el mismo `OrderMappingError` de la fase 4 al listar órdenes `CLOSED` cuyo recibo ya no está en `payments`. |
+| T Sistema | Pasó | `pnpm dev:restart` dejó gateway `3000`, API `3001`, Pagos `50051`, Menú `3002`, Salón `3003` y la web. Con el relevo en pausa, por el `3000`: mesa `mesa-fase5` → plato «Plato fase 5» (`26610771-8c81-4265-b129-5768f2c13373`, 1000 MXN, impuesto 0) → orden `d18e125e-93a5-4830-9fc0-5c83833a8d5f` → una línea → total **1000** → `POST /orders/:id/send-to-kitchen` respondió `SENT_TO_KITCHEN`. En `order_outbox`, una fila `OrderSentToKitchen` con `published_at` nulo. `GET /orders?status=SENT_TO_KITCHEN` la incluye. El total siguió en **1000**. Al correr el relevo, `published_at` quedó puesto, el estado siguió `SENT_TO_KITCHEN` y el log escribió `OrderSentToKitchen orderId=d18e125e-…`. Con el relevo otra vez en pausa, la orden `827475b1-12c1-4cb7-ab06-b598bf229b71` se envió con `published_at` nulo. La primera pasó por `begin-cooking`, `mark-ready` y cierre en efectivo (`7a6c318b-3329-4bb0-b629-b81852d7c9d1`, referencia `cash-e30c153b-8f07-46b7-bd97-d2fa0674470f`) y quedó `CLOSED`, con una sola fila de ese aviso. En Cocina, `https://restaurante.localhost/cocina` muestra «Mesa mesa-fase5» y «Plato fase 5» en Pendientes. La pantalla no muestra el outbox. |
+| M Madurez | Nivel 2 para esta fase | Hay evidencia de código, de la base y del recorrido por el gateway. La fase queda cerrada en el plan general el 28 de octubre de 2026. Los huecos de abajo siguen. RF1–RF5 del MVP siguen en nivel 3. |
+
+### Huecos de esta corrida
+
+1. `pnpm test` de la API deja la integración en skipped (**62**). K5-4 a K5-6 piden `ORDER_REPOSITORY_INTEGRATION=1`. K5-7 y K5-8 se corrieron a mano por el gateway; no hay un spec que los lance solo.
+2. P12 y P32 siguen fallando por las órdenes `CLOSED` de la fase 4 cuyo recibo ya no está en `payments`. No se repararon.
+3. Durante K5-8 la segunda fila estaba sin publicar. Al devolver el intervalo a 5 segundos, el relevo también publicó `827475b1-…`. Quedan en la base la mesa `mesa-fase5` activa, el plato «Plato fase 5», la orden cerrada `d18e125e-…` y la orden `827475b1-…` en `SENT_TO_KITCHEN`. No son seeds.
+4. No se apagó `postgresql-18` para un encendido en frío. `apps/web` no se editó.
+5. Mesero, Cobro y Cocina no abren el alta de platos. El plato de la demo se creó por `POST http://localhost:3000/menu-items`.
+6. Al cerrar el plan, `analisis.md` de esta fase, el plan de la fase, el plan general y el índice pasaron a cerrados en código, con `0016_polite_payback.sql`.

@@ -40,7 +40,7 @@ describe('totals HTTP client', () => {
     await getOrderTotals('o 1');
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/o%201/totals',
+      url: 'http://localhost:3000/orders/o%201/totals',
       method: 'GET',
       body: undefined,
     });
@@ -52,7 +52,7 @@ describe('totals HTTP client', () => {
     await setOrderDiscount('order-1', { kind: 'percentage', basisPoints: 1000 });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/discount',
+      url: 'http://localhost:3000/orders/order-1/discount',
       method: 'PUT',
       body: { discount: { kind: 'percentage', basisPoints: 1000 } },
     });
@@ -64,7 +64,7 @@ describe('totals HTTP client', () => {
     await setOrderDiscount('order-1', null);
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/discount',
+      url: 'http://localhost:3000/orders/order-1/discount',
       method: 'PUT',
       body: { discount: null },
     });
@@ -76,7 +76,7 @@ describe('totals HTTP client', () => {
     await setOrderTip('order-1', { kind: 'fixedAmount', amount: 2000 });
 
     expect(requestOf(0)).toEqual({
-      url: 'http://localhost:3001/orders/order-1/tip',
+      url: 'http://localhost:3000/orders/order-1/tip',
       method: 'PUT',
       body: { tip: { kind: 'fixedAmount', amount: 2000 } },
     });
@@ -99,7 +99,7 @@ describe('totals HTTP client', () => {
   });
 
   it('reports a contact failure when fetch rejects (W16)', async () => {
-    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
     fetchMock.mockRejectedValue(new TypeError('network down'));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -113,7 +113,7 @@ describe('totals HTTP client', () => {
 });
 
 function stubApi(status: number, body: unknown): void {
-  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3001');
+  vi.stubEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000');
   fetchMock.mockResolvedValue(
     new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }),
   );
