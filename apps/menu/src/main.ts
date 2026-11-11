@@ -1,8 +1,11 @@
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import type { MenuRepository } from './application/ports/menu-repository';
 import { assertDatabaseReachable, createDatabase } from './infrastructure/persistence/drizzle/client';
 import { startMenuGrpcServer } from './interface/grpc/menu-grpc-server';
+import { menuOpenApi } from './interface/http/menu/openapi';
+import { serveOpenApi } from './interface/http/serve-openapi';
 import { loadMenuEnv } from './load-menu-env';
 import { MENU_REPOSITORY, MenuModule } from './menu.module';
 
@@ -24,8 +27,11 @@ async function bootstrap() {
     process.exit(1);
   }
 
+  await migrate(db, { migrationsFolder: resolve(__dirname, '../drizzle') });
+
   const app = await NestFactory.create(MenuModule.register(db));
   app.enableCors();
+  serveOpenApi(app, menuOpenApi);
   const port = process.env.PORT ? Number(process.env.PORT) : 3002;
   await app.listen(port);
 

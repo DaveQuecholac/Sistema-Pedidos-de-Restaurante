@@ -1,8 +1,11 @@
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { GetTable } from './application/table/get-table';
 import { assertDatabaseReachable, createDatabase } from './infrastructure/persistence/drizzle/client';
 import { startTableGrpcServer } from './interface/grpc/table-grpc-server';
+import { serveOpenApi } from './interface/http/serve-openapi';
+import { salonOpenApi } from './interface/http/table/openapi';
 import { loadSalonEnv } from './load-salon-env';
 import { SalonModule } from './salon.module';
 
@@ -25,8 +28,11 @@ async function bootstrap() {
   }
 
   const ordersGrpcUrl = process.env.ORDERS_GRPC_URL ?? 'localhost:50054';
+  await migrate(db, { migrationsFolder: resolve(__dirname, '../drizzle') });
+
   const app = await NestFactory.create(SalonModule.register(db, ordersGrpcUrl));
   app.enableCors();
+  serveOpenApi(app, salonOpenApi);
   const port = process.env.PORT ? Number(process.env.PORT) : 3003;
   await app.listen(port);
 

@@ -1,0 +1,4 @@
+CREATE DATABASE menu;
+CREATE DATABASE salon;
+CREATE DATABASE restaurante;
+CREATE DATABASE payments;

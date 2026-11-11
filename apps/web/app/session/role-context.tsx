@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { clearStoredToken, readStoredToken } from './access-token';
 import {
   clearStoredRole,
   readStoredRole,
@@ -33,7 +34,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setRole(readStoredRole(window.sessionStorage));
+    const storedRole = readStoredRole(window.sessionStorage);
+    const token = readStoredToken(window.sessionStorage);
+    if (storedRole !== null && token !== null) {
+      setRole(storedRole);
+    } else {
+      clearStoredRole(window.sessionStorage);
+      clearStoredToken(window.sessionStorage);
+    }
     setReady(true);
   }, []);
 
@@ -48,6 +56,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const leave = useCallback(() => {
     clearStoredRole(window.sessionStorage);
+    clearStoredToken(window.sessionStorage);
     setRole(null);
   }, []);
 

@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { assertDatabaseReachable, createPaymentsDatabase } from './infrastructure/persistence/drizzle/client';
 import { startPaymentGrpcServer } from './interface/grpc/payment-grpc-server';
 import { loadPaymentsEnv } from './load-payments-env';
@@ -25,6 +26,8 @@ async function bootstrap() {
     console.error('Database connection failed');
     process.exit(1);
   }
+
+  await migrate(db, { migrationsFolder: resolve(__dirname, '../drizzle') });
 
   const app = await NestFactory.createApplicationContext(PaymentsModule.register(db));
   const url = process.env.PAYMENTS_GRPC_URL ?? 'localhost:50051';

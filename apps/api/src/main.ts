@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { NestFactory } from '@nestjs/core';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { CheckDatabaseConnection } from './application/database/check-database-connection';
 import { DatabaseConnectionError } from './application/database/database-connection.error';
 import type { OrderRepository } from './application/ports/order-repository';
@@ -9,6 +10,8 @@ import { createDatabase } from './infrastructure/persistence/drizzle/client';
 import { DrizzleDatabaseHealth } from './infrastructure/persistence/drizzle/drizzle-database-health';
 import { startActiveOrdersGrpcServer } from './interface/grpc/active-orders-grpc-server';
 import { readKitchenEventRelayIntervalMs, startKitchenEventRelay } from './kitchen-event-relay';
+import { ordersOpenApi } from './interface/http/openapi';
+import { serveOpenApi } from './interface/http/serve-openapi';
 import { loadApiEnv } from './load-api-env';
 
 async function bootstrap() {
@@ -56,10 +59,13 @@ async function bootstrap() {
     process.exit(1);
   }
 
+  await migrate(db, { migrationsFolder: resolve(__dirname, '../drizzle') });
+
   const app = await NestFactory.create(
     AppModule.register(db, paymentsGrpcUrl, menuGrpcUrl, salonGrpcUrl),
   );
   app.enableCors();
+  serveOpenApi(app, ordersOpenApi);
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 3001);
 
   const relay = app.get(PublishPendingKitchenEvents);

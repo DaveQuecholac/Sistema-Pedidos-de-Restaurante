@@ -37,6 +37,11 @@
   color: var(--color-text-muted);
 }
 
+.error {
+  margin: 1rem 0 0;
+  color: #9b2c2c;
+}
+
 .choices {
   display: flex;
   flex-direction: column;

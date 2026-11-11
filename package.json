@@ -8,6 +8,8 @@
     "dev:restart": "node scripts/pm2-root.mjs restart",
     "dev:status": "node scripts/pm2-root.mjs status",
     "dev:logs": "node scripts/pm2-root.mjs logs",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
     "dev:plain": "node scripts/ensure-postgres.mjs && pnpm -r --parallel --filter @restaurante/api --filter @restaurante/web run dev",
     "dev:api": "pnpm --filter @restaurante/api dev",
     "dev:web": "pnpm --filter @restaurante/web dev",

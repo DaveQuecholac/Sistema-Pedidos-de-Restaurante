@@ -1,3 +1,5 @@
+import { browserAuthorizationHeaders } from '../session/access-token';
+
 export class MenuApiConfigError extends Error {
   constructor() {
     super('Falta NEXT_PUBLIC_API_URL.');
@@ -112,9 +114,9 @@ function requireApiUrl(): string {
 }
 
 async function callApi(url: string, method: 'GET' | 'POST' | 'PATCH', body: unknown): Promise<Response> {
-  const init: RequestInit = { method };
+  const init: RequestInit = { method, headers: { ...browserAuthorizationHeaders() } };
   if (body !== undefined) {
-    init.headers = { 'Content-Type': 'application/json' };
+    init.headers = { ...browserAuthorizationHeaders(), 'Content-Type': 'application/json' };
     init.body = JSON.stringify(body);
   }
 

@@ -1,6 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { GatewayAuth } from './gateway';
 import { createGateway } from './gateway';
 
 type Hit = { method: string; url: string; body: string };
@@ -11,6 +12,13 @@ describe('gateway', () => {
   let menu: Upstream;
   let app: INestApplication;
   let base: string;
+  let token: string;
+  let now = 1_700_000_000;
+  const auth: GatewayAuth = {
+    secret: 'test-secret',
+    expiresInSeconds: 7200,
+    now: () => now,
+  };
 
   beforeAll(async () => {
     api = await listenUpstream('api');
@@ -18,10 +26,20 @@ describe('gateway', () => {
     menu = await listenUpstream('menu');
     app = await createGateway(
       { api: api.base, salon: salon.base, menu: menu.base },
-      { logger: false },
+      { logger: false, auth },
     );
     await app.listen(0, '127.0.0.1');
     base = await app.getUrl();
+    const login = await fetch(`${base}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ role: 'waiter' }),
+    });
+    expect(login.status).toBe(200);
+    const issued = (await login.json()) as { accessToken: string; expiresIn: number; tokenType: string };
+    expect(issued.expiresIn).toBe(7200);
+    expect(issued.tokenType).toBe('Bearer');
+    token = issued.accessToken;
   });
 
   afterAll(async () => {
@@ -75,6 +93,28 @@ describe('gateway', () => {
     expect(snapshot()).toEqual(before);
   });
 
+  it('rejects a missing token and an expired one before calling a service', async () => {
+    const before = snapshot();
+    const missing = await fetch(`${base}/menu-items`);
+    expect(missing.status).toBe(401);
+
+    const issuedAt = now;
+    now = issuedAt + 7200;
+    const expired = await send('/menu-items', 'GET');
+    now = issuedAt;
+
+    expect(expired.status).toBe(401);
+    expect(snapshot()).toEqual(before);
+  });
+
+  it('serves the OpenAPI document without a token', async () => {
+    const spec = await fetch(`${base}/openapi.json`);
+    expect(spec.status).toBe(200);
+    const document = (await spec.json()) as { info?: { title?: string }; paths?: Record<string, unknown> };
+    expect(document.info?.title).toBe('Gateway');
+    expect(document.paths?.['/auth/login']).toBeDefined();
+  });
+
   function snapshot() {
     return {
       api: api.hits.length,
@@ -84,9 +124,13 @@ describe('gateway', () => {
   }
 
   function send(path: string, method: string, body?: unknown): Promise<Response> {
+    const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+    if (body !== undefined) {
+      headers['content-type'] = 'application/json';
+    }
     return fetch(`${base}${path}`, {
       method,
-      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }

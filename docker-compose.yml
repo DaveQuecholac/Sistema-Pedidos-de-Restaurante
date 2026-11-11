@@ -1,0 +1,134 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - restaurante-pg:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-databases.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  gateway:
+    image: restaurante-services
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["node", "apps/gateway/dist/main.js"]
+    environment:
+      PORT: "3000"
+      GATEWAY_API_URL: http://api:3001
+      GATEWAY_SALON_URL: http://salon:3003
+      GATEWAY_MENU_URL: http://menu:3002
+      JWT_SECRET: dev-restaurante-secret-change-me
+      JWT_EXPIRES_IN: 2h
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+      salon:
+        condition: service_started
+      menu:
+        condition: service_started
+
+  menu:
+    image: restaurante-services
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["node", "apps/menu/dist/main.js"]
+    environment:
+      PORT: "3002"
+      MENU_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/menu
+      MENU_GRPC_URL: 0.0.0.0:50052
+      REDIS_URL: redis://redis:6379
+      MENU_CACHE_TTL_SECONDS: "60"
+    ports:
+      - "3002:3002"
+      - "50052:50052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  salon:
+    image: restaurante-services
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["node", "apps/salon/dist/main.js"]
+    environment:
+      PORT: "3003"
+      SALON_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/salon
+      SALON_GRPC_URL: 0.0.0.0:50053
+      ORDERS_GRPC_URL: api:50054
+    ports:
+      - "3003:3003"
+      - "50053:50053"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: restaurante-services
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["node", "apps/api/dist/main.js"]
+    environment:
+      PORT: "3001"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/restaurante
+      PAYMENTS_GRPC_URL: payments:50051
+      MENU_GRPC_URL: menu:50052
+      SALON_GRPC_URL: salon:50053
+      ORDERS_GRPC_URL: 0.0.0.0:50054
+      KITCHEN_EVENT_RELAY_INTERVAL_MS: "5000"
+    ports:
+      - "3001:3001"
+      - "50054:50054"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      payments:
+        condition: service_started
+      menu:
+        condition: service_started
+      salon:
+        condition: service_started
+
+  payments:
+    image: restaurante-services
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["node", "apps/payments/dist/main.js"]
+    environment:
+      PAYMENTS_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/payments
+      PAYMENTS_GRPC_URL: 0.0.0.0:50051
+    ports:
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  restaurante-pg:

@@ -60,7 +60,7 @@ export async function forward(req: Request, res: Response, upstreams: Upstreams)
   res.status(upstream.status).send(bytes);
 }
 
-function readBody(req: IncomingMessage): Promise<Buffer> {
+export function readBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));

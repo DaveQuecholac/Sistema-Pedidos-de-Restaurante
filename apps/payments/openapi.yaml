@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: Pagos
+  version: 1.0.0
+  description: |
+    Pagos no escucha HTTP. El contrato es gRPC, en `packages/contracts/payment.proto`.
+    Solo Órdenes lo llama. La idempotencia es `subjectId` (orderId o sittingId).
+    Este documento describe esas operaciones con OpenAPI para la entrega.
+    TTL no aplica: no hay token ni caché en este servicio. El JWT lo valida el gateway
+    en el HTTP público, antes de que Órdenes llegue aquí.
+paths:
+  /Charge:
+    post:
+      operationId: Charge
+      summary: Cobra en efectivo, tarjeta o pasarela simulada
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subjectId, method, amount]
+              properties:
+                subjectId:
+                  type: string
+                  description: orderId o sittingId. Repetir el cargo devuelve la misma referencia.
+                method:
+                  type: string
+                  enum: [cash, card, digital]
+                amount:
+                  type: object
+                  properties:
+                    amount:
+                      type: integer
+                    currency:
+                      type: string
+                      example: MXN
+      responses:
+        '200':
+          description: approved, declined o el cargo ya existente
+  /Void:
+    post:
+      operationId: Void
+      summary: Anula una referencia aprobada
+      responses:
+        '200':
+          description: void aplicado o ya anulado
+  /GetReceipt:
+    post:
+      operationId: GetReceipt
+      summary: Lee el recibo de un subjectId
+      responses:
+        '200':
+          description: Recibo del cargo

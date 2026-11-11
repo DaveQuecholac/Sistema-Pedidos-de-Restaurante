@@ -102,6 +102,8 @@ module.exports = {
           process.env.MENU_DATABASE_URL ??
           "postgresql://postgres:postgres@localhost:5432/menu",
         MENU_GRPC_URL: process.env.MENU_GRPC_URL ?? "localhost:50052",
+        REDIS_URL: process.env.REDIS_URL ?? "redis://127.0.0.1:6379",
+        MENU_CACHE_TTL_SECONDS: process.env.MENU_CACHE_TTL_SECONDS ?? "60",
       },
     },
     {
@@ -148,6 +150,8 @@ module.exports = {
         GATEWAY_API_URL: process.env.GATEWAY_API_URL ?? "http://localhost:3001",
         GATEWAY_SALON_URL: process.env.GATEWAY_SALON_URL ?? "http://localhost:3003",
         GATEWAY_MENU_URL: process.env.GATEWAY_MENU_URL ?? "http://localhost:3002",
+        JWT_SECRET: process.env.JWT_SECRET ?? "dev-restaurante-secret-change-me",
+        JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? "2h",
       },
     },
     {

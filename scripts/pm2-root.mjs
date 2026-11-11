@@ -51,6 +51,20 @@ function ensureLogsDir() {
   mkdirSync(logsDir, { recursive: true });
 }
 
+function ensureRedis() {
+  const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-redis.mjs")], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
 function ensurePostgres() {
   const result = spawnSync(process.execPath, [resolve(root, "scripts/ensure-postgres.mjs")], {
     cwd: root,
@@ -95,6 +109,7 @@ const command = process.argv[2] ?? "start";
 switch (command) {
   case "start":
     ensurePostgres();
+    ensureRedis();
     ensureDemoCatalog();
     ensureLogsDir();
     runPm2(["start", ecosystem]);
@@ -105,6 +120,7 @@ switch (command) {
     break;
   case "restart":
     ensurePostgres();
+    ensureRedis();
     ensureDemoCatalog();
     ensureLogsDir();
     runPm2(["startOrRestart", ecosystem, "--update-env"]);

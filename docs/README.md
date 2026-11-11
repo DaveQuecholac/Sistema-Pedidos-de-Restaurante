@@ -95,3 +95,9 @@ El despliegue único de Gen 1 queda superado aquí. Hexagonal se mantiene dentro
 | [04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md](./microservicios/04-salon-y-gateway/plan-de-accion-fase-4-extrae-salon-y-el-gateway.md) | Fase 4 por pasos. Cerrada. Migraciones `0000_naive_white_queen.sql` y `0015_eminent_earthquake.sql` |
 | [05-evento-cocina/analisis.md](./microservicios/05-evento-cocina/analisis.md) | Fase 5: aviso `OrderSentToKitchen` con outbox. Cerrada en código |
 | [05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md](./microservicios/05-evento-cocina/plan-de-accion-fase-5-publica-el-evento-de-cocina.md) | Fase 5 por pasos. Cerrada. Migración `0016_polite_payback.sql` |
+
+## Índice — recomendaciones generales
+
+| Documento | Rol |
+|-----------|-----|
+| [estado-de-cumplimiento.md](./recomendaciones-generales/estado-de-cumplimiento.md) | JWT en el gateway, cache-aside de Menú, TTL, OpenAPI, pruebas y Compose. 11 de noviembre de 2026 |
