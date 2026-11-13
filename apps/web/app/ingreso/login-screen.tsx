@@ -32,7 +32,7 @@ export function LoginScreen() {
       <section className={styles.card} aria-labelledby="login-title">
         <p className={styles.brand}>Restaurante</p>
         <h1 id="login-title">Elige tu área</h1>
-        <p className={styles.lead}>El gateway entrega un token de dos horas para esa área.</p>
+        <p className={styles.lead}>Entras directo al trabajo de esa área.</p>
         <div className={styles.choices}>
           {STAFF_AREAS.map((area) => (
             <button
